@@ -544,12 +544,11 @@
       </div>
       <button class="btn delete-btn" id="deleteBtn" aria-label="Delete selected note" title="Delete selected note">
         <svg width="17" height="17" viewBox="0 0 24 24" fill="none"><path d="M4 7h16M9 7V4h6v3M7 7l1 13h8l1-13M10 11v5M14 11v5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
-        Delete
       </button>
-      <button class="btn btn-copy" id="copyBtn" style="display:none;">Copy note</button>
-      <button class="btn save-draft-btn" id="saveDraftBtn" aria-label="Save draft note">
+      <button class="btn btn-copy" id="copyBtn" style="display:none;">Copy</button>
+      <button class="btn save-draft-btn" id="saveDraftBtn" aria-label="Save note">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M5 4h12l2 2v14H5V4Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M8 4v6h8V4M8 20v-6h8v6" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>
-        <span>Save draft</span>
+        <span>Save note</span>
       </button>
       <div class="settings-wrap">
         <button class="settings-btn" id="settingsBtn" aria-label="Settings" aria-haspopup="true" aria-expanded="false">
@@ -956,9 +955,9 @@ function selectEntry(i){
   copyBtn.style.display = (!r.isDraft || r.transcription) ? 'flex' : 'none';
   deleteBtn.classList.toggle('visible', Boolean(r.firestoreId));
   saveDraftBtn.classList.toggle('visible', Boolean(r.isDraft || isGeneratedRecord));
-  saveDraftBtn.querySelector('span').textContent = r.saved ? 'Saved' : 'Save draft';
+  saveDraftBtn.querySelector('span').textContent = r.saved ? '✓' : 'Save note';
   copyBtn.classList.remove('copied');
-  copyBtn.textContent = 'Copy note';
+  copyBtn.textContent = 'Copy';
 
   if (isGeneratedRecord){
     renderGeneratedNote(r);
@@ -1082,7 +1081,7 @@ function renderGeneratedNote(draft){
   editor.addEventListener('input', () => {
     draft.transcription = editor.value;
     draft.saved = false;
-    saveDraftBtn.querySelector('span').textContent = 'Save draft';
+    saveDraftBtn.querySelector('span').textContent = 'Save note';
   });
   recordBtn.classList.remove('is-recording');
   copyBtn.style.display = 'flex';
@@ -1536,7 +1535,7 @@ copyBtn.addEventListener('click', async () => {
   copyBtn.textContent = 'Copied';
   copyBtn.classList.add('copied');
   setTimeout(() => {
-    copyBtn.textContent = 'Copy note';
+    copyBtn.textContent = 'Copy';
     copyBtn.classList.remove('copied');
   }, 1600);
 });
@@ -1641,7 +1640,7 @@ saveDraftBtn.addEventListener('click', async () => {
   draft.everSaved = true;
   draft.isDraft = false;
   draft.kind = 'generated';
-  saveDraftBtn.querySelector('span').textContent = 'Saved';
+  saveDraftBtn.querySelector('span').textContent = '✓';
   deleteBtn.classList.add('visible');
   renderEntries();
   await persistRecord(draft,{
