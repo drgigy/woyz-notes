@@ -47,8 +47,10 @@
   .entry-list{ display:flex; flex-direction:column; gap:8px; overflow:auto; padding-right:2px; }
   .entry{ width:100%; border:1px solid transparent; background:transparent; border-radius:12px; padding:12px; display:flex; align-items:center; gap:12px; cursor:pointer; text-align:left; color:var(--ink); }
   .entry:hover{ background:#F6F8F6; }
+  .entry.uncopied,
   .entry.active{ background:var(--red-wash); border-color:#F3B3A9; color:#DB412D; }
   .entry-avatar{ width:34px; height:34px; border-radius:50%; background:#E9F2EE; color:var(--teal); display:grid; place-items:center; font-weight:800; flex:0 0 auto; }
+  .entry.uncopied .entry-avatar,
   .entry.active .entry-avatar{ background:#DE4D37; color:#fff; }
   .entry-text{ min-width:0; }
   .entry-name{ font-weight:800; font-size:14px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
@@ -223,7 +225,7 @@ function renderUsers(){
       user.uid === selectedUserId ? 'active' : ''
     ].filter(Boolean).join(' ');
     button.textContent = twoLetterCode(user.label, `U${index + 1}`);
-    button.title = `${user.label} (${user.uid})`;
+    button.title = user.label;
     button.addEventListener('click', () => {
       selectedUserId = user.uid;
       selectedNoteId = null;
@@ -240,7 +242,11 @@ function renderEntries(){
   notesLabel.textContent = selectedUser ? selectedUser.label : 'Notes';
   notes.forEach(note => {
     const button = document.createElement('button');
-    button.className = 'entry' + (note.id === selectedNoteId ? ' active' : '');
+    button.className = [
+      'entry',
+      isSavedNote(note) && !note.data.adminCopiedAt ? 'uncopied' : '',
+      note.id === selectedNoteId ? 'active' : ''
+    ].filter(Boolean).join(' ');
     button.innerHTML = `
       <span class="entry-avatar">${escapeHtml(initials(notePatientName(note)))}</span>
       <span class="entry-text">
