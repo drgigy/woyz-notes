@@ -1,10 +1,8 @@
-// Firebase Console > Project settings > Your apps > Web app > SDK setup.
-// This configuration identifies your Firebase project; Firestore rules protect the data.
 export const firebaseConfig = {
-  apiKey: "PASTE_FIREBASE_WEB_API_KEY",
-  authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
-  projectId: "YOUR_PROJECT_ID",
-  storageBucket: "YOUR_PROJECT_ID.firebasestorage.app",
-  messagingSenderId: "PASTE_MESSAGING_SENDER_ID",
-  appId: "PASTE_FIREBASE_APP_ID"
+  "apiKey": "AIzaSyA_LoTqVtGx6LTokFO5BVXpPfVw4y3YxAI",
+  "authDomain": "woyz-notes-20260807073630-6071.firebaseapp.com",
+  "projectId": "woyz-notes-20260807073630-6071",
+  "storageBucket": "woyz-notes-20260807073630-6071.firebasestorage.app",
+  "messagingSenderId": "403388564806",
+  "appId": "1:403388564806:web:5547570896156e4b339147"
 };
