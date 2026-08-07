@@ -61,15 +61,18 @@
     padding:20px 16px;
   }
 
+  .note-action-row{ display:grid; grid-template-columns:1fr 1fr; gap:14px; align-items:stretch; }
   .record-btn{
     width:100%;
+    min-width:0;
     border:3px solid #F45155;
     border-radius:999px;
     background:#17171D;
     color:#fff;
-    padding:13px 18px;
+    padding:13px 16px;
     display:flex;
     align-items:center;
+    justify-content:center;
     gap:14px;
     cursor:pointer;
     box-shadow:0 7px 18px -8px rgba(18,18,24,.5);
@@ -82,10 +85,10 @@
   .record-btn.is-recording{ background:#24171B; }
 
   .record-dot{
-    width:38px;height:38px;border-radius:50%;
+    width:30px;height:30px;border-radius:50%;
     background:#F45155;
     flex-shrink:0;
-    border:10px solid #452126;
+    border:8px solid #452126;
     box-shadow:none;
     animation:pulse 1.8s ease-out infinite;
   }
@@ -109,25 +112,25 @@
     margin-top:2px;
     letter-spacing:0.2px;
   }
-  .sidebar-actions{ display:grid; grid-template-columns:1fr; gap:10px; margin-top:12px; }
   .add-note-btn{
     width:100%;
-    height:44px;
-    border:1.5px solid rgba(31,95,82,.28);
-    border-radius:12px;
-    background:#fff;
-    color:var(--teal);
+    min-width:0;
+    border:0;
+    border-radius:13px;
+    background:#168274;
+    color:#fff;
     display:flex;
     align-items:center;
     justify-content:center;
-    gap:8px;
-    font:700 13px 'Inter',sans-serif;
+    gap:7px;
+    font:800 18px 'Inter',sans-serif;
     cursor:pointer;
-    transition:background .15s ease, border-color .15s ease, transform .15s ease;
+    transition:background .15s ease, transform .15s ease, box-shadow .15s ease;
+    box-shadow:0 7px 18px -10px rgba(22,130,116,.6);
   }
-  .add-note-btn:hover{ background:var(--teal-wash); border-color:rgba(31,95,82,.45); transform:translateY(-1px); }
+  .add-note-btn:hover{ background:#14786b; transform:translateY(-1px); box-shadow:0 10px 22px -12px rgba(22,130,116,.7); }
   .add-note-btn:active{ transform:translateY(0); }
-  .add-note-icon{ font-size:18px; line-height:1; }
+  .add-note-icon{ font-size:22px; line-height:1; }
 
   .btn.delete-btn{ display:none; color:var(--red); border-color:rgba(214,71,47,.28); }
   .btn.delete-btn.visible{ display:flex; }
@@ -505,17 +508,17 @@
 
   <!-- SIDEBAR -->
   <aside class="sidebar">
-    <button class="record-btn" id="recordBtn">
-      <span class="record-dot"></span>
-      <span class="record-label">
-        <div class="record-title">WOYZ</div>
-        <div class="record-sub" id="recordSub">Tap to record a note</div>
-      </span>
-    </button>
-    <div class="sidebar-actions">
+    <div class="note-action-row">
       <button class="add-note-btn" id="addNoteBtn">
         <span class="add-note-icon">+</span>
         <span>Note</span>
+      </button>
+      <button class="record-btn" id="recordBtn">
+        <span class="record-dot"></span>
+        <span class="record-label">
+          <div class="record-title">WOYZ</div>
+          <div class="record-sub" id="recordSub">Tap to record a note</div>
+        </span>
       </button>
     </div>
 
@@ -723,6 +726,11 @@ let selectedVisitDate = new Date();
 let currentUser = null;
 let notesUnsubscribe = null;
 let pendingSelectId = null;
+
+const MANUAL_NOTE_TEMPLATE = `Patient Name: 
+Age: 
+UHID: 
+Sex: `;
 
 function renderEntries(){
   entryList.innerHTML = '';
@@ -1401,8 +1409,8 @@ async function createManualDraft(){
     noteType:'manual',
     selectedMode:'Manual note',
     status:'Type your note',
-    transcription:'',
-    patientData:{name:'NIL',age:'NIL',uhid:'NIL'}
+    transcription:MANUAL_NOTE_TEMPLATE,
+    patientData:{name:'NIL',age:'NIL',uhid:'NIL',sex:'NIL'}
   });
   pendingSelectId = newDraft.id;
 }
@@ -1567,7 +1575,8 @@ function extractPatientFromNote(text, fallback = {}){
   return {
     name:find(/^Patient Name:\s*(.+)$/im) || fallback?.name || 'NIL',
     age:find(/^Age:\s*(.+)$/im) || fallback?.age || 'NIL',
-    uhid:find(/^UHID:\s*(.+)$/im) || fallback?.uhid || 'NIL'
+    uhid:find(/^UHID:\s*(.+)$/im) || fallback?.uhid || 'NIL',
+    sex:find(/^Sex:\s*(.+)$/im) || fallback?.sex || 'NIL'
   };
 }
 
