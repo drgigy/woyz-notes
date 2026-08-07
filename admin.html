@@ -69,9 +69,11 @@
   .empty-title{ font:600 30px 'Fraunces',serif; color:#1E2521; margin-bottom:8px; }
   .user-rail{ width:76px; border-left:1px solid var(--border); background:#FAFBF9; display:flex; flex-direction:column; align-items:center; padding:14px 8px; gap:8px; overflow:auto; }
   .rail-label{ writing-mode:vertical-rl; transform:rotate(180deg); color:#7C847C; font-size:10px; font-weight:800; letter-spacing:.1em; text-transform:uppercase; margin:4px 0 8px; }
-  .user-pill{ width:54px; min-height:38px; border:1px solid var(--border); border-radius:12px; background:#fff; color:var(--muted); font:800 12px 'Inter',sans-serif; cursor:pointer; }
-  .user-pill:hover{ background:#F1F5F3; }
-  .user-pill.active{ background:var(--teal); border-color:var(--teal); color:#fff; }
+  .user-pill{ width:54px; min-height:38px; border:1px solid var(--teal); border-radius:12px; background:var(--teal); color:#fff; font:800 12px 'Inter',sans-serif; cursor:pointer; }
+  .user-pill:hover{ background:var(--teal-deep); border-color:var(--teal-deep); }
+  .user-pill.pending{ background:var(--red); border-color:var(--red); }
+  .user-pill.pending:hover{ background:#B93B28; border-color:#B93B28; }
+  .user-pill.active{ box-shadow:0 0 0 3px rgba(31,95,82,.18); }
   .blocked{ color:var(--red); background:var(--red-wash); border:1px solid #F3B3A9; border-radius:12px; padding:14px; font-size:13px; }
   @media (max-width:900px){
     .app.authenticated{ grid-template-columns:240px 1fr 66px; }
@@ -124,7 +126,7 @@
 <script type="module">
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/12.16.0/firebase-app.js';
 import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut } from 'https://www.gstatic.com/firebasejs/12.16.0/firebase-auth.js';
-import { getFirestore, collection, collectionGroup, onSnapshot } from 'https://www.gstatic.com/firebasejs/12.16.0/firebase-firestore.js';
+import { getFirestore, collection, collectionGroup, doc, onSnapshot, serverTimestamp, updateDoc } from 'https://www.gstatic.com/firebasejs/12.16.0/firebase-firestore.js';
 import { firebaseConfig } from './firebase-config.js';
 
 const ADMIN_UID = 'th8Jr2dzCdbBaKQYST1MzQZDG4G3';
@@ -166,6 +168,13 @@ function initials(value){
   return String(value || 'N').split(' ').filter(Boolean).slice(0,2).map(part => part[0]).join('').toUpperCase();
 }
 
+function twoLetterCode(value, fallback){
+  const label = String(value || fallback || 'NA').trim();
+  const parts = label.split(/\s+/).filter(Boolean);
+  if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
+  return label.replace(/[^a-z0-9]/gi,'').slice(0,2).toUpperCase().padEnd(2,'N');
+}
+
 function notePatientName(note){
   const name = note.data.patientData?.name;
   return name && name !== 'NIL' ? name : 'Untitled note';
@@ -187,6 +196,14 @@ function noteTime(note){
     || 0;
 }
 
+function isSavedNote(note){
+  return note.data?.isDraft === false || note.data?.everSaved === true;
+}
+
+function hasUncopiedSavedNotes(userId){
+  return allNotes.some(note => note.userId === userId && isSavedNote(note) && !note.data.adminCopiedAt);
+}
+
 function userLabel(userId, index){
   return userProfiles[userId]?.credentialName || `User ${index + 1}`;
 }
@@ -200,8 +217,12 @@ function renderUsers(){
   userRail.querySelectorAll('.user-pill').forEach(button => button.remove());
   users.forEach((user, index) => {
     const button = document.createElement('button');
-    button.className = 'user-pill' + (user.uid === selectedUserId ? ' active' : '');
-    button.textContent = user.label === `User ${index + 1}` ? `U${index + 1}` : initials(user.label);
+    button.className = [
+      'user-pill',
+      hasUncopiedSavedNotes(user.uid) ? 'pending' : '',
+      user.uid === selectedUserId ? 'active' : ''
+    ].filter(Boolean).join(' ');
+    button.textContent = twoLetterCode(user.label, `U${index + 1}`);
     button.title = `${user.label} (${user.uid})`;
     button.addEventListener('click', () => {
       selectedUserId = user.uid;
@@ -240,7 +261,7 @@ function renderSelectedNote(){
   const notes = allNotes.filter(note => note.userId === selectedUserId);
   const note = notes.find(item => item.id === selectedNoteId);
   topbarTitle.textContent = selectedUser ? selectedUser.label : 'Admin notes';
-  topbarMeta.textContent = selectedUser ? selectedUser.uid : 'Select a user';
+  topbarMeta.textContent = selectedUser ? `${notes.length} note${notes.length === 1 ? '' : 's'}` : 'Select a user';
   if (!selectedUser){
     showEmpty('No users yet', 'Notes will appear here after users save them.');
     return;
@@ -359,6 +380,14 @@ copyBtn.addEventListener('click', async () => {
   const text = note?.data?.transcription || '';
   if (!text) return;
   try{ await navigator.clipboard.writeText(text); }catch(error){}
+  try{
+    await updateDoc(doc(db,note.path),{
+      adminCopiedAt:serverTimestamp(),
+      adminCopiedBy:ADMIN_UID
+    });
+  }catch(error){
+    console.error(error);
+  }
   copyBtn.textContent = 'Copied';
   copyBtn.classList.add('copied');
   setTimeout(() => {

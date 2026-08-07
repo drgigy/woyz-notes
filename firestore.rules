@@ -13,8 +13,12 @@ service cloud.firestore {
 
     match /users/{userId} {
       allow read: if signedInAs(userId) || isAdmin();
-      allow create, update: if signedInAs(userId)
+      allow create: if signedInAs(userId)
         && request.resource.data.keys().hasOnly(["credentialName", "credentialUpdatedAt"])
+        && request.resource.data.credentialName is string
+        && request.resource.data.credentialName.size() <= 80;
+      allow update: if signedInAs(userId)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["credentialName", "credentialUpdatedAt"])
         && request.resource.data.credentialName is string
         && request.resource.data.credentialName.size() <= 80;
       allow delete: if false;
@@ -32,6 +36,11 @@ service cloud.firestore {
           && request.resource.data.visitDate is string
           && request.resource.data.isDraft is bool
           && request.resource.data.transcription is string;
+
+        allow update: if isAdmin()
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["adminCopiedAt", "adminCopiedBy"])
+          && request.resource.data.adminCopiedBy == request.auth.uid
+          && request.resource.data.adminCopiedAt is timestamp;
       }
     }
 
