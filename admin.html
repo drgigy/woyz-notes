@@ -124,11 +124,10 @@
 <script type="module">
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/12.16.0/firebase-app.js';
 import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut } from 'https://www.gstatic.com/firebasejs/12.16.0/firebase-auth.js';
-import { getFirestore, collectionGroup, onSnapshot } from 'https://www.gstatic.com/firebasejs/12.16.0/firebase-firestore.js';
+import { getFirestore, collection, collectionGroup, onSnapshot } from 'https://www.gstatic.com/firebasejs/12.16.0/firebase-firestore.js';
 import { firebaseConfig } from './firebase-config.js';
 
 const ADMIN_UID = 'th8Jr2dzCdbBaKQYST1MzQZDG4G3';
-const USER_LABELS = {};
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
@@ -152,7 +151,9 @@ const signoutBtn = document.getElementById('signoutBtn');
 const notesLabel = document.getElementById('notesLabel');
 
 let notesUnsubscribe = null;
+let profilesUnsubscribe = null;
 let allNotes = [];
+let userProfiles = {};
 let users = [];
 let selectedUserId = null;
 let selectedNoteId = null;
@@ -187,7 +188,7 @@ function noteTime(note){
 }
 
 function userLabel(userId, index){
-  return USER_LABELS[userId] || `User ${index + 1}`;
+  return userProfiles[userId]?.credentialName || `User ${index + 1}`;
 }
 
 function showEmpty(title, message){
@@ -200,7 +201,7 @@ function renderUsers(){
   users.forEach((user, index) => {
     const button = document.createElement('button');
     button.className = 'user-pill' + (user.uid === selectedUserId ? ' active' : '');
-    button.textContent = `U${index + 1}`;
+    button.textContent = user.label === `User ${index + 1}` ? `U${index + 1}` : initials(user.label);
     button.title = `${user.label} (${user.uid})`;
     button.addEventListener('click', () => {
       selectedUserId = user.uid;
@@ -297,6 +298,16 @@ function subscribeToAllNotes(){
   });
 }
 
+function subscribeToUserProfiles(){
+  if (profilesUnsubscribe) profilesUnsubscribe();
+  profilesUnsubscribe = onSnapshot(collection(db,'users'), snapshot => {
+    userProfiles = Object.fromEntries(snapshot.docs.map(doc => [doc.id, doc.data()]));
+    render();
+  }, error => {
+    console.error(error);
+  });
+}
+
 loginForm.addEventListener('submit', async event => {
   event.preventDefault();
   loginError.textContent = '';
@@ -315,8 +326,11 @@ loginForm.addEventListener('submit', async event => {
 
 onAuthStateChanged(auth, user => {
   if (notesUnsubscribe) notesUnsubscribe();
+  if (profilesUnsubscribe) profilesUnsubscribe();
   notesUnsubscribe = null;
+  profilesUnsubscribe = null;
   allNotes = [];
+  userProfiles = {};
   selectedUserId = null;
   selectedNoteId = null;
   if (!user){
@@ -336,6 +350,7 @@ onAuthStateChanged(auth, user => {
   loginScreen.classList.add('hidden');
   appShell.classList.add('authenticated');
   userEmail.textContent = user.email || '';
+  subscribeToUserProfiles();
   subscribeToAllNotes();
 });
 

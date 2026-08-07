@@ -12,7 +12,12 @@ service cloud.firestore {
     }
 
     match /users/{userId} {
-      allow read, write: if signedInAs(userId);
+      allow read: if signedInAs(userId) || isAdmin();
+      allow create, update: if signedInAs(userId)
+        && request.resource.data.keys().hasOnly(["credentialName", "credentialUpdatedAt"])
+        && request.resource.data.credentialName is string
+        && request.resource.data.credentialName.size() <= 80;
+      allow delete: if false;
 
       match /notes/{noteId} {
         allow read: if signedInAs(userId) || isAdmin();
