@@ -179,6 +179,38 @@ function twoLetterCode(value, fallback){
   return label.replace(/[^a-z0-9]/gi,'').slice(0,2).toUpperCase().padEnd(2,'N');
 }
 
+function isNilLike(value){
+  return /^(nil|none|no|not applicable|n\/a|na|negative)$/i.test(String(value || '').trim());
+}
+
+function removeNilSectionsForCopy(text){
+  const protectedInlineLabels = new Set(['patient name','age','uhid']);
+  return String(text || '')
+    .replace(/\r\n/g, '\n')
+    .split(/\n{2,}/)
+    .map(block => block.trim())
+    .map(block => {
+      const lines = block.split('\n').map(line => line.trim()).filter(Boolean);
+      if (!lines.length) return '';
+      if (lines.length === 1){
+        const inlineMatch = lines[0].match(/^([^:]+):\s*(.*)$/);
+        if (!inlineMatch) return lines[0];
+        const label = inlineMatch[1].trim().toLowerCase();
+        return protectedInlineLabels.has(label) || !isNilLike(inlineMatch[2]) ? lines[0] : '';
+      }
+      if (/:$/.test(lines[0]) && isNilLike(lines.slice(1).join(' '))) return '';
+      return lines.filter(line => {
+        const inlineMatch = line.match(/^([^:]+):\s*(.*)$/);
+        if (!inlineMatch) return true;
+        const label = inlineMatch[1].trim().toLowerCase();
+        return protectedInlineLabels.has(label) || !isNilLike(inlineMatch[2]);
+      }).join('\n');
+    })
+    .filter(Boolean)
+    .join('\n\n')
+    .trim();
+}
+
 function notePatientName(note){
   const name = note.data.patientData?.name;
   return name && name !== 'NIL' ? name : 'Untitled note';
@@ -385,7 +417,7 @@ onAuthStateChanged(auth, user => {
 
 copyBtn.addEventListener('click', async () => {
   const note = allNotes.find(item => item.id === selectedNoteId && item.userId === selectedUserId);
-  const text = note?.data?.transcription || '';
+  const text = removeNilSectionsForCopy(note?.data?.transcription || '');
   if (!text) return;
   try{ await navigator.clipboard.writeText(text); }catch(error){}
   try{
