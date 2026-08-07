@@ -1251,11 +1251,17 @@ async function sendAudioToGemini(audioBlob, apiKey, selectedMode){
 
 function formatGeneratedOutput(data, mode, patient){
   const patientHeader = `Patient Name: ${patient.name}\nAge: ${patient.age}\nUHID: ${patient.uhid}`;
+  const normalizedValue = value => String(value || '').trim();
+  const hasClinicalValue = value => {
+    const text = normalizedValue(value);
+    return Boolean(text) && !/^(nil|none|no|not applicable|n\/a|na|negative)$/i.test(text);
+  };
+  const optionalLine = (label, value) => hasClinicalValue(value) ? `${label}: ${normalizedValue(value)}\n` : '';
   if (mode === 'Review dictation' || mode === 'Reply letter'){
     return `${patientHeader}\n\n${String(data.text || '').trim()}`.trim();
   }
   if (mode === 'Medical certificate'){
-    return `${patientHeader}\nDate: ${data.date || 'NIL'}\nSex: ${data.patientSex || 'NIL'}\n\n${String(data.certificateBody || '').trim()}`.trim();
+    return `${patientHeader}\n${optionalLine('Date', data.date)}${optionalLine('Sex', data.patientSex)}\n${String(data.certificateBody || '').trim()}`.trim();
   }
   const sections = [
     ['Presenting Complaint',data.presentingComplaint],
@@ -1270,7 +1276,10 @@ function formatGeneratedOutput(data, mode, patient){
     ['Diagnosis',data.provisionalDiagnosis],
     ['Treatment Plan',data.treatmentPlan]
   ];
-  return `${patientHeader}\nSex: ${data.patientSex || 'NIL'}\n\n${sections.map(([label,value])=>`${label}:\n${value || 'NIL'}`).join('\n\n')}`;
+  const clinicalSections = sections
+    .filter(([,value]) => hasClinicalValue(value))
+    .map(([label,value]) => `${label}:\n${normalizedValue(value)}`);
+  return `${patientHeader}\n${optionalLine('Sex', data.patientSex)}\n${clinicalSections.join('\n\n')}`.trim();
 }
 
 async function createVoiceDraft(){
