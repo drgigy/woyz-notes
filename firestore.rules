@@ -41,6 +41,12 @@ service cloud.firestore {
           && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["adminCopiedAt", "adminCopiedBy"])
           && request.resource.data.adminCopiedBy == request.auth.uid
           && request.resource.data.adminCopiedAt is timestamp;
+
+        allow update: if isAdmin()
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["transcription", "adminEditedAt", "adminEditedBy"])
+          && request.resource.data.transcription is string
+          && request.resource.data.adminEditedBy == request.auth.uid
+          && request.resource.data.adminEditedAt is timestamp;
       }
     }
 
