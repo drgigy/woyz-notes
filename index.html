@@ -48,7 +48,8 @@
   .login-input:focus{ border-color:var(--focus); box-shadow:0 0 0 3px rgba(143,185,172,.2); }
   .login-submit{ width:100%; justify-content:center; margin-top:22px; height:44px; background:var(--teal); border-color:var(--teal); color:#fff; }
   .login-error{ min-height:18px; margin-top:12px; color:var(--red); font-size:12px; }
-  .user-email{ display:none; }
+  .user-email{ color:var(--ink); font-size:14px; font-weight:800; max-width:170px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .user-email:empty{ display:none; }
 
   /* ---------- SIDEBAR ---------- */
   .sidebar{
@@ -751,6 +752,7 @@ let processingInterval = null;
 let selectedVisitDate = new Date();
 let currentUser = null;
 let notesUnsubscribe = null;
+let userProfileUnsubscribe = null;
 let pendingSelectId = null;
 
 const MANUAL_NOTE_TEMPLATE = `Patient Name: 
@@ -864,16 +866,25 @@ loginForm.addEventListener('submit', async event => {
 
 onAuthStateChanged(auth,user => {
   currentUser = user;
+  if (userProfileUnsubscribe) userProfileUnsubscribe();
+  userProfileUnsubscribe = null;
   if (user){
     loginScreen.classList.add('hidden');
     appShell.classList.add('authenticated');
     userEmail.textContent = '';
+    userProfileUnsubscribe = onSnapshot(doc(db,'users',user.uid), snapshot => {
+      userEmail.textContent = snapshot.data()?.credentialName || '';
+    }, error => {
+      userEmail.textContent = '';
+    });
     selectedVisitDate = new Date();
     updateDateNavigation();
     subscribeToSelectedDate();
   }else{
     if (notesUnsubscribe) notesUnsubscribe();
+    if (userProfileUnsubscribe) userProfileUnsubscribe();
     notesUnsubscribe = null;
+    userProfileUnsubscribe = null;
     records = [];
     renderEntries();
     appShell.classList.remove('authenticated');
@@ -1607,6 +1618,7 @@ credentialSaveBtn.addEventListener('click', async () => {
       credentialName,
       credentialUpdatedAt:serverTimestamp()
     },{merge:true});
+    userEmail.textContent = credentialName;
     credentialSaveBtn.textContent = 'Saved';
     setTimeout(() => {
       credentialSaveBtn.textContent = 'Save name';
