@@ -41,8 +41,10 @@
   .app{ display:none; height:100vh; overflow:hidden; }
   .app.authenticated{ display:grid; grid-template-columns:296px 1fr 76px; }
   .sidebar{ background:var(--panel); border-right:1px solid var(--border); display:flex; flex-direction:column; padding:20px 16px; min-width:0; }
-  .admin-brand{ height:58px; border:3px solid #F45155; border-radius:999px; background:#17171D; color:#fff; display:flex; align-items:center; justify-content:center; gap:12px; font-weight:800; letter-spacing:1.1px; margin-bottom:24px; }
+  .admin-brand{ height:58px; display:flex; align-items:center; gap:12px; margin-bottom:24px; }
+  .admin-brand-pill{ height:58px; border:3px solid #F45155; border-radius:999px; background:#17171D; color:#fff; display:flex; align-items:center; justify-content:center; gap:11px; padding:0 18px 0 14px; font-weight:800; font-size:24px; letter-spacing:1.1px; }
   .admin-brand-dot{ width:30px; height:30px; border-radius:50%; background:#F45155; border:8px solid #452126; }
+  .admin-brand-word{ font-size:24px; font-weight:800; color:var(--ink); letter-spacing:0; }
   .sidebar-section-label{ color:#7C847C; font-weight:800; font-size:11px; letter-spacing:.09em; text-transform:uppercase; margin:10px 4px 12px; }
   .entry-list{ display:flex; flex-direction:column; gap:8px; overflow:auto; padding-right:2px; }
   .entry{ width:100%; border:1px solid transparent; background:transparent; border-radius:12px; padding:12px; display:flex; align-items:center; gap:12px; cursor:pointer; text-align:left; color:var(--ink); }
@@ -103,7 +105,7 @@
 
 <div class="app" id="appShell">
   <aside class="sidebar">
-    <div class="admin-brand"><span class="admin-brand-dot"></span><span>WOYZ</span></div>
+    <div class="admin-brand"><span class="admin-brand-pill"><span class="admin-brand-dot"></span><span>WOYZ</span></span><span class="admin-brand-word">Notes</span></div>
     <div class="sidebar-section-label" id="notesLabel">Notes</div>
     <div class="entry-list" id="entryList"></div>
   </aside>
