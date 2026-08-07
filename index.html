@@ -1,0 +1,1486 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>WOYZ — Records</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#F4F5F3;
+    --panel:#FFFFFF;
+    --border:#E2E5E1;
+    --ink:#1B231F;
+    --muted:#6E786F;
+    --teal:#1F5F52;
+    --teal-deep:#153F37;
+    --teal-wash:#EAF2EF;
+    --red:#D6472F;
+    --red-wash:#FBEAE6;
+    --focus:#8FB9AC;
+  }
+  *{box-sizing:border-box;}
+  html,body{height:100%;}
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--ink);
+    font-family:'Inter',system-ui,sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  .app{
+    display:none;
+    height:100vh;
+    overflow:hidden;
+  }
+  .app.authenticated{ display:flex; }
+
+  .login-screen{ min-height:100vh; display:flex; align-items:center; justify-content:center; padding:28px; background:linear-gradient(145deg,#F4F5F3,#EAF2EF); }
+  .login-screen.hidden{ display:none; }
+  .login-card{ width:min(420px,100%); background:#fff; border:1px solid var(--border); border-radius:22px; padding:34px; box-shadow:0 24px 65px -34px rgba(20,35,29,.48); }
+  .login-brand{ display:flex; align-items:center; justify-content:center; gap:10px; margin-bottom:27px; font-size:27px; font-weight:800; }
+  .login-brand-pill{ display:inline-flex; align-items:center; gap:9px; padding:8px 16px 8px 10px; border:4px solid #F45155; border-radius:999px; background:#17171D; color:#fff; letter-spacing:1px; }
+  .login-brand-dot{ width:27px; height:27px; border-radius:50%; background:#F45155; border:7px solid #452126; }
+  .login-title{ margin:0 0 6px; font:600 27px 'Fraunces',serif; }
+  .login-sub{ margin:0 0 23px; color:var(--muted); font-size:13px; }
+  .login-label{ display:block; margin:14px 0 7px; font-size:12px; font-weight:700; }
+  .login-input{ width:100%; height:44px; border:1.5px solid var(--border); border-radius:11px; padding:0 13px; font:14px 'Inter',sans-serif; outline:none; }
+  .login-input:focus{ border-color:var(--focus); box-shadow:0 0 0 3px rgba(143,185,172,.2); }
+  .login-submit{ width:100%; justify-content:center; margin-top:22px; height:44px; background:var(--teal); border-color:var(--teal); color:#fff; }
+  .login-error{ min-height:18px; margin-top:12px; color:var(--red); font-size:12px; }
+  .user-email{ color:var(--muted); font-size:11px; max-width:170px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+
+  /* ---------- SIDEBAR ---------- */
+  .sidebar{
+    width:296px;
+    min-width:296px;
+    background:var(--panel);
+    border-right:1px solid var(--border);
+    display:flex;
+    flex-direction:column;
+    padding:20px 16px;
+  }
+
+  .record-btn{
+    width:100%;
+    border:3px solid #F45155;
+    border-radius:999px;
+    background:#17171D;
+    color:#fff;
+    padding:13px 18px;
+    display:flex;
+    align-items:center;
+    gap:14px;
+    cursor:pointer;
+    box-shadow:0 7px 18px -8px rgba(18,18,24,.5);
+    transition:transform .15s ease, box-shadow .15s ease;
+    position:relative;
+    overflow:hidden;
+  }
+  .record-btn:hover{ transform:translateY(-1px); box-shadow:0 10px 22px -8px rgba(18,18,24,.55); }
+  .record-btn:active{ transform:translateY(0px) scale(.99); }
+  .record-btn.is-recording{ background:#24171B; }
+
+  .record-dot{
+    width:38px;height:38px;border-radius:50%;
+    background:#F45155;
+    flex-shrink:0;
+    border:10px solid #452126;
+    box-shadow:none;
+    animation:pulse 1.8s ease-out infinite;
+  }
+  @keyframes pulse{
+    0%{ box-shadow:0 0 0 0 rgba(255,255,255,0.55); }
+    70%{ box-shadow:0 0 0 10px rgba(255,255,255,0); }
+    100%{ box-shadow:0 0 0 0 rgba(255,255,255,0); }
+  }
+  .record-label{ text-align:left; }
+  .record-title{
+    font-family:'Inter',system-ui,sans-serif;
+    font-size:22px;
+    font-weight:800;
+    letter-spacing:1.2px;
+    line-height:1.1;
+  }
+  .record-sub{
+    display:none;
+    font-size:11.5px;
+    opacity:0.85;
+    margin-top:2px;
+    letter-spacing:0.2px;
+  }
+
+  .btn.delete-btn{ display:none; color:var(--red); border-color:rgba(214,71,47,.28); }
+  .btn.delete-btn.visible{ display:flex; }
+  .delete-btn:hover{ background:var(--red-wash); border-color:rgba(214,71,47,.45); }
+  .btn.save-draft-btn{ display:none; color:var(--teal); border-color:rgba(31,95,82,.28); }
+  .btn.save-draft-btn.visible{ display:flex; }
+  .save-draft-btn:hover{ background:var(--teal-wash); border-color:rgba(31,95,82,.45); }
+
+  /* ---------- VOICE WORKSPACE ---------- */
+  .voice-wrap{ width:100%; max-width:900px; padding:30px 32px 64px; }
+  .voice-kicker{ text-align:center; color:#687080; font-size:15px; font-weight:700; margin-bottom:14px; }
+  .voice-panel{ min-height:520px; border:1.5px solid #D2D7DF; border-radius:22px; background:#fff; box-shadow:0 18px 42px -30px rgba(30,42,55,.35); padding:30px; display:flex; flex-direction:column; }
+  .voice-brand{ display:flex; justify-content:center; align-items:center; gap:12px; margin-bottom:26px; color:#131927; font-size:25px; font-weight:800; }
+  .voice-brand-pill{ display:inline-flex; align-items:center; gap:10px; color:#fff; background:#17171D; border:4px solid #F45155; border-radius:999px; padding:8px 17px 8px 11px; letter-spacing:1px; }
+  .voice-brand-dot{ width:30px; height:30px; border-radius:50%; background:#F45155; border:8px solid #452126; }
+  .voice-stage{ flex:1; min-height:345px; border:1.5px solid #D2D7DF; border-radius:20px; background:#FAFBFC; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:28px; }
+  .waveform{ width:min(560px,90%); height:74px; border:1.5px solid #D2D7DF; border-radius:15px; display:grid; grid-template-columns:repeat(28,1fr); align-items:end; gap:3px; padding:19px 12%; overflow:hidden; }
+  .waveform span{ height:4px; border-radius:999px 999px 3px 3px; background:rgba(255,81,74,.22); opacity:.65; transition:height .08s linear, background .08s linear, opacity .08s linear; }
+  .waveform span.active{ background:#FF514A; opacity:1; }
+  .waveform span:nth-child(3n+1).active{ height:14px; }
+  .waveform span:nth-child(3n+2).active{ height:25px; }
+  .waveform span:nth-child(3n).active{ height:32px; }
+  .remaining-label{ margin-top:13px; color:#687080; font-weight:800; font-size:14px; letter-spacing:.04em; }
+  .voice-timer{ color:#101827; font-family:'IBM Plex Mono',monospace; font-weight:700; font-size:38px; line-height:1.2; }
+  .mic-btn{ width:78px; height:78px; margin-top:22px; border-radius:50%; border:7px solid #444; background:#F45155; color:#fff; display:flex; align-items:center; justify-content:center; cursor:pointer; box-shadow:0 8px 20px -12px #000; }
+  .mic-btn:hover{ transform:translateY(-1px); }
+  .mic-btn:active{ transform:scale(.97); }
+  .voice-controls{ display:none; gap:12px; justify-content:center; margin-top:20px; }
+  .voice-controls.visible{ display:flex; }
+  .voice-action{ width:82px; height:82px; border:0; border-radius:50%; padding:0; color:#fff; cursor:pointer; display:flex; align-items:center; justify-content:center; box-shadow:0 10px 24px -13px rgba(0,0,0,.7); }
+  .voice-action.pause{ background:#FF9D00; }
+  .voice-action.stop{ background:#F04B00; }
+  .voice-action svg{ width:29px; height:29px; }
+  .voice-action:disabled{ opacity:.45; cursor:not-allowed; }
+  .voice-status{ min-height:20px; margin-top:10px; color:#687080; text-align:center; font-size:13px; font-weight:700; }
+  .voice-result{ display:none; margin-top:20px; border:1.5px solid #D2D7DF; border-radius:16px; padding:20px; background:#fff; }
+  .voice-result.visible{ display:block; }
+  .voice-result-label{ color:#687080; font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.08em; margin-bottom:8px; }
+  .voice-result-text{ white-space:pre-wrap; font-size:14px; line-height:1.6; }
+  .voice-modes{ display:grid; grid-template-columns:repeat(3,1fr); gap:9px; margin-top:22px; }
+  .voice-mode{ min-height:43px; border:1.5px solid #D2D7DF; border-radius:999px; background:#fff; color:#131927; font:700 12px 'Inter',sans-serif; cursor:pointer; padding:8px 10px; }
+  .voice-mode.active{ background:#FBE7E7; border-color:#F45155; color:#A72B31; }
+  @media(max-width:850px){ .voice-modes{grid-template-columns:1fr 1fr;} .voice-mode:first-child{grid-column:1/-1;} }
+
+  .generated-note{ width:100%; min-height:100%; background:#fff; padding:0; }
+  .generated-note-card{ min-height:100%; background:#fff; padding:34px 38px; display:flex; flex-direction:column; }
+  .generated-note-head{ display:flex; align-items:flex-start; justify-content:space-between; gap:18px; margin-bottom:18px; }
+  .generated-note-title{ margin:0; font:600 27px 'Fraunces',serif; }
+  .note-editor{ width:100%; flex:1; min-height:calc(100vh - 190px); resize:none; border:0; background:#fff; padding:0; color:var(--ink); font:15px/1.7 'Inter',sans-serif; outline:none; }
+
+  .processing-wrap{ width:100%; min-height:100%; display:flex; align-items:center; justify-content:center; padding:44px; }
+  .processing-content{ width:min(620px,92%); text-align:center; }
+  .processing-title{ margin:0 0 18px; font:600 27px 'Fraunces',serif; }
+  .processing-track{ width:100%; height:14px; background:#E8ECE9; border-radius:999px; overflow:hidden; box-shadow:inset 0 1px 2px rgba(0,0,0,.08); }
+  .processing-fill{ width:4%; height:100%; border-radius:inherit; background:linear-gradient(90deg,#1F5F52,#2B8B76); transition:width .8s ease; }
+  .processing-status{ margin-top:13px; color:var(--muted); font-size:13px; font-weight:600; }
+
+  .date-nav{ display:flex; align-items:center; gap:7px; flex-shrink:0; }
+  .date-step,.date-today{ height:38px; border:1px solid var(--border); border-radius:10px; background:#EEF3F7; color:#263444; cursor:pointer; font-weight:800; }
+  .date-step{ width:38px; font-size:23px; line-height:1; }
+  .date-today{ padding:0 13px; background:var(--teal); border-color:var(--teal-deep); color:#fff; font-size:13px; box-shadow:0 4px 10px -6px var(--teal-deep); }
+  .date-input{ height:38px; width:142px; border:1px solid #D8E1E7; border-radius:10px; background:#fff; color:#17212B; padding:0 10px; font:700 13px 'Inter',sans-serif; }
+
+  /* ---------- AUTHORIZATION MODAL ---------- */
+  .settings-item.auth-item{ color:var(--teal-deep); }
+  .settings-item.auth-item:hover{ background:var(--teal-wash); }
+  .modal-backdrop{ position:fixed; inset:0; z-index:100; display:none; align-items:center; justify-content:center; background:rgba(15,23,20,.48); padding:24px; }
+  .modal-backdrop.open{ display:flex; }
+  .auth-modal{ width:min(460px,100%); background:#fff; border-radius:18px; box-shadow:0 24px 70px -20px rgba(0,0,0,.45); padding:26px; }
+  .auth-modal-head{ display:flex; align-items:center; justify-content:space-between; gap:16px; }
+  .auth-modal-title{ margin:0; font:600 23px 'Fraunces',serif; }
+  .modal-close{ width:34px; height:34px; border:1px solid var(--border); border-radius:9px; background:#fff; cursor:pointer; font-size:21px; color:var(--muted); }
+  .auth-help{ color:var(--muted); font-size:13px; line-height:1.5; margin:12px 0 18px; }
+  .auth-label{ display:block; font-size:12px; font-weight:700; margin-bottom:7px; }
+  .auth-input{ width:100%; border:1.5px solid var(--border); border-radius:10px; padding:12px 13px; font:14px 'IBM Plex Mono',monospace; outline:none; }
+  .auth-input:focus{ border-color:var(--focus); box-shadow:0 0 0 3px rgba(143,185,172,.2); }
+  .auth-actions{ display:flex; justify-content:flex-end; gap:10px; margin-top:20px; }
+
+  .sidebar-section-label{
+    font-size:11px;
+    font-weight:600;
+    text-transform:uppercase;
+    letter-spacing:0.08em;
+    color:var(--muted);
+    margin:26px 4px 10px;
+  }
+
+  .entry-list{
+    flex:1;
+    overflow-y:auto;
+    display:flex;
+    flex-direction:column;
+    gap:6px;
+    margin:0 -4px;
+    padding:0 4px;
+  }
+
+  .entry{
+    display:flex;
+    align-items:center;
+    gap:12px;
+    padding:12px 12px;
+    border-radius:12px;
+    border:1px solid transparent;
+    background:transparent;
+    cursor:pointer;
+    text-align:left;
+    width:100%;
+    transition:background .12s ease, border-color .12s ease;
+    font-family:inherit;
+  }
+  .entry:hover{ background:var(--teal-wash); }
+  .entry:focus-visible{ outline:2px solid var(--focus); outline-offset:2px; }
+
+  .entry-avatar{
+    width:34px;height:34px;border-radius:50%;
+    display:flex;align-items:center;justify-content:center;
+    background:var(--teal-wash);
+    color:var(--teal-deep);
+    font-weight:600;
+    font-size:13px;
+    flex-shrink:0;
+  }
+
+  .entry-text{ min-width:0; }
+  .entry-name{
+    font-size:14.5px;
+    font-weight:600;
+    color:var(--ink);
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+  }
+  .entry-uhid{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:11.5px;
+    color:var(--muted);
+    margin-top:2px;
+    letter-spacing:0.02em;
+  }
+
+  .entry.active{
+    background:var(--red-wash);
+    border-color:rgba(214,71,47,0.35);
+  }
+  .entry.active .entry-avatar{
+    background:var(--red);
+    color:#fff;
+  }
+  .entry.active .entry-name{ color:var(--red); }
+  .entry.active .entry-uhid{ color:#B8452F; }
+
+  /* ---------- MAIN ---------- */
+  .main{
+    flex:1;
+    display:flex;
+    flex-direction:column;
+    min-width:0;
+  }
+
+  .main-topbar{
+    height:64px;
+    flex-shrink:0;
+    display:flex;
+    align-items:center;
+    justify-content:flex-end;
+    gap:10px;
+    padding:0 20px 0 28px;
+    border-bottom:1px solid var(--border);
+    background:var(--panel);
+  }
+
+  .topbar-patient{
+    margin-right:auto;
+    display:flex;
+    align-items:baseline;
+    gap:10px;
+    opacity:0;
+    transform:translateY(-4px);
+    transition:opacity .18s ease, transform .18s ease;
+  }
+  .topbar-patient.visible{ opacity:1; transform:translateY(0); }
+  .topbar-patient-name{ font-weight:600; font-size:15px; }
+  .topbar-patient-uhid{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:11.5px;
+    color:var(--muted);
+  }
+  .topbar-patient-age{
+    font-size:12.5px;
+    color:var(--muted);
+    padding-left:10px;
+    border-left:1px solid var(--border);
+  }
+
+  .btn{
+    border:1px solid var(--border);
+    background:var(--panel);
+    color:var(--ink);
+    padding:9px 16px;
+    border-radius:10px;
+    font-size:13.5px;
+    font-weight:600;
+    cursor:pointer;
+    display:flex;
+    align-items:center;
+    gap:7px;
+    transition:background .12s ease, border-color .12s ease, transform .1s ease;
+  }
+  .btn:hover{ background:#F6F7F5; }
+  .btn:active{ transform:scale(.97); }
+  .btn-copy{
+    border-color:rgba(31,95,82,0.3);
+    color:var(--teal-deep);
+  }
+  .btn-copy:hover{ background:var(--teal-wash); }
+  .btn-copy.copied{ background:var(--teal); color:#fff; border-color:var(--teal); }
+  /* ---------- SETTINGS ---------- */
+  .settings-wrap{ position:relative; flex-shrink:0; }
+
+  .settings-btn{
+    width:38px;height:38px;
+    border-radius:10px;
+    border:1px solid var(--border);
+    background:var(--panel);
+    color:var(--muted);
+    display:flex;align-items:center;justify-content:center;
+    cursor:pointer;
+    transition:background .12s ease, color .12s ease, border-color .12s ease;
+  }
+  .settings-btn:hover, .settings-btn.open{
+    background:var(--teal-wash);
+    color:var(--teal-deep);
+    border-color:rgba(31,95,82,0.3);
+  }
+
+  .settings-menu{
+    position:absolute;
+    top:calc(100% + 8px);
+    right:0;
+    min-width:180px;
+    background:var(--panel);
+    border:1px solid var(--border);
+    border-radius:12px;
+    box-shadow:0 12px 28px -10px rgba(20,30,25,0.22);
+    padding:6px;
+    display:none;
+    z-index:20;
+  }
+  .settings-menu.open{ display:block; }
+
+  .settings-item{
+    width:100%;
+    display:flex;
+    align-items:center;
+    gap:10px;
+    padding:10px 12px;
+    border:none;
+    background:transparent;
+    border-radius:8px;
+    font-size:13.5px;
+    font-weight:600;
+    color:var(--red);
+    cursor:pointer;
+    text-align:left;
+    font-family:inherit;
+  }
+  .settings-item:hover{ background:var(--red-wash); }
+
+  .main-scroll{
+    flex:1;
+    overflow-y:auto;
+    display:flex;
+    justify-content:center;
+  }
+
+  .note-wrap{
+    width:100%;
+    max-width:760px;
+    padding:44px 32px 80px;
+  }
+
+  .note-eyebrow{
+    font-size:12px;
+    font-weight:600;
+    letter-spacing:0.08em;
+    text-transform:uppercase;
+    color:var(--teal);
+    margin-bottom:6px;
+  }
+  .note-heading{
+    font-family:'Fraunces',serif;
+    font-size:28px;
+    font-weight:600;
+    margin:0 0 28px;
+    color:var(--ink);
+  }
+
+  .note-block{ margin-bottom:26px; }
+  .note-label{
+    font-size:12px;
+    font-weight:700;
+    text-transform:uppercase;
+    letter-spacing:0.06em;
+    color:var(--muted);
+    margin-bottom:8px;
+  }
+  .note-body{
+    font-size:15px;
+    line-height:1.65;
+    color:var(--ink);
+  }
+  .med-list{
+    margin:0;
+    padding-left:18px;
+    line-height:1.7;
+  }
+  .rx-item{ margin-bottom:14px; }
+  .rx-en{ font-size:15px; line-height:1.6; }
+  .rx-local{
+    font-size:14px;
+    color:var(--muted);
+    margin-top:2px;
+  }
+
+  /* ---------- EMPTY STATE ---------- */
+  .empty-state{
+    flex:1;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    text-align:center;
+    color:var(--muted);
+    padding:40px;
+  }
+  .empty-icon{
+    width:56px;height:56px;
+    border-radius:50%;
+    background:var(--teal-wash);
+    color:var(--teal);
+    display:flex;align-items:center;justify-content:center;
+    margin-bottom:18px;
+  }
+  .empty-title{
+    font-family:'Fraunces',serif;
+    font-size:19px;
+    font-weight:600;
+    color:var(--ink);
+    margin-bottom:6px;
+  }
+  .empty-sub{ font-size:13.5px; max-width:280px; }
+
+  ::-webkit-scrollbar{ width:9px; }
+  ::-webkit-scrollbar-thumb{ background:#D8DBD7; border-radius:8px; }
+  ::-webkit-scrollbar-track{ background:transparent; }
+</style>
+</head>
+<body>
+
+<section class="login-screen" id="loginScreen">
+  <form class="login-card" id="loginForm">
+    <div class="login-brand"><span class="login-brand-pill"><span class="login-brand-dot"></span>WOYZ</span><span>Notes</span></div>
+    <h1 class="login-title">Sign in</h1>
+    <label class="login-label" for="loginEmail">Email address</label>
+    <input class="login-input" id="loginEmail" type="email" autocomplete="username" required>
+    <label class="login-label" for="loginPassword">Password</label>
+    <input class="login-input" id="loginPassword" type="password" autocomplete="current-password" required>
+    <button class="btn login-submit" id="loginSubmit" type="submit">Sign in</button>
+    <div class="login-error" id="loginError" role="alert"></div>
+  </form>
+</section>
+
+<div class="app" id="appShell">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <button class="record-btn" id="recordBtn">
+      <span class="record-dot"></span>
+      <span class="record-label">
+        <div class="record-title">WOYZ</div>
+        <div class="record-sub" id="recordSub">Tap to record a note</div>
+      </span>
+    </button>
+
+    <div class="sidebar-section-label">Records</div>
+    <div class="entry-list" id="entryList"></div>
+  </aside>
+
+  <!-- MAIN -->
+  <main class="main">
+    <div class="main-topbar" id="topbar">
+      <div class="topbar-patient" id="topbarPatient">
+        <span class="topbar-patient-name" id="topbarName"></span>
+        <span class="topbar-patient-uhid" id="topbarUhid"></span>
+        <span class="topbar-patient-age" id="topbarAge"></span>
+      </div>
+      <div class="user-email" id="userEmail"></div>
+      <div class="date-nav" id="dateNav" aria-label="Visit date navigation">
+        <button class="date-step" id="previousDateBtn" aria-label="Previous day">&lsaquo;</button>
+        <input class="date-input" id="visitDateInput" type="date" aria-label="Visit date">
+        <button class="date-step" id="nextDateBtn" aria-label="Next day">&rsaquo;</button>
+        <button class="date-today" id="todayBtn" title="Jump to today"></button>
+      </div>
+      <button class="btn btn-copy" id="copyBtn" style="display:none;">Copy note</button>
+      <button class="btn save-draft-btn" id="saveDraftBtn" aria-label="Save draft note">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M5 4h12l2 2v14H5V4Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M8 4v6h8V4M8 20v-6h8v6" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>
+        <span>Save draft</span>
+      </button>
+      <button class="btn delete-btn" id="deleteBtn" aria-label="Delete draft note" title="Delete draft note">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none"><path d="M4 7h16M9 7V4h6v3M7 7l1 13h8l1-13M10 11v5M14 11v5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        Delete draft
+      </button>
+      <div class="settings-wrap">
+        <button class="settings-btn" id="settingsBtn" aria-label="Settings" aria-haspopup="true" aria-expanded="false">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z" stroke="currentColor" stroke-width="1.7"/><path d="M19.4 13.5a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V19.5a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1.08-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H4.5a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1.08 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H10.5a1.65 1.65 0 0 0 1-1.51V4.5a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V10.5a1.65 1.65 0 0 0 1.51 1H19.5a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>
+        </button>
+        <div class="settings-menu" id="settingsMenu">
+          <button class="settings-item" id="signoutBtn">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M16 17l5-5-5-5M21 12H9" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            Sign out
+          </button>
+          <button class="settings-item auth-item" id="authKeyBtn">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M14.5 9.5a4.5 4.5 0 1 1-1.3-3.2L21 14v3h-3v3h-3l-2.2-2.2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><circle cx="7" cy="14" r="1" fill="currentColor"/></svg>
+            Authorization key
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div class="main-scroll" id="mainScroll">
+      <div class="empty-state" id="emptyState">
+        <div class="empty-icon">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M4 19V5a2 2 0 0 1 2-2h9l5 5v11a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2Z" stroke="currentColor" stroke-width="1.6"/><path d="M8 12h8M8 16h5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+        </div>
+        <div class="empty-title">No record selected</div>
+        <div class="empty-sub">Choose a patient on the left to open their latest note.</div>
+      </div>
+    </div>
+  </main>
+
+</div>
+
+<div class="modal-backdrop" id="authModal" role="dialog" aria-modal="true" aria-labelledby="authModalTitle">
+  <div class="auth-modal">
+    <div class="auth-modal-head">
+      <h2 class="auth-modal-title" id="authModalTitle">AI authorization</h2>
+      <button class="modal-close" id="authCloseBtn" aria-label="Close authorization dialog">&times;</button>
+    </div>
+    <p class="auth-help">Paste your authorization key. It is stored only in this browser and is used when you choose Stop &amp; transcribe.</p>
+    <label class="auth-label" for="authKeyInput">Authorization key</label>
+    <input class="auth-input" id="authKeyInput" type="password" autocomplete="off" placeholder="Paste API key">
+    <div class="auth-actions">
+      <button class="btn" id="authCancelBtn">Close</button>
+      <button class="btn btn-copy" id="authSaveBtn">Save key</button>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/12.16.0/firebase-app.js';
+import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut as firebaseSignOut } from 'https://www.gstatic.com/firebasejs/12.16.0/firebase-auth.js';
+import { getFirestore, collection, query, where, onSnapshot, addDoc, updateDoc, deleteDoc, doc, getDocs, serverTimestamp } from 'https://www.gstatic.com/firebasejs/12.16.0/firebase-firestore.js';
+import { firebaseConfig } from './firebase-config.js';
+
+const firebaseApp = initializeApp(firebaseConfig);
+const auth = getAuth(firebaseApp);
+const db = getFirestore(firebaseApp);
+
+const sampleRecords = [
+  {
+    name: "Soji George",
+    uhid: "260242",
+    age: 58,
+    heading: "Visit Note",
+    hpi: "Patient reports feeling better. Previously, patient had difficulty sleeping and eating due to pain. Patient describes the pain as being on one side, with pillow placement helping. Gabantin dose was previously increased to 400 mg twice daily.",
+    meds: ["Gabantin 400 mg twice daily", "Tegritol CR 200 mg three times daily"],
+    rx: [
+      { en: "Tablet Tegritol CR 200 mg — Take 1 tablet three times daily after food for 1 month.", local: "ഒരു ഗുളിക ഒരു മാസം ഭക്ഷണത്തിന് ശേഷം മൂന്ന് നേരം കഴിക്കുക." },
+      { en: "Tablet Gabantin 200 mg — Take 1 tablet three times daily after food for the first 10 days.", local: "ആദ്യ പത്ത് ദിവസത്തേക്ക് ഭക്ഷണത്തിന് ശേഷം ഒരു ഗുളിക മൂന്ന് നേരം കഴിക്കുക." },
+      { en: "Tablet Gabantin 200 mg — After the first 10 days, if symptoms improve, take 1 tablet in the morning and 1 tablet at night after food for the next 20 days.", local: "ആദ്യ പത്ത് ദിവസത്തിന് ശേഷം, ലക്ഷണങ്ങൾ മെച്ചപ്പെടുകയാണെങ്കിൽ, അടുത്ത ഇരുപത് ദിവസത്തേക്ക് ഭക്ഷണത്തിന് ശേഷം രാവിലെ ഒരു ഗുളികയും രാത്രി ഒരു ഗുളികയും കഴിക്കുക." }
+    ]
+  },
+  {
+    name: "Anitha Menon",
+    uhid: "241108",
+    age: 47,
+    heading: "Follow-up Note",
+    hpi: "Patient reports mild residual numbness in the left hand, improving gradually. No new episodes of weakness. Sleep and appetite are back to normal. Physiotherapy sessions ongoing twice weekly.",
+    meds: ["Ecosprin 75 mg once daily", "Atorvastatin 20 mg at night"],
+    rx: [
+      { en: "Tablet Ecosprin 75 mg — Take 1 tablet once daily after breakfast, continue lifelong.", local: "ഒരു ഗുളിക പ്രഭാതഭക്ഷണത്തിന് ശേഷം ദിവസവും ഒരു നേരം കഴിക്കുക." },
+      { en: "Tablet Atorvastatin 20 mg — Take 1 tablet at night after food.", local: "ഒരു ഗുളിക രാത്രി ഭക്ഷണത്തിന് ശേഷം കഴിക്കുക." }
+    ]
+  },
+  {
+    name: "Ravi Kumar Nair",
+    uhid: "252991",
+    age: 34,
+    heading: "Visit Note",
+    hpi: "New patient presenting with intermittent headaches over 3 weeks, described as pressure-like, bilateral, worse by evening. No visual disturbance or vomiting. No prior history of migraine.",
+    meds: ["Paracetamol 650 mg SOS"],
+    rx: [
+      { en: "Tablet Paracetamol 650 mg — Take 1 tablet after food if headache occurs, max 3 per day.", local: "തലവേദന ഉണ്ടെങ്കിൽ ഭക്ഷണത്തിന് ശേഷം ഒരു ഗുളിക കഴിക്കുക, പരമാവധി ദിവസം 3 എണ്ണം." }
+    ]
+  },
+  {
+    name: "Little Flower Thomas",
+    uhid: "238870",
+    age: 71,
+    heading: "Review Note",
+    hpi: "Patient stable on current regimen. No fresh complaints. Gait has improved since last review. Family reports better sleep continuity over the past two weeks.",
+    meds: ["Levetiracetam 500 mg twice daily"],
+    rx: [
+      { en: "Tablet Levetiracetam 500 mg — Take 1 tablet twice daily after food, continue as before.", local: "ഒരു ഗുളിക രണ്ട് നേരം ഭക്ഷണത്തിന് ശേഷം കഴിക്കുക, മുൻപത്തെപ്പോലെ തുടരുക." }
+    ]
+  }
+];
+
+let records = [];
+
+function initials(name){
+  return name.split(" ").filter(Boolean).slice(0,2).map(w=>w[0]).join("").toUpperCase();
+}
+
+const entryList = document.getElementById('entryList');
+const mainScroll = document.getElementById('mainScroll');
+const topbarPatient = document.getElementById('topbarPatient');
+const topbarName = document.getElementById('topbarName');
+const topbarUhid = document.getElementById('topbarUhid');
+const topbarAge = document.getElementById('topbarAge');
+const copyBtn = document.getElementById('copyBtn');
+const deleteBtn = document.getElementById('deleteBtn');
+const saveDraftBtn = document.getElementById('saveDraftBtn');
+const signoutBtn = document.getElementById('signoutBtn');
+const settingsBtn = document.getElementById('settingsBtn');
+const settingsMenu = document.getElementById('settingsMenu');
+const authKeyBtn = document.getElementById('authKeyBtn');
+const authModal = document.getElementById('authModal');
+const authKeyInput = document.getElementById('authKeyInput');
+const authCloseBtn = document.getElementById('authCloseBtn');
+const authCancelBtn = document.getElementById('authCancelBtn');
+const authSaveBtn = document.getElementById('authSaveBtn');
+const previousDateBtn = document.getElementById('previousDateBtn');
+const nextDateBtn = document.getElementById('nextDateBtn');
+const visitDateInput = document.getElementById('visitDateInput');
+const todayBtn = document.getElementById('todayBtn');
+const appShell = document.getElementById('appShell');
+const loginScreen = document.getElementById('loginScreen');
+const loginForm = document.getElementById('loginForm');
+const loginEmail = document.getElementById('loginEmail');
+const loginPassword = document.getElementById('loginPassword');
+const loginSubmit = document.getElementById('loginSubmit');
+const loginError = document.getElementById('loginError');
+const userEmail = document.getElementById('userEmail');
+
+const GEMINI_KEY_STORAGE = 'woyz_gemini_authorization_key';
+const GEMINI_MODEL = 'gemini-3.6-flash';
+const PATIENT_FIELDS = {
+  patientName:{type:'string',description:'Patient name exactly as spoken at the beginning, otherwise NIL.'},
+  patientAge:{type:'string',description:'Patient age exactly as spoken at the beginning, otherwise NIL.'},
+  patientUhid:{type:'string',description:'UHID exactly as spoken at the beginning, otherwise NIL.'}
+};
+const TEXT_SCHEMA = {type:'object',properties:{...PATIENT_FIELDS,text:{type:'string',description:'The requested editable clinical text.'}},required:['patientName','patientAge','patientUhid','text']};
+const CERTIFICATE_SCHEMA = {type:'object',properties:{...PATIENT_FIELDS,date:{type:'string'},patientSex:{type:'string'},certificateBody:{type:'string'}},required:['patientName','patientAge','patientUhid','date','patientSex','certificateBody']};
+const AMBIENT_FIELDS = ['presentingComplaint','historyOfPresentIllness','pastMedicalHistory','allergies','familyHistory','personalHistory','examinationFindings','reviewOfInvestigations','currentMedication','provisionalDiagnosis','treatmentPlan'];
+const AMBIENT_SCHEMA = {type:'object',properties:{...PATIENT_FIELDS,patientSex:{type:'string'},...Object.fromEntries(AMBIENT_FIELDS.map(field=>[field,{type:'string'}]))},required:['patientName','patientAge','patientUhid','patientSex',...AMBIENT_FIELDS]};
+const GEMINI_PROMPTS = {
+  ambient:`You are a clinical note assistant helping a doctor create a concise OPD medical note from ambient audio. The doctor states the patient name, age, and UHID at the beginning; extract those identifiers exactly and treat the remaining recording as the consultation. Correct spelling and grammar while keeping the original meaning. Do not add, infer, assume, recommend, or hallucinate clinical information. If something is unclear, omit it. Use NIL when a whole field is unsupported. Translate Malayalam clinical content into professional clinical English and transliterate names into English. Preserve chronology, medicines, doses, investigations, findings, diagnoses, and advice exactly as spoken. Current medicines belong in currentMedication. Newly advised or changed medicines, investigations, referrals, and follow-up belong in treatmentPlan. Return only the requested JSON object without markdown.`,
+  'Review dictation':`You are an expert medical transcription assistant. The doctor states the patient name, age, and UHID at the beginning; extract these identifiers into their JSON fields and do not repeat that opening identification in the text unless clinically necessary. Convert the remaining Malayalam, English, or Kerala Manglish dictation into clear professional clinical English suitable for a review note. Preserve all clinical facts, chronology, medicines, doses, investigations, examination findings, assessment, advice, and follow-up exactly as dictated. Translate Malayalam clinical content and transliterate names into English. Correct grammar and punctuation, but never invent, infer, recommend, add, or remove information. Do not add section headings unless explicitly requested. Return only the requested JSON object.`,
+  'Reply letter':`You are a clinical reply letter drafting assistant. The doctor states the patient name, age, and UHID at the beginning; extract these identifiers into their JSON fields and exclude the opening identification from the letter unless it belongs naturally in the clinical content. Create a clean reply letter from only the dictated audio. Correct spelling and grammar without adding, removing, inferring, or hallucinating information. The text must begin exactly with "To," followed by the dictated recipient name, credentials, department, hospital, or address, each on its own line. Leave one blank line before the main paragraphs. Do not use a salutation or a Reply Letter heading. End with "Thank you" one blank line below the final paragraph. Do not include sender credentials, signature, or footer. Omit undictated details and never use placeholders. Return only the requested JSON object.`,
+  'Medical certificate':`You are an expert medical certificate transcription assistant. The doctor states the patient name, age, and UHID at the beginning; extract them exactly into their JSON fields. Convert the remaining Malayalam, English, or Kerala Manglish dictation into a clean professional medical certificate. Use today's date only when no date is dictated. The certificateBody must begin with "This is to certify that" and contain one or more clear paragraphs. Include patient identifiers naturally in the first sentence when dictated. Correct grammar, spelling, punctuation, and sentence flow. Do not add, remove, infer, recommend, or hallucinate any medical detail, diagnosis, duration, leave period, fitness status, restriction, or instruction. Do not include "To whomsoever it may concern", "Thank you", doctor credentials, or a signature in certificateBody. Return only the requested JSON object.`
+};
+
+let activeIndex = null;
+let voiceInterval = null;
+let remainingSeconds = 300;
+let mediaRecorder = null;
+let mediaStream = null;
+let audioChunks = [];
+let audioContext = null;
+let analyserNode = null;
+let waveformFrame = null;
+let processingInterval = null;
+let selectedVisitDate = new Date();
+let currentUser = null;
+let notesUnsubscribe = null;
+let pendingSelectId = null;
+
+function renderEntries(){
+  entryList.innerHTML = '';
+  records.forEach((r, i) => {
+    const btn = document.createElement('button');
+    btn.className = 'entry' + (i === activeIndex ? ' active' : '');
+    const generatedEntry = r.kind === 'generated' && r.everSaved;
+    const namedDraft = (r.isDraft || generatedEntry) && r.everSaved && r.patientData?.name && r.patientData.name !== 'NIL';
+    const modeSuffix = r.everSaved && ['Reply letter','Medical certificate'].includes(r.selectedMode) ? ` (${r.selectedMode})` : '';
+    const draftEntryName = namedDraft ? `${r.patientData.name}${modeSuffix}` : `Visit Note draft${modeSuffix}`;
+    const entryName = (r.isDraft || generatedEntry) ? draftEntryName : r.name;
+    const entryMeta = (r.isDraft || generatedEntry)
+      ? (namedDraft ? `UHID ${r.patientData.uhid || 'NIL'} · ${r.patientData.age || 'NIL'} yrs` : r.createdAt)
+      : `UHID ${r.uhid}`;
+    btn.innerHTML = `
+      <span class="entry-avatar">${(r.isDraft || generatedEntry) ? (namedDraft ? initials(r.patientData.name) : 'D') : initials(r.name)}</span>
+      <span class="entry-text">
+        <div class="entry-name">${escapeHtml(entryName)}</div>
+        <div class="entry-uhid">${escapeHtml(entryMeta)}</div>
+      </span>
+    `;
+    btn.addEventListener('click', () => selectEntry(i));
+    entryList.appendChild(btn);
+  });
+}
+
+renderEntries();
+
+function userNotesCollection(){
+  if (!currentUser) throw new Error('You must sign in first.');
+  return collection(db,'users',currentUser.uid,'notes');
+}
+
+function noteFromSnapshot(snapshot){
+  const data = snapshot.data();
+  return {
+    ...data,
+    firestoreId:snapshot.id,
+    createdAtValue:data.createdAt,
+    name:data.patientData?.name || 'Visit Note draft',
+    uhid:data.patientData?.uhid || 'NIL',
+    age:data.patientData?.age || 'NIL',
+    createdAt:data.createdAtLabel || '',
+    isDraft:data.isDraft === true,
+    transcription:data.transcription || '',
+    patientData:data.patientData || {name:'NIL',age:'NIL',uhid:'NIL'}
+  };
+}
+
+function subscribeToSelectedDate(){
+  if (!currentUser) return;
+  if (notesUnsubscribe) notesUnsubscribe();
+  const selectedDate = dateInputValue(selectedVisitDate);
+  const notesQuery = query(userNotesCollection(),where('visitDate','==',selectedDate));
+  notesUnsubscribe = onSnapshot(notesQuery,snapshot => {
+    const previousId = activeIndex !== null ? records[activeIndex]?.firestoreId : null;
+    records = snapshot.docs.map(noteFromSnapshot).sort((a,b) => {
+      const aTime = a.createdAtValue?.toMillis?.() || 0;
+      const bTime = b.createdAtValue?.toMillis?.() || 0;
+      return bTime - aTime;
+    });
+    renderEntries();
+    const targetId = pendingSelectId || previousId;
+    const targetIndex = targetId ? records.findIndex(record => record.firestoreId === targetId) : -1;
+    pendingSelectId = null;
+    if (targetIndex >= 0) selectEntry(targetIndex);
+    else if (records.length) selectEntry(0);
+    else showEmptyDate();
+  }, error => {
+    console.error('Unable to load notes:',error);
+    showEmptyDate('Unable to load notes for this date.');
+  });
+}
+
+function showEmptyDate(message = 'No notes saved for this date.'){
+  activeIndex = null;
+  topbarPatient.classList.remove('visible');
+  copyBtn.style.display = 'none';
+  saveDraftBtn.classList.remove('visible');
+  deleteBtn.classList.remove('visible');
+  mainScroll.innerHTML = `<div class="empty-state"><div class="empty-title">No notes</div><div class="empty-sub">${escapeHtml(message)}</div></div>`;
+}
+
+async function persistRecord(record, changes){
+  if (!currentUser || !record?.firestoreId) return;
+  await updateDoc(doc(db,'users',currentUser.uid,'notes',record.firestoreId),changes);
+}
+
+loginForm.addEventListener('submit', async event => {
+  event.preventDefault();
+  loginError.textContent = '';
+  loginSubmit.disabled = true;
+  loginSubmit.textContent = 'Signing in…';
+  try{
+    await signInWithEmailAndPassword(auth,loginEmail.value.trim(),loginPassword.value);
+    loginPassword.value = '';
+  }catch(error){
+    loginError.textContent = 'Unable to sign in. Check the email and password.';
+  }finally{
+    loginSubmit.disabled = false;
+    loginSubmit.textContent = 'Sign in';
+  }
+});
+
+onAuthStateChanged(auth,user => {
+  currentUser = user;
+  if (user){
+    loginScreen.classList.add('hidden');
+    appShell.classList.add('authenticated');
+    userEmail.textContent = user.email || '';
+    selectedVisitDate = new Date();
+    updateDateNavigation();
+    subscribeToSelectedDate();
+  }else{
+    if (notesUnsubscribe) notesUnsubscribe();
+    notesUnsubscribe = null;
+    records = [];
+    renderEntries();
+    appShell.classList.remove('authenticated');
+    loginScreen.classList.remove('hidden');
+    userEmail.textContent = '';
+  }
+});
+
+function noteText(r){
+  let lines = [];
+  lines.push(r.heading);
+  lines.push('');
+  lines.push('History of Present Illness:');
+  lines.push(r.hpi);
+  lines.push('');
+  lines.push('Current Medications:');
+  r.meds.forEach(m => lines.push('- ' + m));
+  lines.push('');
+  lines.push('Prescription:');
+  r.rx.forEach((item, idx) => {
+    lines.push(`${idx+1}. ${item.en}`);
+    lines.push(item.local);
+  });
+  return lines.join('\n');
+}
+
+function selectEntry(i){
+  activeIndex = i;
+  const r = records[i];
+  const isGeneratedRecord = Boolean(r.transcription) || r.kind === 'generated';
+  renderEntries();
+
+  topbarName.textContent = r.patientData?.name || r.name;
+  topbarUhid.textContent = 'UHID ' + (r.patientData?.uhid || r.uhid);
+  topbarAge.textContent = (r.patientData?.age || r.age) + ' yrs';
+  topbarPatient.classList.add('visible');
+  copyBtn.style.display = (!r.isDraft || r.transcription) ? 'flex' : 'none';
+  deleteBtn.classList.toggle('visible', Boolean(r.isDraft && !r.everSaved));
+  saveDraftBtn.classList.toggle('visible', Boolean(r.isDraft || isGeneratedRecord));
+  saveDraftBtn.querySelector('span').textContent = r.saved ? 'Saved' : 'Save draft';
+  copyBtn.classList.remove('copied');
+  copyBtn.textContent = 'Copy note';
+
+  if (isGeneratedRecord){
+    renderGeneratedNote(r);
+    return;
+  }
+
+  if (r.isDraft){
+    renderVoiceWorkspace();
+    return;
+  }
+
+  stopVoiceTimer();
+  stopMediaTracks();
+  mainScroll.innerHTML = `
+    <div class="note-wrap">
+      <div class="note-eyebrow">${r.name} · UHID ${r.uhid}</div>
+      <h1 class="note-heading">${r.heading}</h1>
+
+      <div class="note-block">
+        <div class="note-label">History of Present Illness</div>
+        <div class="note-body">${r.hpi}</div>
+      </div>
+
+      <div class="note-block">
+        <div class="note-label">Current Medications</div>
+        <ul class="med-list">${r.meds.map(m => `<li class="note-body">${m}</li>`).join('')}</ul>
+      </div>
+
+      <div class="note-block">
+        <div class="note-label">Prescription</div>
+        ${r.rx.map((item, idx) => `
+          <div class="rx-item">
+            <div class="rx-en">${idx+1}. ${item.en}</div>
+            <div class="rx-local">${item.local}</div>
+          </div>
+        `).join('')}
+      </div>
+    </div>
+  `;
+}
+
+function voiceMarkup(){
+  const draft = records[activeIndex];
+  const hasStarted = Boolean(draft.hasStarted);
+  const isRecording = draft.recording === true;
+  const isPaused = hasStarted && !isRecording && !draft.transcribing && !draft.stopped;
+  return `
+    <div class="voice-wrap">
+      <div class="voice-kicker">Ambient Mode</div>
+      <section class="voice-panel ${isRecording ? 'recording' : ''}" id="voicePanel">
+        <div class="voice-brand"><span>Doctor</span><span class="voice-brand-pill"><span class="voice-brand-dot"></span>WOYZ</span></div>
+        <div class="voice-stage">
+          <div class="waveform" aria-label="Voice activity">${Array.from({length:28}, () => '<span></span>').join('')}</div>
+          <div class="remaining-label">REMAINING</div>
+          <div class="voice-timer" id="voiceTimer">05:00</div>
+          ${!hasStarted ? `<button class="mic-btn" id="micBtn" aria-label="Start recording">
+            <svg width="33" height="33" viewBox="0 0 24 24" fill="none"><rect x="9" y="3" width="6" height="11" rx="3" stroke="currentColor" stroke-width="2"/><path d="M5.5 11.5a6.5 6.5 0 0 0 13 0M12 18v3M9 21h6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+          </button>` : ''}
+          <div class="voice-controls ${hasStarted ? 'visible' : ''}">
+            <button class="voice-action pause" id="pauseResumeBtn" aria-label="${isRecording ? 'Pause recording' : 'Resume recording'}">
+              ${isRecording ? '<svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="5" width="4" height="14"/><rect x="14" y="5" width="4" height="14"/></svg>' : '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7L8 5Z"/></svg>'}
+            </button>
+            <button class="voice-action stop" id="stopTranscribeBtn" aria-label="Stop and transcribe" ${draft.transcribing ? 'disabled' : ''}>
+              <svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12"/></svg>
+            </button>
+          </div>
+          <div class="voice-status" id="voiceStatus">${draft.status || (isRecording ? 'Recording in progress…' : (isPaused ? 'Recording paused' : 'Press Space to start recording'))}</div>
+        </div>
+        <div class="voice-modes">
+          ${['Review dictation','Reply letter','Medical certificate'].map(mode => `<button class="voice-mode ${draft.selectedMode === mode ? 'active' : ''}">${mode}</button>`).join('')}
+        </div>
+        <div class="voice-result ${draft.transcription ? 'visible' : ''}" id="voiceResult">
+          <div class="voice-result-label">Generated result</div>
+          <div class="voice-result-text" id="voiceResultText">${escapeHtml(draft.transcription || '')}</div>
+        </div>
+      </section>
+    </div>`;
+}
+
+function escapeHtml(value){
+  return String(value).replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[char]));
+}
+
+function renderVoiceWorkspace(){
+  const draft = records[activeIndex];
+  if (draft.transcription){
+    renderGeneratedNote(draft);
+    return;
+  }
+  mainScroll.innerHTML = voiceMarkup();
+  const micBtn = document.getElementById('micBtn');
+  recordBtn.classList.toggle('is-recording', draft.recording === true);
+  recordSub.textContent = draft.recording ? 'Listening…' : 'Voice draft open';
+  if (micBtn) micBtn.addEventListener('click', handleSpaceAction);
+  const pauseResumeBtn = document.getElementById('pauseResumeBtn');
+  const stopTranscribeBtn = document.getElementById('stopTranscribeBtn');
+  if (pauseResumeBtn) pauseResumeBtn.addEventListener('click', handleSpaceAction);
+  if (stopTranscribeBtn) stopTranscribeBtn.addEventListener('click', stopAndTranscribe);
+  document.querySelectorAll('.voice-mode').forEach(button => button.addEventListener('click', () => {
+    draft.selectedMode = draft.selectedMode === button.textContent ? null : button.textContent;
+    persistRecord(draft,{selectedMode:draft.selectedMode});
+    renderVoiceWorkspace();
+  }));
+  updateTimer();
+}
+
+function renderGeneratedNote(draft){
+  const title = draft.selectedMode || 'Ambient visit note';
+  mainScroll.innerHTML = `
+    <div class="generated-note">
+      <section class="generated-note-card">
+        <div class="generated-note-head">
+          <div>
+            <h1 class="generated-note-title">${escapeHtml(title)}</h1>
+          </div>
+        </div>
+        <textarea class="note-editor" id="generatedNoteEditor" aria-label="Editable generated note">${escapeHtml(draft.transcription)}</textarea>
+      </section>
+    </div>`;
+  const editor = document.getElementById('generatedNoteEditor');
+  editor.addEventListener('input', () => {
+    draft.transcription = editor.value;
+    draft.saved = false;
+    saveDraftBtn.querySelector('span').textContent = 'Save draft';
+  });
+  recordBtn.classList.remove('is-recording');
+  copyBtn.style.display = 'flex';
+}
+
+function renderProcessingState(draft){
+  mainScroll.innerHTML = `
+    <div class="processing-wrap">
+      <div class="processing-content">
+        <h1 class="processing-title">Preparing note</h1>
+        <div class="processing-track" role="progressbar" aria-label="Note processing" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${draft.progress || 4}">
+          <div class="processing-fill" id="processingFill" style="width:${draft.progress || 4}%"></div>
+        </div>
+        <div class="processing-status" id="processingStatus">${escapeHtml(draft.status || 'Processing recording…')}</div>
+      </div>
+    </div>`;
+  recordBtn.classList.remove('is-recording');
+}
+
+function startProcessingProgress(draft){
+  stopProcessingProgress();
+  processingInterval = setInterval(() => {
+    draft.progress = Math.min(92, (draft.progress || 4) + Math.max(1, (94 - (draft.progress || 4)) * .035));
+    const fill = document.getElementById('processingFill');
+    const track = fill?.parentElement;
+    if (fill) fill.style.width = `${draft.progress}%`;
+    if (track) track.setAttribute('aria-valuenow', String(Math.round(draft.progress)));
+  }, 850);
+}
+
+function stopProcessingProgress(){
+  if (processingInterval) clearInterval(processingInterval);
+  processingInterval = null;
+}
+
+function startVoiceTimer(){
+  stopVoiceTimer();
+  voiceInterval = setInterval(() => {
+    if (remainingSeconds > 0) remainingSeconds -= 1;
+    updateTimer();
+    if (remainingSeconds === 0) stopAndTranscribe();
+  }, 1000);
+}
+
+function stopVoiceTimer(){
+  if (voiceInterval) clearInterval(voiceInterval);
+  voiceInterval = null;
+}
+
+function updateTimer(){
+  const timer = document.getElementById('voiceTimer');
+  if (!timer) return;
+  const minutes = String(Math.floor(remainingSeconds / 60)).padStart(2, '0');
+  const seconds = String(remainingSeconds % 60).padStart(2, '0');
+  timer.textContent = `${minutes}:${seconds}`;
+}
+
+async function handleSpaceAction(){
+  if (activeIndex === null || !records[activeIndex].isDraft || records[activeIndex].transcribing) return;
+  const draft = records[activeIndex];
+  if (draft.stopped){
+    draft.hasStarted = false;
+    draft.stopped = false;
+    draft.audioBlob = null;
+    remainingSeconds = 300;
+  }
+  if (!draft.hasStarted){
+    await startRecording();
+  }else if (draft.recording){
+    pauseRecording();
+  }else{
+    resumeRecording();
+  }
+}
+
+async function startRecording(){
+  const draft = records[activeIndex];
+  try{
+    mediaStream = await navigator.mediaDevices.getUserMedia({audio:true});
+    audioChunks = [];
+    setupAudioAnalyser(mediaStream);
+    mediaRecorder = new MediaRecorder(mediaStream);
+    mediaRecorder.addEventListener('dataavailable', event => { if (event.data.size) audioChunks.push(event.data); });
+    mediaRecorder.start(1000);
+    draft.hasStarted = true;
+    draft.recording = true;
+    draft.stopped = false;
+    draft.status = 'Recording in progress…';
+    startVoiceTimer();
+    renderVoiceWorkspace();
+  }catch(error){
+    draft.status = 'Microphone access is required to record.';
+    renderVoiceWorkspace();
+  }
+}
+
+function pauseRecording(){
+  const draft = records[activeIndex];
+  if (mediaRecorder && mediaRecorder.state === 'recording') mediaRecorder.pause();
+  draft.recording = false;
+  draft.status = 'Recording paused';
+  stopVoiceTimer();
+  stopWaveformAnimation();
+  renderVoiceWorkspace();
+}
+
+function resumeRecording(){
+  const draft = records[activeIndex];
+  if (mediaRecorder && mediaRecorder.state === 'paused') mediaRecorder.resume();
+  draft.recording = true;
+  draft.status = 'Recording in progress…';
+  startVoiceTimer();
+  startWaveformAnimation();
+  renderVoiceWorkspace();
+}
+
+async function stopAndTranscribe(){
+  const draft = records[activeIndex];
+  if (!draft || !draft.hasStarted || draft.transcribing) return;
+  stopVoiceTimer();
+  draft.recording = false;
+  draft.stopped = true;
+  draft.transcribing = true;
+  draft.status = 'Processing recording…';
+  draft.progress = 4;
+  renderProcessingState(draft);
+  startProcessingProgress(draft);
+  try{
+    const audioBlob = draft.audioBlob || await stopMediaRecorder();
+    draft.audioBlob = audioBlob;
+    const apiKey = localStorage.getItem(GEMINI_KEY_STORAGE);
+    if (!apiKey){
+      draft.status = 'Add your authorization key in Settings, then try again.';
+      openAuthModal();
+      return;
+    }
+    draft.status = 'Creating your note…';
+    const processingStatus = document.getElementById('processingStatus');
+    if (processingStatus) processingStatus.textContent = draft.status;
+    const generated = await sendAudioToGemini(audioBlob, apiKey, draft.selectedMode);
+    draft.transcription = generated.text;
+    draft.patientData = generated.patientData;
+    await persistRecord(draft,{
+      kind:'generated',
+      transcription:draft.transcription,
+      patientData:draft.patientData,
+      selectedMode:draft.selectedMode,
+      status:'Note ready',
+      updatedAt:serverTimestamp()
+    });
+    draft.progress = 100;
+    draft.status = 'Note ready';
+  }catch(error){
+    draft.status = 'Transcription failed: ' + (error.message || 'Please try again.');
+  }finally{
+    stopProcessingProgress();
+    draft.transcribing = false;
+    stopMediaTracks();
+    renderVoiceWorkspace();
+  }
+}
+
+function stopMediaRecorder(){
+  return new Promise((resolve, reject) => {
+    if (!mediaRecorder) return reject(new Error('No recording is available.'));
+    const mimeType = mediaRecorder.mimeType || 'audio/webm';
+    mediaRecorder.addEventListener('stop', () => resolve(new Blob(audioChunks, {type:mimeType})), {once:true});
+    if (mediaRecorder.state !== 'inactive') mediaRecorder.stop();
+    else resolve(new Blob(audioChunks, {type:mimeType}));
+  });
+}
+
+function stopMediaTracks(){
+  stopWaveformAnimation();
+  if (mediaStream) mediaStream.getTracks().forEach(track => track.stop());
+  if (audioContext) audioContext.close().catch(() => {});
+  mediaStream = null;
+  mediaRecorder = null;
+  audioContext = null;
+  analyserNode = null;
+}
+
+function setupAudioAnalyser(stream){
+  audioContext = new (window.AudioContext || window.webkitAudioContext)();
+  analyserNode = audioContext.createAnalyser();
+  analyserNode.fftSize = 256;
+  analyserNode.smoothingTimeConstant = .68;
+  audioContext.createMediaStreamSource(stream).connect(analyserNode);
+  startWaveformAnimation();
+}
+
+function startWaveformAnimation(){
+  if (!analyserNode) return;
+  stopWaveformAnimation();
+  const samples = new Uint8Array(analyserNode.fftSize);
+  const draw = () => {
+    waveformFrame = requestAnimationFrame(draw);
+    analyserNode.getByteTimeDomainData(samples);
+    let energy = 0;
+    for (const sample of samples){
+      const normalized = (sample - 128) / 128;
+      energy += normalized * normalized;
+    }
+    const rms = Math.sqrt(energy / samples.length);
+    setWaveformLevel(rms);
+  };
+  waveformFrame = requestAnimationFrame(draw);
+}
+
+function stopWaveformAnimation(){
+  if (waveformFrame) cancelAnimationFrame(waveformFrame);
+  waveformFrame = null;
+  setWaveformLevel(0);
+}
+
+function setWaveformLevel(level = 0){
+  const activeBars = Math.min(28, Math.max(0, Math.round(level * 95)));
+  document.querySelectorAll('.waveform span').forEach((bar, index) => {
+    bar.classList.toggle('active', index < activeBars);
+  });
+}
+
+function blobToBase64(blob){
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result).split(',')[1]);
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+}
+
+async function sendAudioToGemini(audioBlob, apiKey, selectedMode){
+  if (audioBlob.size > 19 * 1024 * 1024) throw new Error('Recording is too large for inline upload.');
+  const audioData = await blobToBase64(audioBlob);
+  const mode = selectedMode || 'ambient';
+  const systemPrompt = GEMINI_PROMPTS[mode];
+  const responseSchema = mode === 'ambient' ? AMBIENT_SCHEMA : mode === 'Medical certificate' ? CERTIFICATE_SCHEMA : TEXT_SCHEMA;
+  const taskPrompts = {
+    ambient:'Review the complete doctor-patient recording and produce a mutually consistent structured visit note. Never infer missing details. Use NIL for unsupported fields.',
+    'Review dictation':'Transcribe the recording faithfully. Correct only grammar, spelling, and punctuation. Do not add, remove, or infer clinical content.',
+    'Reply letter':'Draft the reply letter using only clearly dictated facts. Do not add, remove, or infer clinical content.',
+    'Medical certificate':'Convert only the clearly dictated facts into the medical-certificate JSON. Do not add, remove, or infer facts.'
+  };
+  const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`, {
+    method:'POST',
+    headers:{'Content-Type':'application/json','x-goog-api-key':apiKey},
+    body:JSON.stringify({
+      systemInstruction:{parts:[{text:systemPrompt}]},
+      contents:[{role:'user',parts:[
+        {text:taskPrompts[mode]},
+        {inline_data:{mime_type:audioBlob.type || 'audio/webm',data:audioData}}
+      ]}],
+      generationConfig:{temperature:0,responseMimeType:'application/json',responseSchema}
+    })
+  });
+  const payload = await response.json();
+  if (!response.ok) throw new Error(payload.error?.message || 'Note processing failed.');
+  const responseText = payload.candidates?.[0]?.content?.parts?.map(part => part.text || '').join('').trim();
+  if (!responseText) throw new Error('The service returned an empty response.');
+  let parsed;
+  try{ parsed = JSON.parse(responseText); }
+  catch(error){ throw new Error('The service returned an invalid structured response.'); }
+  const patientData = {
+    name:String(parsed.patientName || 'NIL').trim(),
+    age:String(parsed.patientAge || 'NIL').trim(),
+    uhid:String(parsed.patientUhid || 'NIL').trim()
+  };
+  return {text:formatGeneratedOutput(parsed, mode, patientData),patientData};
+}
+
+function formatGeneratedOutput(data, mode, patient){
+  const patientHeader = `Patient Name: ${patient.name}\nAge: ${patient.age}\nUHID: ${patient.uhid}`;
+  if (mode === 'Review dictation' || mode === 'Reply letter'){
+    return `${patientHeader}\n\n${String(data.text || '').trim()}`.trim();
+  }
+  if (mode === 'Medical certificate'){
+    return `${patientHeader}\nDate: ${data.date || 'NIL'}\nSex: ${data.patientSex || 'NIL'}\n\n${String(data.certificateBody || '').trim()}`.trim();
+  }
+  const sections = [
+    ['Presenting Complaint',data.presentingComplaint],
+    ['History of Present Illness',data.historyOfPresentIllness],
+    ['Past Medical or Surgical History',data.pastMedicalHistory],
+    ['Allergies',data.allergies],
+    ['Family History',data.familyHistory],
+    ['Personal History',data.personalHistory],
+    ['Examination Findings',data.examinationFindings],
+    ['Review of Investigations',data.reviewOfInvestigations],
+    ['Current Medications',data.currentMedication],
+    ['Diagnosis',data.provisionalDiagnosis],
+    ['Treatment Plan',data.treatmentPlan]
+  ];
+  return `${patientHeader}\nSex: ${data.patientSex || 'NIL'}\n\n${sections.map(([label,value])=>`${label}:\n${value || 'NIL'}`).join('\n\n')}`;
+}
+
+async function createVoiceDraft(){
+  if (!currentUser) return;
+  const existingDrafts = await getDocs(query(userNotesCollection(),where('isDraft','==',true)));
+  if (!existingDrafts.empty){
+    const existing = existingDrafts.docs[0];
+    pendingSelectId = existing.id;
+    const existingDate = existing.data().visitDate;
+    if (existingDate){
+      const [year,month,day] = existingDate.split('-').map(Number);
+      selectedVisitDate = new Date(year,month-1,day);
+      updateDateNavigation();
+      subscribeToSelectedDate();
+    }
+    return;
+  }
+  stopVoiceTimer();
+  stopMediaTracks();
+  const now = new Date();
+  const createdAt = now.toLocaleDateString('en-GB', {day:'2-digit', month:'short', year:'numeric'}) + ', ' + now.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+  const newDraft = await addDoc(userNotesCollection(),{
+    heading: 'Visit Note draft',
+    createdAt:serverTimestamp(),
+    createdAtLabel:createdAt,
+    visitDate:dateInputValue(selectedVisitDate),
+    isDraft: true,
+    everSaved:false,
+    saved:false,
+    recording: false,
+    hasStarted: false,
+    selectedMode: null,
+    status: 'Press Space to start recording',
+    transcription: '',
+    patientData:{name:'NIL',age:'NIL',uhid:'NIL'}
+  });
+  pendingSelectId = newDraft.id;
+  remainingSeconds = 300;
+}
+
+function openAuthModal(){
+  closeSettings();
+  authKeyInput.value = '';
+  authModal.classList.add('open');
+  setTimeout(() => authKeyInput.focus(), 0);
+}
+
+function closeAuthModal(){
+  authModal.classList.remove('open');
+  authKeyInput.value = '';
+}
+
+function refreshAuthSetting(){
+  authKeyBtn.style.display = localStorage.getItem(GEMINI_KEY_STORAGE) ? 'none' : 'flex';
+}
+
+refreshAuthSetting();
+
+function dateInputValue(date){
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function updateDateNavigation(){
+  visitDateInput.value = dateInputValue(selectedVisitDate);
+  todayBtn.textContent = new Date().toLocaleDateString('en-US',{weekday:'long'});
+}
+
+function moveVisitDate(days){
+  const next = new Date(selectedVisitDate);
+  next.setDate(next.getDate() + days);
+  selectedVisitDate = next;
+  updateDateNavigation();
+  subscribeToSelectedDate();
+}
+
+previousDateBtn.addEventListener('click', () => moveVisitDate(-1));
+nextDateBtn.addEventListener('click', () => moveVisitDate(1));
+todayBtn.addEventListener('click', () => {
+  selectedVisitDate = new Date();
+  updateDateNavigation();
+  subscribeToSelectedDate();
+});
+visitDateInput.addEventListener('change', () => {
+  const [year,month,day] = visitDateInput.value.split('-').map(Number);
+  if (year && month && day) selectedVisitDate = new Date(year,month-1,day);
+  updateDateNavigation();
+  subscribeToSelectedDate();
+});
+updateDateNavigation();
+
+copyBtn.addEventListener('click', async () => {
+  if (activeIndex === null) return;
+  const activeRecord = records[activeIndex];
+  const editor = document.getElementById('generatedNoteEditor');
+  const text = activeRecord.isDraft ? (editor?.value || activeRecord.transcription || '') : noteText(activeRecord);
+  try{
+    await navigator.clipboard.writeText(text);
+  }catch(e){}
+  copyBtn.textContent = 'Copied';
+  copyBtn.classList.add('copied');
+  setTimeout(() => {
+    copyBtn.textContent = 'Copy note';
+    copyBtn.classList.remove('copied');
+  }, 1600);
+});
+
+function closeSettings(){
+  settingsMenu.classList.remove('open');
+  settingsBtn.classList.remove('open');
+  settingsBtn.setAttribute('aria-expanded', 'false');
+}
+
+settingsBtn.addEventListener('click', (e) => {
+  e.stopPropagation();
+  const isOpen = settingsMenu.classList.toggle('open');
+  settingsBtn.classList.toggle('open', isOpen);
+  settingsBtn.setAttribute('aria-expanded', String(isOpen));
+});
+
+document.addEventListener('click', (e) => {
+  if (!settingsMenu.contains(e.target) && e.target !== settingsBtn){
+    closeSettings();
+  }
+});
+
+signoutBtn.addEventListener('click', async () => {
+  closeSettings();
+  stopVoiceTimer();
+  stopMediaTracks();
+  await firebaseSignOut(auth);
+});
+
+const recordBtn = document.getElementById('recordBtn');
+const recordSub = document.getElementById('recordSub');
+recordBtn.addEventListener('click', createVoiceDraft);
+
+document.addEventListener('keydown', (event) => {
+  const isTyping = ['INPUT','TEXTAREA'].includes(document.activeElement?.tagName);
+  if (isTyping || authModal.classList.contains('open')) return;
+  if (activeIndex === null || !records[activeIndex]?.isDraft) return;
+  if (event.code === 'Space'){
+    event.preventDefault();
+    handleSpaceAction();
+  }else if (event.code === 'Enter'){
+    event.preventDefault();
+    stopAndTranscribe();
+  }
+});
+
+authKeyBtn.addEventListener('click', openAuthModal);
+authCloseBtn.addEventListener('click', closeAuthModal);
+authCancelBtn.addEventListener('click', closeAuthModal);
+authModal.addEventListener('click', event => { if (event.target === authModal) closeAuthModal(); });
+authSaveBtn.addEventListener('click', () => {
+  const key = authKeyInput.value.trim();
+  if (!key){
+    authKeyInput.focus();
+    return;
+  }
+  localStorage.setItem(GEMINI_KEY_STORAGE, key);
+  refreshAuthSetting();
+  closeAuthModal();
+});
+
+saveDraftBtn.addEventListener('click', async () => {
+  if (activeIndex === null || !records[activeIndex]) return;
+  const draft = records[activeIndex];
+  const editor = document.getElementById('generatedNoteEditor');
+  if (editor) draft.transcription = editor.value;
+  draft.patientData = extractPatientFromNote(draft.transcription, draft.patientData);
+  draft.saved = true;
+  draft.everSaved = true;
+  draft.isDraft = false;
+  draft.kind = 'generated';
+  saveDraftBtn.querySelector('span').textContent = 'Saved';
+  deleteBtn.classList.remove('visible');
+  renderEntries();
+  await persistRecord(draft,{
+    kind:'generated',
+    isDraft:false,
+    saved:true,
+    everSaved:true,
+    transcription:draft.transcription,
+    patientData:draft.patientData,
+    selectedMode:draft.selectedMode,
+    visitDate:dateInputValue(selectedVisitDate),
+    updatedAt:serverTimestamp()
+  });
+});
+
+function extractPatientFromNote(text, fallback = {}){
+  const find = pattern => String(text || '').match(pattern)?.[1]?.trim();
+  return {
+    name:find(/^Patient Name:\s*(.+)$/im) || fallback?.name || 'NIL',
+    age:find(/^Age:\s*(.+)$/im) || fallback?.age || 'NIL',
+    uhid:find(/^UHID:\s*(.+)$/im) || fallback?.uhid || 'NIL'
+  };
+}
+
+deleteBtn.addEventListener('click', async () => {
+  if (activeIndex === null || !records[activeIndex].isDraft) return;
+  const draft = records[activeIndex];
+  stopVoiceTimer();
+  stopMediaTracks();
+  await deleteDoc(doc(db,'users',currentUser.uid,'notes',draft.firestoreId));
+});
+</script>
+
+</body>
+</html>
