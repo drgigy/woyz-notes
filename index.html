@@ -180,7 +180,7 @@
   .generated-note-card{ min-height:100%; background:#fff; padding:34px 38px; display:flex; flex-direction:column; }
   .generated-note-head{ display:flex; align-items:flex-start; justify-content:space-between; gap:18px; margin-bottom:18px; }
   .generated-note-title{ margin:0; font:600 27px 'Fraunces',serif; }
-  .note-editor{ width:100%; flex:1; min-height:calc(100vh - 190px); resize:none; border:0; background:#fff; padding:0; color:var(--ink); font:15px/1.7 'Inter',sans-serif; outline:none; }
+  .note-editor{ width:100%; min-height:calc(100vh - 190px); overflow:hidden; resize:none; border:0; background:#fff; padding:0; color:var(--ink); font:15px/1.7 'Inter',sans-serif; outline:none; }
 
   .processing-wrap{ width:100%; min-height:100%; display:flex; align-items:center; justify-content:center; padding:44px; }
   .processing-content{ width:min(620px,92%); text-align:center; }
@@ -1041,6 +1041,12 @@ function escapeHtml(value){
   return String(value).replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[char]));
 }
 
+function resizeNoteEditor(editor){
+  if (!editor) return;
+  editor.style.height = 'auto';
+  editor.style.height = `${editor.scrollHeight}px`;
+}
+
 function renderVoiceWorkspace(){
   const draft = records[activeIndex];
   if (draft.transcription){
@@ -1078,10 +1084,12 @@ function renderGeneratedNote(draft){
       </section>
     </div>`;
   const editor = document.getElementById('generatedNoteEditor');
+  resizeNoteEditor(editor);
   editor.addEventListener('input', () => {
     draft.transcription = editor.value;
     draft.saved = false;
     saveDraftBtn.querySelector('span').textContent = 'Save note';
+    resizeNoteEditor(editor);
   });
   recordBtn.classList.remove('is-recording');
   copyBtn.style.display = 'flex';
