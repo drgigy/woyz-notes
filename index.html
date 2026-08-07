@@ -541,14 +541,14 @@
         <button class="date-step" id="nextDateBtn" aria-label="Next day">&rsaquo;</button>
         <button class="date-today" id="todayBtn" title="Jump to today"></button>
       </div>
+      <button class="btn delete-btn" id="deleteBtn" aria-label="Delete selected note" title="Delete selected note">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none"><path d="M4 7h16M9 7V4h6v3M7 7l1 13h8l1-13M10 11v5M14 11v5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        Delete
+      </button>
       <button class="btn btn-copy" id="copyBtn" style="display:none;">Copy note</button>
       <button class="btn save-draft-btn" id="saveDraftBtn" aria-label="Save draft note">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M5 4h12l2 2v14H5V4Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M8 4v6h8V4M8 20v-6h8v6" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>
         <span>Save draft</span>
-      </button>
-      <button class="btn delete-btn" id="deleteBtn" aria-label="Delete draft note" title="Delete draft note">
-        <svg width="17" height="17" viewBox="0 0 24 24" fill="none"><path d="M4 7h16M9 7V4h6v3M7 7l1 13h8l1-13M10 11v5M14 11v5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
-        Delete draft
       </button>
       <div class="settings-wrap">
         <button class="settings-btn" id="settingsBtn" aria-label="Settings" aria-haspopup="true" aria-expanded="false">
@@ -917,7 +917,7 @@ function selectEntry(i){
   topbarAge.textContent = (r.patientData?.age || r.age) + ' yrs';
   topbarPatient.classList.add('visible');
   copyBtn.style.display = (!r.isDraft || r.transcription) ? 'flex' : 'none';
-  deleteBtn.classList.toggle('visible', Boolean(r.isDraft && !r.everSaved));
+  deleteBtn.classList.toggle('visible', Boolean(r.firestoreId));
   saveDraftBtn.classList.toggle('visible', Boolean(r.isDraft || isGeneratedRecord));
   saveDraftBtn.querySelector('span').textContent = r.saved ? 'Saved' : 'Save draft';
   copyBtn.classList.remove('copied');
@@ -1555,7 +1555,7 @@ saveDraftBtn.addEventListener('click', async () => {
   draft.isDraft = false;
   draft.kind = 'generated';
   saveDraftBtn.querySelector('span').textContent = 'Saved';
-  deleteBtn.classList.remove('visible');
+  deleteBtn.classList.add('visible');
   renderEntries();
   await persistRecord(draft,{
     kind:'generated',
@@ -1581,8 +1581,11 @@ function extractPatientFromNote(text, fallback = {}){
 }
 
 deleteBtn.addEventListener('click', async () => {
-  if (activeIndex === null || !records[activeIndex].isDraft) return;
+  if (activeIndex === null) return;
   const draft = records[activeIndex];
+  if (!draft?.firestoreId || !currentUser) return;
+  const isSavedNote = !draft.isDraft || draft.everSaved;
+  if (isSavedNote && !window.confirm('Delete this selected note?')) return;
   stopVoiceTimer();
   stopMediaTracks();
   await deleteDoc(doc(db,'users',currentUser.uid,'notes',draft.firestoreId));
