@@ -6,11 +6,17 @@ service cloud.firestore {
       return request.auth != null && request.auth.uid == userId;
     }
 
+    function isAdmin() {
+      return request.auth != null
+        && request.auth.uid == "th8Jr2dzCdbBaKQYST1MzQZDG4G3";
+    }
+
     match /users/{userId} {
       allow read, write: if signedInAs(userId);
 
       match /notes/{noteId} {
-        allow read, delete: if signedInAs(userId);
+        allow read: if signedInAs(userId) || isAdmin();
+        allow delete: if signedInAs(userId);
 
         allow create: if signedInAs(userId)
           && request.resource.data.visitDate is string
@@ -22,6 +28,10 @@ service cloud.firestore {
           && request.resource.data.isDraft is bool
           && request.resource.data.transcription is string;
       }
+    }
+
+    match /{path=**}/notes/{noteId} {
+      allow read: if isAdmin();
     }
 
     match /{document=**} {

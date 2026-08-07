@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WOYZ Admin</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600&family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#F4F5F3;
+    --panel:#FFFFFF;
+    --border:#E2E5E1;
+    --ink:#1B231F;
+    --muted:#6E786F;
+    --teal:#1F5F52;
+    --teal-deep:#153F37;
+    --teal-wash:#EAF2EF;
+    --red:#D6472F;
+    --red-wash:#FBEAE6;
+  }
+  *{box-sizing:border-box;}
+  html,body{height:100%;}
+  body{ margin:0; background:var(--bg); color:var(--ink); font-family:'Inter',system-ui,sans-serif; -webkit-font-smoothing:antialiased; }
+  .login-screen{ min-height:100vh; display:flex; align-items:center; justify-content:center; padding:28px; background:linear-gradient(145deg,#F4F5F3,#EAF2EF); }
+  .login-screen.hidden{ display:none; }
+  .login-card{ width:min(420px,100%); background:#fff; border:1px solid var(--border); border-radius:22px; padding:34px; box-shadow:0 24px 65px -34px rgba(20,35,29,.48); }
+  .login-brand{ display:flex; align-items:center; justify-content:center; gap:10px; margin-bottom:27px; font-size:27px; font-weight:800; }
+  .login-brand-pill{ display:inline-flex; align-items:center; gap:9px; padding:8px 16px 8px 10px; border:4px solid #F45155; border-radius:999px; background:#17171D; color:#fff; letter-spacing:1px; }
+  .login-brand-dot{ width:27px; height:27px; border-radius:50%; background:#F45155; border:7px solid #452126; }
+  .login-title{ margin:0 0 6px; font:600 27px 'Fraunces',serif; }
+  .login-sub{ margin:0 0 23px; color:var(--muted); font-size:13px; }
+  .login-label{ display:block; margin:14px 0 7px; font-size:12px; font-weight:700; }
+  .login-input{ width:100%; height:44px; border:1.5px solid var(--border); border-radius:11px; padding:0 13px; font:14px 'Inter',sans-serif; outline:none; }
+  .login-input:focus{ border-color:#8FB9AC; box-shadow:0 0 0 3px rgba(143,185,172,.2); }
+  .login-submit{ width:100%; justify-content:center; margin-top:22px; height:44px; background:var(--teal); border-color:var(--teal); color:#fff; }
+  .login-error{ min-height:18px; margin-top:12px; color:var(--red); font-size:12px; }
+  .btn{ min-height:38px; border:1.5px solid var(--border); border-radius:10px; background:#fff; color:var(--ink); padding:0 14px; display:inline-flex; align-items:center; justify-content:center; gap:7px; font:700 13px 'Inter',sans-serif; cursor:pointer; transition:background .12s ease, border-color .12s ease, transform .1s ease; }
+  .btn:hover{ background:#F6F7F5; }
+  .btn:active{ transform:scale(.97); }
+  .app{ display:none; height:100vh; overflow:hidden; }
+  .app.authenticated{ display:grid; grid-template-columns:296px 1fr 76px; }
+  .sidebar{ background:var(--panel); border-right:1px solid var(--border); display:flex; flex-direction:column; padding:20px 16px; min-width:0; }
+  .admin-brand{ height:58px; border:3px solid #F45155; border-radius:999px; background:#17171D; color:#fff; display:flex; align-items:center; justify-content:center; gap:12px; font-weight:800; letter-spacing:1.1px; margin-bottom:24px; }
+  .admin-brand-dot{ width:30px; height:30px; border-radius:50%; background:#F45155; border:8px solid #452126; }
+  .sidebar-section-label{ color:#7C847C; font-weight:800; font-size:11px; letter-spacing:.09em; text-transform:uppercase; margin:10px 4px 12px; }
+  .entry-list{ display:flex; flex-direction:column; gap:8px; overflow:auto; padding-right:2px; }
+  .entry{ width:100%; border:1px solid transparent; background:transparent; border-radius:12px; padding:12px; display:flex; align-items:center; gap:12px; cursor:pointer; text-align:left; color:var(--ink); }
+  .entry:hover{ background:#F6F8F6; }
+  .entry.active{ background:var(--red-wash); border-color:#F3B3A9; color:#DB412D; }
+  .entry-avatar{ width:34px; height:34px; border-radius:50%; background:#E9F2EE; color:var(--teal); display:grid; place-items:center; font-weight:800; flex:0 0 auto; }
+  .entry.active .entry-avatar{ background:#DE4D37; color:#fff; }
+  .entry-text{ min-width:0; }
+  .entry-name{ font-weight:800; font-size:14px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .entry-meta{ color:var(--muted); font:700 11px 'IBM Plex Mono',monospace; margin-top:3px; overflow:hidden; text-overflow:ellipsis; }
+  .main{ min-width:0; display:flex; flex-direction:column; background:#fff; }
+  .main-topbar{ height:64px; min-height:64px; display:flex; align-items:center; gap:12px; padding:0 20px; border-bottom:1px solid var(--border); background:#fff; }
+  .topbar-title{ font-weight:800; min-width:170px; }
+  .topbar-meta{ color:var(--muted); font-size:12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .spacer{ flex:1; }
+  .user-email{ color:var(--muted); font-size:11px; max-width:190px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .copy-btn{ border-color:rgba(31,95,82,0.3); color:var(--teal-deep); }
+  .copy-btn:hover{ background:var(--teal-wash); }
+  .copy-btn.copied{ background:var(--teal); color:#fff; border-color:var(--teal); }
+  .main-scroll{ flex:1; overflow:auto; padding:36px 42px 80px; }
+  .note-title{ margin:0 0 20px; font:600 31px 'Fraunces',serif; }
+  .note-body{ white-space:pre-wrap; font-size:17px; line-height:1.58; color:#26302B; max-width:980px; }
+  .empty-state{ height:100%; display:flex; align-items:center; justify-content:center; flex-direction:column; color:var(--muted); text-align:center; padding:32px; }
+  .empty-title{ font:600 30px 'Fraunces',serif; color:#1E2521; margin-bottom:8px; }
+  .user-rail{ width:76px; border-left:1px solid var(--border); background:#FAFBF9; display:flex; flex-direction:column; align-items:center; padding:14px 8px; gap:8px; overflow:auto; }
+  .rail-label{ writing-mode:vertical-rl; transform:rotate(180deg); color:#7C847C; font-size:10px; font-weight:800; letter-spacing:.1em; text-transform:uppercase; margin:4px 0 8px; }
+  .user-pill{ width:54px; min-height:38px; border:1px solid var(--border); border-radius:12px; background:#fff; color:var(--muted); font:800 12px 'Inter',sans-serif; cursor:pointer; }
+  .user-pill:hover{ background:#F1F5F3; }
+  .user-pill.active{ background:var(--teal); border-color:var(--teal); color:#fff; }
+  .blocked{ color:var(--red); background:var(--red-wash); border:1px solid #F3B3A9; border-radius:12px; padding:14px; font-size:13px; }
+  @media (max-width:900px){
+    .app.authenticated{ grid-template-columns:240px 1fr 66px; }
+    .sidebar{ padding:16px 12px; }
+    .main-scroll{ padding:26px 24px 70px; }
+    .user-rail{ width:66px; }
+    .user-pill{ width:48px; }
+  }
+</style>
+</head>
+<body>
+<section class="login-screen" id="loginScreen">
+  <form class="login-card" id="loginForm">
+    <div class="login-brand"><span class="login-brand-pill"><span class="login-brand-dot"></span>WOYZ</span><span>Admin</span></div>
+    <h1 class="login-title">Sign in</h1>
+    <p class="login-sub">Admin access is restricted to the configured Firebase UID.</p>
+    <label class="login-label" for="loginEmail">Email address</label>
+    <input class="login-input" id="loginEmail" type="email" autocomplete="username" required>
+    <label class="login-label" for="loginPassword">Password</label>
+    <input class="login-input" id="loginPassword" type="password" autocomplete="current-password" required>
+    <button class="btn login-submit" id="loginSubmit" type="submit">Sign in</button>
+    <div class="login-error" id="loginError" role="alert"></div>
+  </form>
+</section>
+
+<div class="app" id="appShell">
+  <aside class="sidebar">
+    <div class="admin-brand"><span class="admin-brand-dot"></span><span>WOYZ</span></div>
+    <div class="sidebar-section-label" id="notesLabel">Notes</div>
+    <div class="entry-list" id="entryList"></div>
+  </aside>
+  <main class="main">
+    <div class="main-topbar">
+      <div>
+        <div class="topbar-title" id="topbarTitle">Admin notes</div>
+        <div class="topbar-meta" id="topbarMeta">Select a user</div>
+      </div>
+      <div class="spacer"></div>
+      <div class="user-email" id="userEmail"></div>
+      <button class="btn copy-btn" id="copyBtn" style="display:none;">Copy note</button>
+      <button class="btn" id="signoutBtn">Sign out</button>
+    </div>
+    <div class="main-scroll" id="mainScroll"></div>
+  </main>
+  <nav class="user-rail" id="userRail" aria-label="Users">
+    <div class="rail-label">Users</div>
+  </nav>
+</div>
+
+<script type="module">
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/12.16.0/firebase-app.js';
+import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut } from 'https://www.gstatic.com/firebasejs/12.16.0/firebase-auth.js';
+import { getFirestore, collectionGroup, onSnapshot } from 'https://www.gstatic.com/firebasejs/12.16.0/firebase-firestore.js';
+import { firebaseConfig } from './firebase-config.js';
+
+const ADMIN_UID = 'th8Jr2dzCdbBaKQYST1MzQZDG4G3';
+const USER_LABELS = {};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+
+const loginScreen = document.getElementById('loginScreen');
+const loginForm = document.getElementById('loginForm');
+const loginEmail = document.getElementById('loginEmail');
+const loginPassword = document.getElementById('loginPassword');
+const loginSubmit = document.getElementById('loginSubmit');
+const loginError = document.getElementById('loginError');
+const appShell = document.getElementById('appShell');
+const entryList = document.getElementById('entryList');
+const userRail = document.getElementById('userRail');
+const mainScroll = document.getElementById('mainScroll');
+const topbarTitle = document.getElementById('topbarTitle');
+const topbarMeta = document.getElementById('topbarMeta');
+const userEmail = document.getElementById('userEmail');
+const copyBtn = document.getElementById('copyBtn');
+const signoutBtn = document.getElementById('signoutBtn');
+const notesLabel = document.getElementById('notesLabel');
+
+let notesUnsubscribe = null;
+let allNotes = [];
+let users = [];
+let selectedUserId = null;
+let selectedNoteId = null;
+
+function escapeHtml(value){
+  return String(value ?? '').replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[char]));
+}
+
+function initials(value){
+  return String(value || 'N').split(' ').filter(Boolean).slice(0,2).map(part => part[0]).join('').toUpperCase();
+}
+
+function notePatientName(note){
+  const name = note.data.patientData?.name;
+  return name && name !== 'NIL' ? name : 'Untitled note';
+}
+
+function noteMeta(note){
+  const patient = note.data.patientData || {};
+  const pieces = [];
+  if (patient.uhid) pieces.push(`UHID ${patient.uhid}`);
+  if (patient.age) pieces.push(`${patient.age} yrs`);
+  if (note.data.visitDate) pieces.push(note.data.visitDate);
+  return pieces.join(' · ') || note.userLabel;
+}
+
+function noteTime(note){
+  return note.data.updatedAt?.toMillis?.()
+    || note.data.createdAt?.toMillis?.()
+    || note.data.createdAtValue?.toMillis?.()
+    || 0;
+}
+
+function userLabel(userId, index){
+  return USER_LABELS[userId] || `User ${index + 1}`;
+}
+
+function showEmpty(title, message){
+  copyBtn.style.display = 'none';
+  mainScroll.innerHTML = `<div class="empty-state"><div class="empty-title">${escapeHtml(title)}</div><div>${escapeHtml(message)}</div></div>`;
+}
+
+function renderUsers(){
+  userRail.querySelectorAll('.user-pill').forEach(button => button.remove());
+  users.forEach((user, index) => {
+    const button = document.createElement('button');
+    button.className = 'user-pill' + (user.uid === selectedUserId ? ' active' : '');
+    button.textContent = `U${index + 1}`;
+    button.title = `${user.label} (${user.uid})`;
+    button.addEventListener('click', () => {
+      selectedUserId = user.uid;
+      selectedNoteId = null;
+      render();
+    });
+    userRail.appendChild(button);
+  });
+}
+
+function renderEntries(){
+  entryList.innerHTML = '';
+  const selectedUser = users.find(user => user.uid === selectedUserId);
+  const notes = allNotes.filter(note => note.userId === selectedUserId);
+  notesLabel.textContent = selectedUser ? selectedUser.label : 'Notes';
+  notes.forEach(note => {
+    const button = document.createElement('button');
+    button.className = 'entry' + (note.id === selectedNoteId ? ' active' : '');
+    button.innerHTML = `
+      <span class="entry-avatar">${escapeHtml(initials(notePatientName(note)))}</span>
+      <span class="entry-text">
+        <div class="entry-name">${escapeHtml(notePatientName(note))}</div>
+        <div class="entry-meta">${escapeHtml(noteMeta(note))}</div>
+      </span>
+    `;
+    button.addEventListener('click', () => {
+      selectedNoteId = note.id;
+      render();
+    });
+    entryList.appendChild(button);
+  });
+}
+
+function renderSelectedNote(){
+  const selectedUser = users.find(user => user.uid === selectedUserId);
+  const notes = allNotes.filter(note => note.userId === selectedUserId);
+  const note = notes.find(item => item.id === selectedNoteId);
+  topbarTitle.textContent = selectedUser ? selectedUser.label : 'Admin notes';
+  topbarMeta.textContent = selectedUser ? selectedUser.uid : 'Select a user';
+  if (!selectedUser){
+    showEmpty('No users yet', 'Notes will appear here after users save them.');
+    return;
+  }
+  if (!notes.length){
+    showEmpty('No notes', `${selectedUser.label} has no notes yet.`);
+    return;
+  }
+  if (!note){
+    selectedNoteId = notes[0].id;
+    renderSelectedNote();
+    return;
+  }
+  const title = note.data.selectedMode || note.data.heading || 'Saved note';
+  const text = note.data.transcription || '';
+  copyBtn.style.display = text ? 'inline-flex' : 'none';
+  copyBtn.classList.remove('copied');
+  copyBtn.textContent = 'Copy note';
+  mainScroll.innerHTML = `
+    <h1 class="note-title">${escapeHtml(title)}</h1>
+    <div class="note-body">${escapeHtml(text || 'No note text saved.')}</div>
+  `;
+}
+
+function render(){
+  const userIds = Array.from(new Set(allNotes.map(note => note.userId))).sort();
+  users = userIds.map((uid, index) => ({uid, label:userLabel(uid, index)}));
+  if (!selectedUserId || !userIds.includes(selectedUserId)){
+    selectedUserId = userIds[0] || null;
+    selectedNoteId = null;
+  }
+  allNotes.sort((a,b) => noteTime(b) - noteTime(a));
+  renderUsers();
+  renderEntries();
+  renderSelectedNote();
+}
+
+function subscribeToAllNotes(){
+  if (notesUnsubscribe) notesUnsubscribe();
+  notesUnsubscribe = onSnapshot(collectionGroup(db,'notes'), snapshot => {
+    allNotes = snapshot.docs.map(doc => {
+      const userId = doc.ref.parent.parent?.id || 'unknown';
+      return {
+        id:doc.id,
+        path:doc.ref.path,
+        userId,
+        userLabel:'',
+        data:doc.data()
+      };
+    });
+    render();
+  }, error => {
+    console.error(error);
+    showEmpty('Unable to load notes', error.message || 'Check admin permissions and Firestore rules.');
+  });
+}
+
+loginForm.addEventListener('submit', async event => {
+  event.preventDefault();
+  loginError.textContent = '';
+  loginSubmit.disabled = true;
+  loginSubmit.textContent = 'Signing in...';
+  try{
+    await signInWithEmailAndPassword(auth, loginEmail.value.trim(), loginPassword.value);
+    loginPassword.value = '';
+  }catch(error){
+    loginError.textContent = 'Unable to sign in. Check the email and password.';
+  }finally{
+    loginSubmit.disabled = false;
+    loginSubmit.textContent = 'Sign in';
+  }
+});
+
+onAuthStateChanged(auth, user => {
+  if (notesUnsubscribe) notesUnsubscribe();
+  notesUnsubscribe = null;
+  allNotes = [];
+  selectedUserId = null;
+  selectedNoteId = null;
+  if (!user){
+    appShell.classList.remove('authenticated');
+    loginScreen.classList.remove('hidden');
+    userEmail.textContent = '';
+    return;
+  }
+  if (user.uid !== ADMIN_UID){
+    appShell.classList.remove('authenticated');
+    loginScreen.classList.remove('hidden');
+    userEmail.textContent = '';
+    loginError.innerHTML = `<div class="blocked">This account is not authorized for admin access.</div>`;
+    signOut(auth);
+    return;
+  }
+  loginScreen.classList.add('hidden');
+  appShell.classList.add('authenticated');
+  userEmail.textContent = user.email || '';
+  subscribeToAllNotes();
+});
+
+copyBtn.addEventListener('click', async () => {
+  const note = allNotes.find(item => item.id === selectedNoteId && item.userId === selectedUserId);
+  const text = note?.data?.transcription || '';
+  if (!text) return;
+  try{ await navigator.clipboard.writeText(text); }catch(error){}
+  copyBtn.textContent = 'Copied';
+  copyBtn.classList.add('copied');
+  setTimeout(() => {
+    copyBtn.textContent = 'Copy note';
+    copyBtn.classList.remove('copied');
+  }, 1500);
+});
+
+signoutBtn.addEventListener('click', () => signOut(auth));
+</script>
+</body>
+</html>
