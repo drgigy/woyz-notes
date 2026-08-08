@@ -180,7 +180,9 @@
   .generated-note-card{ min-height:100%; background:#fff; padding:34px 38px; display:flex; flex-direction:column; }
   .generated-note-head{ display:flex; align-items:flex-start; justify-content:space-between; gap:18px; margin-bottom:18px; }
   .generated-note-title{ margin:0; font:600 27px 'Fraunces',serif; }
-  .note-editor{ width:100%; min-height:calc(100vh - 190px); overflow:hidden; resize:none; border:0; background:#fff; padding:0; color:var(--ink); font:15px/1.7 'Inter',sans-serif; outline:none; }
+  .note-editor{ width:100%; min-height:calc(100vh - 190px); overflow:hidden; resize:none; border:0; background:#fff; padding:0; color:var(--ink); font:15px/1.55 'Inter',sans-serif; outline:none; white-space:pre-wrap; }
+  .note-editor p{ margin:0 0 10px; }
+  .note-editor strong{ font-weight:800; color:#1E2521; }
 
   .processing-wrap{ width:100%; min-height:100%; display:flex; align-items:center; justify-content:center; padding:44px; }
   .processing-content{ width:min(620px,92%); text-align:center; }
@@ -191,7 +193,9 @@
 
   .date-nav{ display:flex; align-items:center; gap:7px; flex-shrink:0; }
   .visit-toggle{ height:38px; display:flex; align-items:center; gap:4px; padding:4px; border:1px solid #D8E1E7; border-radius:10px; background:#fff; flex-shrink:0; }
+  .sidebar .visit-toggle{ height:44px; margin:16px 4px 0; justify-content:center; }
   .visit-toggle-btn{ height:28px; min-width:38px; border:0; border-radius:7px; background:transparent; color:var(--muted); font:800 12px 'Inter',sans-serif; cursor:pointer; }
+  .sidebar .visit-toggle-btn{ height:34px; flex:1; font-size:13px; }
   .visit-toggle-btn.active{ background:var(--teal); color:#fff; }
   .date-step,.date-today{ height:38px; border:1px solid var(--border); border-radius:10px; background:#EEF3F7; color:#263444; cursor:pointer; font-weight:800; }
   .date-step{ width:38px; font-size:23px; line-height:1; }
@@ -525,6 +529,10 @@
         </span>
       </button>
     </div>
+    <div class="visit-toggle" id="visitToggle" aria-label="Visit type">
+      <button class="visit-toggle-btn active" data-visit-type="OP">OP</button>
+      <button class="visit-toggle-btn" data-visit-type="IP">IP</button>
+    </div>
 
     <div class="sidebar-section-label">Records</div>
     <div class="entry-list" id="entryList"></div>
@@ -539,10 +547,6 @@
         <span class="topbar-patient-age" id="topbarAge"></span>
       </div>
       <div class="user-email" id="userEmail"></div>
-      <div class="visit-toggle" id="visitToggle" aria-label="Visit type">
-        <button class="visit-toggle-btn active" data-visit-type="OP">OP</button>
-        <button class="visit-toggle-btn" data-visit-type="IP">IP</button>
-      </div>
       <div class="date-nav" id="dateNav" aria-label="Visit date navigation">
         <button class="date-step" id="previousDateBtn" aria-label="Previous day">&lsaquo;</button>
         <input class="date-input" id="visitDateInput" type="date" aria-label="Visit date">
@@ -814,12 +818,16 @@ function noteFromSnapshot(snapshot){
     isDraft:data.isDraft === true,
     transcription:data.transcription || '',
     patientData:data.patientData || {name:'NIL',age:'NIL',uhid:'NIL'},
-    visitType:data.visitType === 'IP' ? 'IP' : 'OP'
+    visitType:data.visitType === 'IP' || data.visitType === 'OP' ? data.visitType : null
   };
 }
 
 function noteVisitType(note){
   return note?.visitType === 'IP' ? 'IP' : 'OP';
+}
+
+function noteMatchesSelectedVisitType(note){
+  return !note?.visitType || note.visitType === selectedVisitType;
 }
 
 function updateVisitToggle(){
@@ -835,7 +843,7 @@ function subscribeToSelectedDate(){
   const notesQuery = query(userNotesCollection(),where('visitDate','==',selectedDate));
   notesUnsubscribe = onSnapshot(notesQuery,snapshot => {
     const previousId = activeIndex !== null ? records[activeIndex]?.firestoreId : null;
-    records = snapshot.docs.map(noteFromSnapshot).filter(record => noteVisitType(record) === selectedVisitType).sort((a,b) => {
+    records = snapshot.docs.map(noteFromSnapshot).filter(noteMatchesSelectedVisitType).sort((a,b) => {
       const aTime = a.createdAtValue?.toMillis?.() || 0;
       const bTime = b.createdAtValue?.toMillis?.() || 0;
       return bTime - aTime;
@@ -892,7 +900,7 @@ onAuthStateChanged(auth,user => {
     appShell.classList.add('authenticated');
     userEmail.textContent = '';
     userProfileUnsubscribe = onSnapshot(doc(db,'users',user.uid), snapshot => {
-      userEmail.textContent = snapshot.data()?.credentialName || '';
+      userEmail.textContent = displayCredentialName(snapshot.data()?.credentialName) || '';
     }, error => {
       userEmail.textContent = '';
     });
@@ -1061,6 +1069,37 @@ function escapeHtml(value){
   return String(value).replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[char]));
 }
 
+function compactNoteText(text){
+  return String(text || '')
+    .replace(/\r\n/g, '\n')
+    .split(/\n{2,}/)
+    .map(block => {
+      const lines = block.split('\n').map(line => line.trim()).filter(Boolean);
+      if (!lines.length) return '';
+      if (lines.length > 1 && /:$/.test(lines[0])) return `${lines[0]} ${lines.slice(1).join(' ')}`;
+      return lines.join('\n');
+    })
+    .filter(Boolean)
+    .join('\n\n');
+}
+
+function richNoteHtml(text){
+  return compactNoteText(text).split(/\n{2,}/).map(block => {
+    const escaped = escapeHtml(block).replace(/\n/g, '<br>');
+    return `<p>${escaped.replace(/^([^:<\n]{2,90}:)/, '<strong>$1</strong>')}</p>`;
+  }).join('');
+}
+
+function editorPlainText(editor){
+  return editor?.value ?? editor?.innerText ?? '';
+}
+
+function displayCredentialName(value){
+  const name = String(value || '').trim();
+  if (/^[A-Z]{1,3}$/.test(name)) return 'Dr Gigy';
+  return name;
+}
+
 function resizeNoteEditor(editor){
   if (!editor) return;
   editor.style.height = 'auto';
@@ -1100,13 +1139,13 @@ function renderGeneratedNote(draft){
             <h1 class="generated-note-title">${escapeHtml(title)}</h1>
           </div>
         </div>
-        <textarea class="note-editor" id="generatedNoteEditor" aria-label="Editable generated note">${escapeHtml(draft.transcription)}</textarea>
+        <div class="note-editor" id="generatedNoteEditor" contenteditable="true" role="textbox" aria-label="Editable generated note">${richNoteHtml(draft.transcription)}</div>
       </section>
     </div>`;
   const editor = document.getElementById('generatedNoteEditor');
   resizeNoteEditor(editor);
   editor.addEventListener('input', () => {
-    draft.transcription = editor.value;
+    draft.transcription = editorPlainText(editor);
     draft.saved = false;
     saveDraftBtn.querySelector('span').textContent = 'Save note';
     resizeNoteEditor(editor);
@@ -1570,7 +1609,7 @@ copyBtn.addEventListener('click', async () => {
   if (activeIndex === null) return;
   const activeRecord = records[activeIndex];
   const editor = document.getElementById('generatedNoteEditor');
-  const rawText = editor?.value || activeRecord.transcription || (activeRecord.isDraft ? '' : noteText(activeRecord));
+  const rawText = editorPlainText(editor) || activeRecord.transcription || (activeRecord.isDraft ? '' : noteText(activeRecord));
   const text = removeNilSectionsForCopy(rawText);
   try{
     await navigator.clipboard.writeText(text);
@@ -1660,7 +1699,7 @@ credentialSaveBtn.addEventListener('click', async () => {
       credentialName,
       credentialUpdatedAt:serverTimestamp()
     },{merge:true});
-    userEmail.textContent = credentialName;
+    userEmail.textContent = displayCredentialName(credentialName);
     credentialSaveBtn.textContent = 'Saved';
     setTimeout(() => {
       credentialSaveBtn.textContent = 'Save name';
@@ -1677,7 +1716,7 @@ saveDraftBtn.addEventListener('click', async () => {
   if (activeIndex === null || !records[activeIndex]) return;
   const draft = records[activeIndex];
   const editor = document.getElementById('generatedNoteEditor');
-  if (editor) draft.transcription = editor.value;
+  if (editor) draft.transcription = editorPlainText(editor);
   draft.patientData = extractPatientFromNote(draft.transcription, draft.patientData);
   draft.saved = true;
   draft.everSaved = true;

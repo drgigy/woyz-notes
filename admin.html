@@ -46,6 +46,8 @@
   .admin-brand-dot{ width:30px; height:30px; border-radius:50%; background:#F45155; border:8px solid #452126; }
   .admin-brand-word{ font-size:24px; font-weight:800; color:var(--ink); letter-spacing:0; }
   .sidebar-section-label{ color:#7C847C; font-weight:800; font-size:11px; letter-spacing:.09em; text-transform:uppercase; margin:10px 4px 12px; }
+  .sidebar .visit-toggle{ height:44px; margin:0 4px 16px; justify-content:center; }
+  .sidebar .visit-toggle-btn{ height:34px; flex:1; font-size:13px; }
   .entry-list{ display:flex; flex-direction:column; gap:8px; overflow:auto; padding-right:2px; }
   .entry{ width:100%; border:1px solid transparent; background:transparent; border-radius:12px; padding:12px; display:flex; align-items:center; gap:12px; cursor:pointer; text-align:left; color:var(--ink); }
   .entry:hover{ background:#F6F8F6; }
@@ -71,7 +73,9 @@
   .copy-btn.copied{ background:var(--teal); color:#fff; border-color:var(--teal); }
   .main-scroll{ flex:1; min-height:0; overflow-y:auto; padding:36px 42px 80px; }
   .note-title{ margin:0 0 20px; font:600 31px 'Fraunces',serif; }
-  .note-editor{ width:100%; min-height:calc(100vh - 190px); border:0; outline:none; resize:vertical; background:#fff; color:#26302B; font:17px/1.58 'Inter',system-ui,sans-serif; padding:0; }
+  .note-editor{ width:100%; min-height:calc(100vh - 190px); border:0; outline:none; resize:vertical; background:#fff; color:#26302B; font:16px/1.55 'Inter',system-ui,sans-serif; padding:0; white-space:pre-wrap; }
+  .note-editor p{ margin:0 0 10px; }
+  .note-editor strong{ font-weight:800; color:#1E2521; }
   .empty-state{ height:100%; display:flex; align-items:center; justify-content:center; flex-direction:column; color:var(--muted); text-align:center; padding:32px; }
   .empty-title{ font:600 30px 'Fraunces',serif; color:#1E2521; margin-bottom:8px; }
   .user-rail{ width:76px; border-left:1px solid var(--border); background:#FAFBF9; display:flex; flex-direction:column; align-items:center; padding:14px 8px; gap:8px; overflow:auto; }
@@ -109,6 +113,10 @@
 <div class="app" id="appShell">
   <aside class="sidebar">
     <div class="admin-brand"><span class="admin-brand-pill"><span class="admin-brand-dot"></span><span>WOYZ</span></span><span class="admin-brand-word">Notes</span></div>
+    <div class="visit-toggle" id="adminVisitToggle" aria-label="Visit type">
+      <button class="visit-toggle-btn active" data-admin-visit-type="OP">OP</button>
+      <button class="visit-toggle-btn" data-admin-visit-type="IP">IP</button>
+    </div>
     <div class="sidebar-section-label" id="notesLabel">Notes</div>
     <div class="entry-list" id="entryList"></div>
   </aside>
@@ -120,10 +128,6 @@
       </div>
       <div class="spacer"></div>
       <div class="user-email" id="userEmail"></div>
-      <div class="visit-toggle" id="adminVisitToggle" aria-label="Visit type">
-        <button class="visit-toggle-btn active" data-admin-visit-type="OP">OP</button>
-        <button class="visit-toggle-btn" data-admin-visit-type="IP">IP</button>
-      </div>
       <button class="btn copy-btn" id="saveNoteBtn" style="display:none;">Save</button>
       <button class="btn copy-btn" id="copyBtn" style="display:none;">Copy note</button>
       <button class="btn" id="signoutBtn">Sign out</button>
@@ -179,6 +183,31 @@ function escapeHtml(value){
   return String(value ?? '').replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[char]));
 }
 
+function compactNoteText(text){
+  return String(text || '')
+    .replace(/\r\n/g, '\n')
+    .split(/\n{2,}/)
+    .map(block => {
+      const lines = block.split('\n').map(line => line.trim()).filter(Boolean);
+      if (!lines.length) return '';
+      if (lines.length > 1 && /:$/.test(lines[0])) return `${lines[0]} ${lines.slice(1).join(' ')}`;
+      return lines.join('\n');
+    })
+    .filter(Boolean)
+    .join('\n\n');
+}
+
+function richNoteHtml(text){
+  return compactNoteText(text).split(/\n{2,}/).map(block => {
+    const escaped = escapeHtml(block).replace(/\n/g, '<br>');
+    return `<p>${escaped.replace(/^([^:<\n]{2,90}:)/, '<strong>$1</strong>')}</p>`;
+  }).join('');
+}
+
+function editorPlainText(editor){
+  return editor?.value ?? editor?.innerText ?? '';
+}
+
 function initials(value){
   return String(value || 'N').split(' ').filter(Boolean).slice(0,2).map(part => part[0]).join('').toUpperCase();
 }
@@ -232,7 +261,7 @@ function noteVisitType(note){
 }
 
 function visibleNotes(){
-  return allNotes.filter(note => noteVisitType(note) === selectedVisitType);
+  return allNotes.filter(note => !note.data?.visitType || note.data.visitType === selectedVisitType);
 }
 
 function updateVisitToggle(){
@@ -351,7 +380,7 @@ function renderSelectedNote(){
   copyBtn.textContent = 'Copy note';
   mainScroll.innerHTML = `
     <h1 class="note-title">${escapeHtml(title)}</h1>
-    <textarea class="note-editor" id="adminNoteEditor" aria-label="Editable admin note">${escapeHtml(text)}</textarea>
+    <div class="note-editor" id="adminNoteEditor" contenteditable="true" role="textbox" aria-label="Editable admin note">${richNoteHtml(text)}</div>
   `;
 }
 
@@ -459,7 +488,7 @@ updateVisitToggle();
 copyBtn.addEventListener('click', async () => {
   const note = allNotes.find(item => item.id === selectedNoteId && item.userId === selectedUserId);
   const editor = document.getElementById('adminNoteEditor');
-  const text = removeNilSectionsForCopy(editor?.value || note?.data?.transcription || '');
+  const text = removeNilSectionsForCopy(editorPlainText(editor) || note?.data?.transcription || '');
   if (!text) return;
   try{ await navigator.clipboard.writeText(text); }catch(error){}
   try{
@@ -486,7 +515,7 @@ saveNoteBtn.addEventListener('click', async () => {
   saveNoteBtn.textContent = 'Saving...';
   try{
     await updateDoc(doc(db,note.path),{
-      transcription:editor.value,
+      transcription:editorPlainText(editor),
       adminEditedAt:serverTimestamp(),
       adminEditedBy:ADMIN_UID
     });
