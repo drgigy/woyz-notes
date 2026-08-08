@@ -70,11 +70,11 @@
     border-radius:999px;
     background:#17171D;
     color:#fff;
-    padding:10px 14px;
+    padding:10px 10px;
     display:flex;
     align-items:center;
     justify-content:center;
-    gap:14px;
+    gap:8px;
     cursor:pointer;
     box-shadow:0 7px 18px -8px rgba(18,18,24,.5);
     transition:transform .15s ease, box-shadow .15s ease;
@@ -86,10 +86,10 @@
   .record-btn.is-recording{ background:#24171B; }
 
   .record-dot{
-    width:30px;height:30px;border-radius:50%;
+    width:28px;height:28px;border-radius:50%;
     background:#F45155;
     flex-shrink:0;
-    border:8px solid #452126;
+    border:7px solid #452126;
     box-shadow:none;
     animation:pulse 1.8s ease-out infinite;
   }
@@ -101,9 +101,9 @@
   .record-label{ text-align:left; }
   .record-title{
     font-family:'Inter',system-ui,sans-serif;
-    font-size:24px;
+    font-size:20px;
     font-weight:800;
-    letter-spacing:1.2px;
+    letter-spacing:0.8px;
     line-height:1.1;
   }
   .record-sub{
@@ -827,7 +827,7 @@ function noteVisitType(note){
 }
 
 function noteMatchesSelectedVisitType(note){
-  return !note?.visitType || note.visitType === selectedVisitType;
+  return noteVisitType(note) === selectedVisitType;
 }
 
 function updateVisitToggle(){

@@ -261,7 +261,7 @@ function noteVisitType(note){
 }
 
 function visibleNotes(){
-  return allNotes.filter(note => !note.data?.visitType || note.data.visitType === selectedVisitType);
+  return allNotes.filter(note => noteVisitType(note) === selectedVisitType);
 }
 
 function updateVisitToggle(){
