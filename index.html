@@ -766,6 +766,7 @@ let currentUser = null;
 let notesUnsubscribe = null;
 let userProfileUnsubscribe = null;
 let pendingSelectId = null;
+let latestDateLookupInProgress = false;
 
 const MANUAL_NOTE_TEMPLATE = `Patient Name: 
 Age: 
@@ -830,6 +831,17 @@ function noteMatchesSelectedVisitType(note){
   return noteVisitType(note) === selectedVisitType;
 }
 
+async function latestVisitDateForSelectedType(){
+  const snapshot = await getDocs(userNotesCollection());
+  return snapshot.docs
+    .map(noteFromSnapshot)
+    .filter(noteMatchesSelectedVisitType)
+    .map(note => note.visitDate)
+    .filter(Boolean)
+    .sort()
+    .pop() || null;
+}
+
 function updateVisitToggle(){
   visitToggle.querySelectorAll('[data-visit-type]').forEach(button => {
     button.classList.toggle('active', button.dataset.visitType === selectedVisitType);
@@ -841,7 +853,7 @@ function subscribeToSelectedDate(){
   if (notesUnsubscribe) notesUnsubscribe();
   const selectedDate = dateInputValue(selectedVisitDate);
   const notesQuery = query(userNotesCollection(),where('visitDate','==',selectedDate));
-  notesUnsubscribe = onSnapshot(notesQuery,snapshot => {
+  notesUnsubscribe = onSnapshot(notesQuery,async snapshot => {
     const previousId = activeIndex !== null ? records[activeIndex]?.firestoreId : null;
     records = snapshot.docs.map(noteFromSnapshot).filter(noteMatchesSelectedVisitType).sort((a,b) => {
       const aTime = a.createdAtValue?.toMillis?.() || 0;
@@ -854,7 +866,22 @@ function subscribeToSelectedDate(){
     pendingSelectId = null;
     if (targetIndex >= 0) selectEntry(targetIndex);
     else if (records.length) selectEntry(0);
-    else showEmptyDate(`No ${selectedVisitType} notes saved for this date.`);
+    else if (!latestDateLookupInProgress){
+      latestDateLookupInProgress = true;
+      try{
+        const latestDate = await latestVisitDateForSelectedType();
+        if (latestDate && latestDate !== selectedDate){
+          const [year,month,day] = latestDate.split('-').map(Number);
+          selectedVisitDate = new Date(year,month-1,day);
+          updateDateNavigation();
+          subscribeToSelectedDate();
+          return;
+        }
+      }finally{
+        latestDateLookupInProgress = false;
+      }
+      showEmptyDate(`No ${selectedVisitType} notes saved for this date.`);
+    }else showEmptyDate(`No ${selectedVisitType} notes saved for this date.`);
   }, error => {
     console.error('Unable to load notes:',error);
     showEmptyDate('Unable to load notes for this date.');
