@@ -66,11 +66,11 @@
   .record-btn{
     width:100%;
     min-width:0;
-    border:3px solid #F45155;
+    border:4px solid #F45155;
     border-radius:999px;
     background:#17171D;
     color:#fff;
-    padding:13px 16px;
+    padding:10px 14px;
     display:flex;
     align-items:center;
     justify-content:center;
@@ -101,7 +101,7 @@
   .record-label{ text-align:left; }
   .record-title{
     font-family:'Inter',system-ui,sans-serif;
-    font-size:22px;
+    font-size:24px;
     font-weight:800;
     letter-spacing:1.2px;
     line-height:1.1;
@@ -190,6 +190,9 @@
   .processing-status{ margin-top:13px; color:var(--muted); font-size:13px; font-weight:600; }
 
   .date-nav{ display:flex; align-items:center; gap:7px; flex-shrink:0; }
+  .visit-toggle{ height:38px; display:flex; align-items:center; gap:4px; padding:4px; border:1px solid #D8E1E7; border-radius:10px; background:#fff; flex-shrink:0; }
+  .visit-toggle-btn{ height:28px; min-width:38px; border:0; border-radius:7px; background:transparent; color:var(--muted); font:800 12px 'Inter',sans-serif; cursor:pointer; }
+  .visit-toggle-btn.active{ background:var(--teal); color:#fff; }
   .date-step,.date-today{ height:38px; border:1px solid var(--border); border-radius:10px; background:#EEF3F7; color:#263444; cursor:pointer; font-weight:800; }
   .date-step{ width:38px; font-size:23px; line-height:1; }
   .date-today{ padding:0 13px; background:var(--teal); border-color:var(--teal-deep); color:#fff; font-size:13px; box-shadow:0 4px 10px -6px var(--teal-deep); }
@@ -536,6 +539,10 @@
         <span class="topbar-patient-age" id="topbarAge"></span>
       </div>
       <div class="user-email" id="userEmail"></div>
+      <div class="visit-toggle" id="visitToggle" aria-label="Visit type">
+        <button class="visit-toggle-btn active" data-visit-type="OP">OP</button>
+        <button class="visit-toggle-btn" data-visit-type="IP">IP</button>
+      </div>
       <div class="date-nav" id="dateNav" aria-label="Visit date navigation">
         <button class="date-step" id="previousDateBtn" aria-label="Previous day">&lsaquo;</button>
         <input class="date-input" id="visitDateInput" type="date" aria-label="Visit date">
@@ -709,6 +716,7 @@ const credentialSaveBtn = document.getElementById('credentialSaveBtn');
 const previousDateBtn = document.getElementById('previousDateBtn');
 const nextDateBtn = document.getElementById('nextDateBtn');
 const visitDateInput = document.getElementById('visitDateInput');
+const visitToggle = document.getElementById('visitToggle');
 const todayBtn = document.getElementById('todayBtn');
 const addNoteBtn = document.getElementById('addNoteBtn');
 const appShell = document.getElementById('appShell');
@@ -749,6 +757,7 @@ let analyserNode = null;
 let waveformFrame = null;
 let processingInterval = null;
 let selectedVisitDate = new Date();
+let selectedVisitType = 'OP';
 let currentUser = null;
 let notesUnsubscribe = null;
 let userProfileUnsubscribe = null;
@@ -804,8 +813,19 @@ function noteFromSnapshot(snapshot){
     createdAt:data.createdAtLabel || '',
     isDraft:data.isDraft === true,
     transcription:data.transcription || '',
-    patientData:data.patientData || {name:'NIL',age:'NIL',uhid:'NIL'}
+    patientData:data.patientData || {name:'NIL',age:'NIL',uhid:'NIL'},
+    visitType:data.visitType === 'IP' ? 'IP' : 'OP'
   };
+}
+
+function noteVisitType(note){
+  return note?.visitType === 'IP' ? 'IP' : 'OP';
+}
+
+function updateVisitToggle(){
+  visitToggle.querySelectorAll('[data-visit-type]').forEach(button => {
+    button.classList.toggle('active', button.dataset.visitType === selectedVisitType);
+  });
 }
 
 function subscribeToSelectedDate(){
@@ -815,7 +835,7 @@ function subscribeToSelectedDate(){
   const notesQuery = query(userNotesCollection(),where('visitDate','==',selectedDate));
   notesUnsubscribe = onSnapshot(notesQuery,snapshot => {
     const previousId = activeIndex !== null ? records[activeIndex]?.firestoreId : null;
-    records = snapshot.docs.map(noteFromSnapshot).sort((a,b) => {
+    records = snapshot.docs.map(noteFromSnapshot).filter(record => noteVisitType(record) === selectedVisitType).sort((a,b) => {
       const aTime = a.createdAtValue?.toMillis?.() || 0;
       const bTime = b.createdAtValue?.toMillis?.() || 0;
       return bTime - aTime;
@@ -826,7 +846,7 @@ function subscribeToSelectedDate(){
     pendingSelectId = null;
     if (targetIndex >= 0) selectEntry(targetIndex);
     else if (records.length) selectEntry(0);
-    else showEmptyDate();
+    else showEmptyDate(`No ${selectedVisitType} notes saved for this date.`);
   }, error => {
     console.error('Unable to load notes:',error);
     showEmptyDate('Unable to load notes for this date.');
@@ -1237,6 +1257,7 @@ async function stopAndTranscribe(){
       transcription:draft.transcription,
       patientData:draft.patientData,
       selectedMode:draft.selectedMode,
+      visitType:draft.visitType || selectedVisitType,
       status:'Note ready',
       updatedAt:serverTimestamp()
     });
@@ -1388,16 +1409,18 @@ async function createVoiceDraft(){
   if (!currentUser) return;
   const existingDrafts = await getDocs(query(userNotesCollection(),where('isDraft','==',true)));
   if (!existingDrafts.empty){
-    const existing = existingDrafts.docs[0];
-    pendingSelectId = existing.id;
-    const existingDate = existing.data().visitDate;
-    if (existingDate){
-      const [year,month,day] = existingDate.split('-').map(Number);
-      selectedVisitDate = new Date(year,month-1,day);
-      updateDateNavigation();
-      subscribeToSelectedDate();
+    const existing = existingDrafts.docs.find(item => (item.data().visitType === 'IP' ? 'IP' : 'OP') === selectedVisitType);
+    if (existing){
+      pendingSelectId = existing.id;
+      const existingDate = existing.data().visitDate;
+      if (existingDate){
+        const [year,month,day] = existingDate.split('-').map(Number);
+        selectedVisitDate = new Date(year,month-1,day);
+        updateDateNavigation();
+        subscribeToSelectedDate();
+      }
+      return;
     }
-    return;
   }
   stopVoiceTimer();
   stopMediaTracks();
@@ -1408,6 +1431,7 @@ async function createVoiceDraft(){
     createdAt:serverTimestamp(),
     createdAtLabel:createdAt,
     visitDate:dateInputValue(selectedVisitDate),
+    visitType:selectedVisitType,
     isDraft: true,
     everSaved:false,
     saved:false,
@@ -1426,16 +1450,18 @@ async function createManualDraft(){
   if (!currentUser) return;
   const existingDrafts = await getDocs(query(userNotesCollection(),where('isDraft','==',true)));
   if (!existingDrafts.empty){
-    const existing = existingDrafts.docs[0];
-    pendingSelectId = existing.id;
-    const existingDate = existing.data().visitDate;
-    if (existingDate){
-      const [year,month,day] = existingDate.split('-').map(Number);
-      selectedVisitDate = new Date(year,month-1,day);
-      updateDateNavigation();
-      subscribeToSelectedDate();
+    const existing = existingDrafts.docs.find(item => (item.data().visitType === 'IP' ? 'IP' : 'OP') === selectedVisitType);
+    if (existing){
+      pendingSelectId = existing.id;
+      const existingDate = existing.data().visitDate;
+      if (existingDate){
+        const [year,month,day] = existingDate.split('-').map(Number);
+        selectedVisitDate = new Date(year,month-1,day);
+        updateDateNavigation();
+        subscribeToSelectedDate();
+      }
+      return;
     }
-    return;
   }
   stopVoiceTimer();
   stopMediaTracks();
@@ -1446,6 +1472,7 @@ async function createManualDraft(){
     createdAt:serverTimestamp(),
     createdAtLabel:createdAt,
     visitDate:dateInputValue(selectedVisitDate),
+    visitType:selectedVisitType,
     isDraft:true,
     everSaved:false,
     saved:false,
@@ -1529,6 +1556,14 @@ visitDateInput.addEventListener('change', () => {
   updateDateNavigation();
   subscribeToSelectedDate();
 });
+visitToggle.addEventListener('click', event => {
+  const button = event.target.closest('[data-visit-type]');
+  if (!button) return;
+  selectedVisitType = button.dataset.visitType === 'IP' ? 'IP' : 'OP';
+  updateVisitToggle();
+  subscribeToSelectedDate();
+});
+updateVisitToggle();
 updateDateNavigation();
 
 copyBtn.addEventListener('click', async () => {
@@ -1648,6 +1683,7 @@ saveDraftBtn.addEventListener('click', async () => {
   draft.everSaved = true;
   draft.isDraft = false;
   draft.kind = 'generated';
+  draft.visitType = draft.visitType || selectedVisitType;
   saveDraftBtn.querySelector('span').textContent = '✓';
   deleteBtn.classList.add('visible');
   renderEntries();
@@ -1660,6 +1696,7 @@ saveDraftBtn.addEventListener('click', async () => {
     patientData:draft.patientData,
     selectedMode:draft.selectedMode,
     visitDate:dateInputValue(selectedVisitDate),
+    visitType:draft.visitType,
     updatedAt:serverTimestamp()
   });
 });

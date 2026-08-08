@@ -63,6 +63,9 @@
   .topbar-meta{ color:var(--muted); font-size:12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .spacer{ flex:1; }
   .user-email{ display:none; }
+  .visit-toggle{ height:38px; display:flex; align-items:center; gap:4px; padding:4px; border:1px solid #D8E1E7; border-radius:10px; background:#fff; flex-shrink:0; }
+  .visit-toggle-btn{ height:28px; min-width:38px; border:0; border-radius:7px; background:transparent; color:var(--muted); font:800 12px 'Inter',sans-serif; cursor:pointer; }
+  .visit-toggle-btn.active{ background:var(--teal); color:#fff; }
   .copy-btn{ border-color:rgba(31,95,82,0.3); color:var(--teal-deep); }
   .copy-btn:hover{ background:var(--teal-wash); }
   .copy-btn.copied{ background:var(--teal); color:#fff; border-color:var(--teal); }
@@ -117,6 +120,10 @@
       </div>
       <div class="spacer"></div>
       <div class="user-email" id="userEmail"></div>
+      <div class="visit-toggle" id="adminVisitToggle" aria-label="Visit type">
+        <button class="visit-toggle-btn active" data-admin-visit-type="OP">OP</button>
+        <button class="visit-toggle-btn" data-admin-visit-type="IP">IP</button>
+      </div>
       <button class="btn copy-btn" id="saveNoteBtn" style="display:none;">Save</button>
       <button class="btn copy-btn" id="copyBtn" style="display:none;">Copy note</button>
       <button class="btn" id="signoutBtn">Sign out</button>
@@ -153,6 +160,7 @@ const mainScroll = document.getElementById('mainScroll');
 const topbarTitle = document.getElementById('topbarTitle');
 const topbarMeta = document.getElementById('topbarMeta');
 const userEmail = document.getElementById('userEmail');
+const adminVisitToggle = document.getElementById('adminVisitToggle');
 const saveNoteBtn = document.getElementById('saveNoteBtn');
 const copyBtn = document.getElementById('copyBtn');
 const signoutBtn = document.getElementById('signoutBtn');
@@ -165,6 +173,7 @@ let userProfiles = {};
 let users = [];
 let selectedUserId = null;
 let selectedNoteId = null;
+let selectedVisitType = 'OP';
 
 function escapeHtml(value){
   return String(value ?? '').replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[char]));
@@ -218,9 +227,23 @@ function notePatientName(note){
   return name && name !== 'NIL' ? name : 'Untitled note';
 }
 
+function noteVisitType(note){
+  return note.data?.visitType === 'IP' ? 'IP' : 'OP';
+}
+
+function visibleNotes(){
+  return allNotes.filter(note => noteVisitType(note) === selectedVisitType);
+}
+
+function updateVisitToggle(){
+  adminVisitToggle.querySelectorAll('[data-admin-visit-type]').forEach(button => {
+    button.classList.toggle('active', button.dataset.adminVisitType === selectedVisitType);
+  });
+}
+
 function noteMeta(note){
   const patient = note.data.patientData || {};
-  const pieces = [];
+  const pieces = [noteVisitType(note)];
   if (patient.uhid) pieces.push(`UHID ${patient.uhid}`);
   if (patient.age) pieces.push(`${patient.age} yrs`);
   if (note.data.visitDate) pieces.push(note.data.visitDate);
@@ -239,7 +262,7 @@ function isSavedNote(note){
 }
 
 function hasUncopiedSavedNotes(userId){
-  return allNotes.some(note => note.userId === userId && isSavedNote(note) && !note.data.adminCopiedAt);
+  return visibleNotes().some(note => note.userId === userId && isSavedNote(note) && !note.data.adminCopiedAt);
 }
 
 function userLabel(userId, index){
@@ -275,7 +298,7 @@ function renderUsers(){
 function renderEntries(){
   entryList.innerHTML = '';
   const selectedUser = users.find(user => user.uid === selectedUserId);
-  const notes = allNotes.filter(note => note.userId === selectedUserId);
+  const notes = visibleNotes().filter(note => note.userId === selectedUserId);
   notesLabel.textContent = selectedUser ? selectedUser.label : 'Notes';
   notes.forEach(note => {
     const button = document.createElement('button');
@@ -301,10 +324,10 @@ function renderEntries(){
 
 function renderSelectedNote(){
   const selectedUser = users.find(user => user.uid === selectedUserId);
-  const notes = allNotes.filter(note => note.userId === selectedUserId);
+  const notes = visibleNotes().filter(note => note.userId === selectedUserId);
   const note = notes.find(item => item.id === selectedNoteId);
   topbarTitle.textContent = selectedUser ? selectedUser.label : 'Admin notes';
-  topbarMeta.textContent = selectedUser ? `${notes.length} note${notes.length === 1 ? '' : 's'}` : 'Select a user';
+  topbarMeta.textContent = selectedUser ? `${selectedVisitType} · ${notes.length} note${notes.length === 1 ? '' : 's'}` : `Select a user · ${selectedVisitType}`;
   if (!selectedUser){
     showEmpty('No users yet', 'Notes will appear here after users save them.');
     return;
@@ -333,7 +356,8 @@ function renderSelectedNote(){
 }
 
 function render(){
-  const userIds = Array.from(new Set(allNotes.map(note => note.userId))).sort();
+  const notes = visibleNotes();
+  const userIds = Array.from(new Set(notes.map(note => note.userId))).sort();
   users = userIds.map((uid, index) => ({uid, label:userLabel(uid, index)}));
   if (!selectedUserId || !userIds.includes(selectedUserId)){
     selectedUserId = userIds[0] || null;
@@ -420,6 +444,17 @@ onAuthStateChanged(auth, user => {
   subscribeToUserProfiles();
   subscribeToAllNotes();
 });
+
+adminVisitToggle.addEventListener('click', event => {
+  const button = event.target.closest('[data-admin-visit-type]');
+  if (!button) return;
+  selectedVisitType = button.dataset.adminVisitType === 'IP' ? 'IP' : 'OP';
+  selectedUserId = null;
+  selectedNoteId = null;
+  updateVisitToggle();
+  render();
+});
+updateVisitToggle();
 
 copyBtn.addEventListener('click', async () => {
   const note = allNotes.find(item => item.id === selectedNoteId && item.userId === selectedUserId);
