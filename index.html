@@ -1873,7 +1873,19 @@ function formatGeneratedOutput(data, mode, patient){
     ['Diagnosis',data.provisionalDiagnosis],
     ['Treatment Plan',data.treatmentPlan]
   ];
-  return `${patientHeader}\nSex: ${data.patientSex || 'NIL'}\n\n${sections.map(([label,value])=>`${label}:\n${value || 'NIL'}`).join('\n\n')}`;
+  return `${patientHeader}\nSex: ${data.patientSex || 'NIL'}\n\n${sections.map(([label,value])=>`${label}:\n${formatSectionValue(label,value)}`).join('\n\n')}`;
+}
+
+function formatSectionValue(label, value){
+  if (label !== 'Current Medications') return value || 'NIL';
+  const text = String(value || '').trim();
+  if (!text || isNilLike(text)) return 'NIL';
+  const items = text
+    .split(/\n|;(?=\s*[A-Za-z0-9])/)
+    .map(item => item.trim().replace(/^[-•]\s*/, '').replace(/^\d+[.)]\s*/, ''))
+    .filter(Boolean);
+  if (items.length <= 1) return text;
+  return items.map((item, index) => `${index + 1}. ${item}`).join('\n');
 }
 
 async function createVoiceDraft(){
