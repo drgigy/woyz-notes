@@ -616,6 +616,48 @@
 
   .mobile-app-bar,.mobile-backdrop,.mobile-visit-row,.mobile-bottom-actions{ display:none; }
 
+  @media (min-width:601px) and (max-width:1180px){
+    .main-topbar{
+      min-height:72px;
+      height:auto;
+      flex-wrap:wrap;
+      justify-content:flex-end;
+      align-content:center;
+      gap:8px;
+      padding:8px 12px;
+    }
+    .topbar-doc-actions{
+      order:1;
+      flex:1 1 100%;
+      justify-content:flex-start;
+      margin-right:0;
+      gap:6px;
+    }
+    .date-nav{ order:2; margin-left:auto; gap:5px; }
+    .delete-btn{ order:3; }
+    .btn-copy{ order:4; }
+    .save-draft-btn{ order:5; }
+    .settings-wrap{ order:6; }
+    .topbar-mode-btn{
+      height:34px;
+      padding:0 11px;
+      font-size:11px;
+      max-width:170px;
+      overflow:hidden;
+      text-overflow:ellipsis;
+    }
+    .date-step,.date-today{ height:34px; }
+    .date-step{ width:34px; }
+    .date-input{ height:34px; width:132px; }
+    .btn{
+      min-height:34px;
+      padding:7px 11px;
+      border-radius:9px;
+      font-size:12px;
+    }
+    .settings-btn{ width:34px; height:34px; }
+  }
+
   @media (max-width:600px){
     html,body{ height:100%; background:#F6F7F5; }
     body{ overflow:hidden; }
