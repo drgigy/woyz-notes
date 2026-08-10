@@ -184,11 +184,53 @@
   .voice-mode.active{ background:#FBE7E7; border-color:#F45155; color:#A72B31; }
   @media(max-width:850px){ .voice-modes{grid-template-columns:1fr 1fr;} .voice-mode:first-child{grid-column:1/-1;} }
 
+  .continuation-dock{
+    display:none;
+    position:fixed;
+    left:18px;
+    bottom:22px;
+    z-index:90;
+    width:min(9cm,calc(100vw - 28px));
+    min-height:5.7cm;
+    padding:13px 16px;
+    border:0;
+    border-radius:18px;
+    background:#1B1B1D;
+    color:#F7F7FB;
+    box-shadow:0 20px 46px rgba(16,24,43,.28);
+    user-select:none;
+    touch-action:none;
+  }
+  .continuation-dock.visible{ display:grid; grid-template-rows:auto 1fr; gap:8px; }
+  .continuation-dock-head{ display:flex; align-items:center; justify-content:space-between; gap:12px; cursor:move; }
+  .continuation-title{ display:inline-flex; align-items:center; gap:8px; color:#FF514A; font-size:13px; font-weight:900; }
+  .continuation-title::before{ content:''; width:7px; height:7px; border-radius:999px; background:#FF514A; box-shadow:0 0 0 4px rgba(255,81,74,.1); }
+  .continuation-close{ width:28px; height:28px; border:0; border-radius:8px; background:#2F2F32; color:#F7F7FB; cursor:pointer; font-size:18px; line-height:1; }
+  .continuation-body{ display:grid; grid-template-rows:auto auto auto auto; justify-items:center; align-content:center; gap:10px; min-height:0; }
+  .continuation-level{ width:76%; height:30px; display:grid; grid-template-columns:repeat(28,1fr); gap:3px; align-items:end; padding:1px 0; }
+  .continuation-level span{ height:4px; border-radius:999px 999px 3px 3px; background:rgba(255,81,74,.22); opacity:.65; transition:height .08s linear, background .08s linear, opacity .08s linear; }
+  .continuation-level span.active{ background:#FF514A; opacity:1; }
+  .continuation-level span:nth-child(3n+1).active{ height:12px; }
+  .continuation-level span:nth-child(3n+2).active{ height:22px; }
+  .continuation-level span:nth-child(3n).active{ height:28px; }
+  .continuation-timer{ color:#F7F7FB; font-family:'IBM Plex Mono',monospace; font-size:34px; line-height:1; font-weight:900; letter-spacing:.04em; }
+  .continuation-actions{ display:flex; align-items:center; justify-content:center; gap:14px; }
+  .continuation-action{ width:60px; height:60px; border:0; border-radius:999px; color:#fff; display:grid; place-items:center; cursor:pointer; box-shadow:0 12px 26px rgba(0,0,0,.22); }
+  .continuation-action.start{ background:#FF514A; }
+  .continuation-action.pause{ background:#F7F7FB; color:#1B1B1D; }
+  .continuation-action.extend{ background:#2F2F32; color:#F7F7FB; font:900 17px 'Inter',sans-serif; }
+  .continuation-action.extend.blink{ animation:extendBlink .85s ease-in-out infinite; }
+  .continuation-action.stop{ background:#2F2F32; color:#FF514A; }
+  .continuation-action:disabled{ opacity:.45; cursor:not-allowed; }
+  .continuation-action svg{ width:28px; height:28px; }
+  .continuation-status{ width:100%; min-height:18px; color:#C9C9CF; text-align:center; font-size:12px; font-weight:800; }
+
   .generated-note{ width:100%; min-height:100%; background:#fff; padding:0; }
   .generated-note-card{ min-height:100%; background:#fff; padding:34px 38px 90px; display:flex; flex-direction:column; }
   .generated-note-head{ display:flex; align-items:flex-start; justify-content:space-between; gap:18px; margin-bottom:18px; }
   .generated-note-title{ margin:0; font:600 27px 'Fraunces',serif; }
   .note-editor{ width:100%; min-height:calc(100vh - 190px); overflow:visible; resize:none; border:0; background:#fff; padding:0; color:var(--ink); font:15px/1.55 'Inter',sans-serif; outline:none; white-space:pre-wrap; caret-color:var(--teal); }
+  .note-editor strong{ font-weight:800; }
 
   .processing-wrap{ width:100%; min-height:100%; display:flex; align-items:center; justify-content:center; padding:44px; }
   .processing-content{ width:min(620px,92%); text-align:center; }
@@ -905,6 +947,30 @@
   </nav>
 </div>
 
+<div class="continuation-dock" id="continuationDock" aria-live="polite">
+  <div class="continuation-dock-head" id="continuationDockHandle">
+    <div class="continuation-title">Continue dictation</div>
+    <button class="continuation-close" id="continuationCloseBtn" aria-label="Close continuation dictation">&times;</button>
+  </div>
+  <div class="continuation-body">
+    <div class="continuation-level" id="continuationLevel" aria-label="Voice activity"></div>
+    <div class="continuation-timer" id="continuationTimer">05:00</div>
+    <div class="continuation-actions">
+      <button class="continuation-action start" id="continuationStartBtn" aria-label="Start continuation dictation">
+        <svg viewBox="0 0 24 24" fill="none"><rect x="9" y="3" width="6" height="11" rx="3" stroke="currentColor" stroke-width="2"/><path d="M5.5 11.5a6.5 6.5 0 0 0 13 0M12 18v3M9 21h6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      </button>
+      <button class="continuation-action pause" id="continuationPauseBtn" aria-label="Pause continuation dictation">
+        <svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="5" width="4" height="14"/><rect x="14" y="5" width="4" height="14"/></svg>
+      </button>
+      <button class="continuation-action extend" id="continuationExtendBtn" aria-label="Extend continuation dictation by five minutes">+5</button>
+      <button class="continuation-action stop" id="continuationStopBtn" aria-label="Stop and append dictation">
+        <svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12"/></svg>
+      </button>
+    </div>
+    <div class="continuation-status" id="continuationStatus">Ready</div>
+  </div>
+</div>
+
 <div class="modal-backdrop" id="authModal" role="dialog" aria-modal="true" aria-labelledby="authModalTitle">
   <div class="auth-modal">
     <div class="auth-modal-head">
@@ -1049,6 +1115,16 @@ const loginPassword = document.getElementById('loginPassword');
 const loginSubmit = document.getElementById('loginSubmit');
 const loginError = document.getElementById('loginError');
 const userEmail = document.getElementById('userEmail');
+const continuationDock = document.getElementById('continuationDock');
+const continuationDockHandle = document.getElementById('continuationDockHandle');
+const continuationLevel = document.getElementById('continuationLevel');
+const continuationTimer = document.getElementById('continuationTimer');
+const continuationStartBtn = document.getElementById('continuationStartBtn');
+const continuationPauseBtn = document.getElementById('continuationPauseBtn');
+const continuationExtendBtn = document.getElementById('continuationExtendBtn');
+const continuationStopBtn = document.getElementById('continuationStopBtn');
+const continuationCloseBtn = document.getElementById('continuationCloseBtn');
+const continuationStatus = document.getElementById('continuationStatus');
 
 const GEMINI_KEY_STORAGE = 'woyz_gemini_authorization_key';
 const GEMINI_MODEL = 'gemini-3.6-flash';
@@ -1086,6 +1162,16 @@ let userProfileUnsubscribe = null;
 let pendingSelectId = null;
 let latestDateLookupInProgress = false;
 let dateSubscriptionRequestId = 0;
+let continuationState = {
+  open:false,
+  targetId:null,
+  recording:false,
+  paused:false,
+  processing:false,
+  hasStarted:false,
+  status:'Ready',
+  position:null
+};
 
 const MANUAL_NOTE_TEMPLATE = `Patient Name: 
 Age: 
@@ -1454,14 +1540,29 @@ function compactNoteText(text){
 }
 
 function richNoteHtml(text){
-  return compactNoteText(text).split(/\n{2,}/).map(block => {
-    const escaped = escapeHtml(block).replace(/\n/g, '<br>');
-    return `<p>${escaped.replace(/^([^:<\n]{2,90}:)/, '<strong>$1</strong>')}</p>`;
-  }).join('');
+  return String(text || '')
+    .replace(/\r\n/g, '\n')
+    .split('\n')
+    .map(line => {
+      const escaped = escapeHtml(line);
+      return escaped.replace(/^([^:<\n]{2,90}:)(\s*)/, '<strong>$1</strong>$2');
+    })
+    .join('<br>');
 }
 
 function editorPlainText(editor){
-  return editor?.value ?? editor?.innerText ?? '';
+  return (editor?.value ?? editor?.innerText ?? '').replace(/\u00a0/g, ' ');
+}
+
+function focusEditorEnd(editor){
+  if (!editor) return;
+  editor.focus();
+  const range = document.createRange();
+  range.selectNodeContents(editor);
+  range.collapse(false);
+  const selection = window.getSelection();
+  selection.removeAllRanges();
+  selection.addRange(range);
 }
 
 function displayCredentialName(value){
@@ -1511,7 +1612,7 @@ function renderGeneratedNote(draft){
             <h1 class="generated-note-title">${escapeHtml(title)}</h1>
           </div>
         </div>
-        <textarea class="note-editor" id="generatedNoteEditor" spellcheck="true" aria-label="Editable generated note">${escapeHtml(draft.transcription)}</textarea>
+        <div class="note-editor" id="generatedNoteEditor" contenteditable="true" spellcheck="true" role="textbox" aria-multiline="true" aria-label="Editable generated note">${richNoteHtml(draft.transcription)}</div>
       </section>
     </div>`;
   const editor = document.getElementById('generatedNoteEditor');
@@ -1521,6 +1622,10 @@ function renderGeneratedNote(draft){
     draft.saved = false;
     saveDraftBtn.querySelector('span').textContent = 'Save note';
     resizeNoteEditor(editor);
+  });
+  editor.addEventListener('paste', event => {
+    event.preventDefault();
+    document.execCommand('insertText', false, event.clipboardData?.getData('text/plain') || '');
   });
   recordBtn.classList.remove('is-recording');
   copyBtn.style.display = 'flex';
@@ -1570,13 +1675,14 @@ function stopVoiceTimer(){
 }
 
 function updateTimer(){
-  const timer = document.getElementById('voiceTimer');
-  const extendButton = document.getElementById('extendRecordingBtn');
-  if (!timer) return;
   const minutes = String(Math.floor(remainingSeconds / 60)).padStart(2, '0');
   const seconds = String(remainingSeconds % 60).padStart(2, '0');
-  timer.textContent = `${minutes}:${seconds}`;
-  extendButton?.classList.toggle('blink', remainingSeconds === 0);
+  document.querySelectorAll('#voiceTimer,#continuationTimer').forEach(timer => {
+    timer.textContent = `${minutes}:${seconds}`;
+  });
+  document.querySelectorAll('#extendRecordingBtn,#continuationExtendBtn').forEach(button => {
+    button.classList.toggle('blink', remainingSeconds === 0);
+  });
 }
 
 function extendRecordingTime(){
@@ -1755,10 +1861,222 @@ function stopWaveformAnimation(){
 
 function setWaveformLevel(level = 0){
   const activeBars = Math.min(28, Math.max(0, Math.round(level * 95)));
-  document.querySelectorAll('.waveform span').forEach((bar, index) => {
-    bar.classList.toggle('active', index < activeBars);
+  document.querySelectorAll('.waveform span,.continuation-level span').forEach((bar, index) => {
+    const localIndex = index % 28;
+    bar.classList.toggle('active', localIndex < activeBars);
   });
 }
+
+function setContinuationStatus(message){
+  continuationState.status = message;
+  continuationStatus.textContent = message;
+}
+
+function renderContinuationDock(){
+  continuationLevel.innerHTML = Array.from({length:28}, () => '<span></span>').join('');
+  continuationDock.classList.toggle('visible', continuationState.open);
+  continuationStartBtn.style.display = continuationState.hasStarted ? 'none' : 'grid';
+  continuationPauseBtn.style.display = continuationState.hasStarted ? 'grid' : 'none';
+  continuationExtendBtn.style.display = continuationState.hasStarted ? 'grid' : 'none';
+  continuationStopBtn.style.display = continuationState.hasStarted ? 'grid' : 'none';
+  continuationPauseBtn.innerHTML = continuationState.recording
+    ? '<svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="5" width="4" height="14"/><rect x="14" y="5" width="4" height="14"/></svg>'
+    : '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7L8 5Z"/></svg>';
+  continuationPauseBtn.setAttribute('aria-label', continuationState.recording ? 'Pause continuation dictation' : 'Resume continuation dictation');
+  continuationStartBtn.disabled = continuationState.processing;
+  continuationPauseBtn.disabled = continuationState.processing;
+  continuationExtendBtn.disabled = continuationState.processing;
+  continuationStopBtn.disabled = continuationState.processing;
+  continuationStatus.textContent = continuationState.status;
+  updateTimer();
+}
+
+function selectedRecordCanContinue(){
+  const record = records[activeIndex];
+  return Boolean(record && (record.transcription || record.kind === 'generated'));
+}
+
+function openContinuationDock(){
+  if (!selectedRecordCanContinue()) return;
+  stopVoiceTimer();
+  stopMediaTracks();
+  continuationState.open = true;
+  continuationState.targetId = records[activeIndex].firestoreId;
+  continuationState.recording = false;
+  continuationState.paused = false;
+  continuationState.processing = false;
+  continuationState.hasStarted = false;
+  continuationState.status = 'Ready to continue selected note';
+  remainingSeconds = 300;
+  renderContinuationDock();
+}
+
+function closeContinuationDock({releaseMic = true} = {}){
+  continuationState.open = false;
+  continuationState.recording = false;
+  continuationState.paused = false;
+  continuationState.processing = false;
+  continuationState.hasStarted = false;
+  if (releaseMic){
+    stopVoiceTimer();
+    stopMediaTracks();
+  }
+  renderContinuationDock();
+}
+
+async function startContinuationRecording(){
+  if (!continuationState.open || continuationState.processing) return;
+  try{
+    mediaStream = await navigator.mediaDevices.getUserMedia({audio:true});
+    audioChunks = [];
+    setupAudioAnalyser(mediaStream);
+    mediaRecorder = new MediaRecorder(mediaStream);
+    mediaRecorder.addEventListener('dataavailable', event => { if (event.data.size) audioChunks.push(event.data); });
+    mediaRecorder.start(1000);
+    continuationState.hasStarted = true;
+    continuationState.recording = true;
+    continuationState.paused = false;
+    setContinuationStatus('Recording in progress...');
+    startVoiceTimer();
+    renderContinuationDock();
+  }catch(error){
+    setContinuationStatus('Microphone access is required.');
+  }
+}
+
+function pauseResumeContinuationRecording(){
+  if (!continuationState.open || !continuationState.hasStarted || continuationState.processing) return;
+  if (mediaRecorder?.state === 'recording'){
+    mediaRecorder.pause();
+    continuationState.recording = false;
+    continuationState.paused = true;
+    stopVoiceTimer();
+    stopWaveformAnimation();
+    setContinuationStatus('Recording paused');
+  }else if (mediaRecorder?.state === 'paused'){
+    mediaRecorder.resume();
+    continuationState.recording = true;
+    continuationState.paused = false;
+    startVoiceTimer();
+    startWaveformAnimation();
+    setContinuationStatus('Recording in progress...');
+  }
+  renderContinuationDock();
+}
+
+function extendContinuationRecording(){
+  if (!continuationState.open || !continuationState.hasStarted || continuationState.processing) return;
+  remainingSeconds += 300;
+  if (continuationState.recording && !voiceInterval) startVoiceTimer();
+  setContinuationStatus('Five minutes added.');
+  updateTimer();
+}
+
+async function stopAndAppendContinuation(){
+  if (!continuationState.open || !continuationState.hasStarted || continuationState.processing) return;
+  stopVoiceTimer();
+  continuationState.recording = false;
+  continuationState.processing = true;
+  setContinuationStatus('Processing dictation...');
+  renderContinuationDock();
+  try{
+    const audioBlob = await stopMediaRecorder();
+    const apiKey = localStorage.getItem(GEMINI_KEY_STORAGE);
+    if (!apiKey){
+      setContinuationStatus('Add authorization key in Settings.');
+      openAuthModal();
+      return;
+    }
+    const addition = await sendContinuationAudioToGemini(audioBlob, apiKey, message => setContinuationStatus(message));
+    appendContinuationText(addition);
+    setContinuationStatus('Added to selected note. Review and save.');
+    closeContinuationDock({releaseMic:false});
+  }catch(error){
+    setContinuationStatus('Dictation failed. Try again.');
+  }finally{
+    continuationState.processing = false;
+    stopMediaTracks();
+    renderContinuationDock();
+  }
+}
+
+function appendContinuationText(addition){
+  const text = String(addition || '').trim();
+  if (!text) return;
+  const targetIndex = records.findIndex(record => record.firestoreId === continuationState.targetId);
+  if (targetIndex < 0) return;
+  activeIndex = targetIndex;
+  const record = records[targetIndex];
+  const editor = document.getElementById('generatedNoteEditor');
+  const existing = editor ? editorPlainText(editor) : record.transcription;
+  record.transcription = `${String(existing || '').trimEnd()}\n\n${text}`.trim();
+  record.saved = false;
+  saveDraftBtn.querySelector('span').textContent = 'Save note';
+  renderGeneratedNote(record);
+  focusEditorEnd(document.getElementById('generatedNoteEditor'));
+}
+
+function handleRecordButtonClick(){
+  if (selectedRecordCanContinue()) openContinuationDock();
+  else createVoiceDraft();
+}
+
+function dragContinuationDock(event){
+  if (event.target.closest('button')) return;
+  const startRect = continuationDock.getBoundingClientRect();
+  const startX = event.clientX;
+  const startY = event.clientY;
+  const move = moveEvent => {
+    const nextLeft = Math.min(window.innerWidth - startRect.width - 8, Math.max(8, startRect.left + moveEvent.clientX - startX));
+    const nextTop = Math.min(window.innerHeight - startRect.height - 8, Math.max(8, startRect.top + moveEvent.clientY - startY));
+    continuationDock.style.left = `${nextLeft}px`;
+    continuationDock.style.top = `${nextTop}px`;
+    continuationDock.style.bottom = 'auto';
+  };
+  const up = () => {
+    document.removeEventListener('pointermove', move);
+    document.removeEventListener('pointerup', up);
+  };
+  document.addEventListener('pointermove', move);
+  document.addEventListener('pointerup', up);
+}
+
+function continuationResponseSchema(){
+  return {type:'object',properties:{text:{type:'string',description:'The additional dictated note text only.'}},required:['text']};
+}
+
+async function sendContinuationAudioToGemini(audioBlob, apiKey, onRetry){
+  if (audioBlob.size > 19 * 1024 * 1024) throw new Error('Recording is too large for inline upload.');
+  const audioData = await blobToBase64(audioBlob);
+  const payload = await generateContentWithRetry({
+    apiKey,
+    audioBlob,
+    audioData,
+    systemPrompt:'You are a clinical dictation assistant. Convert this additional dictation into concise professional clinical English to append to an existing note. Correct spelling and grammar only. Do not add, remove, infer, summarize, or change clinical information. Preserve medicines, doses, investigations, numeric values, units, dates, advice, and chronology exactly as dictated. Do not repeat patient identifiers unless the doctor dictates them as clinical content. Return only the requested JSON object.',
+    taskPrompt:'Transcribe this continuation dictation as append-only note text. Keep dictated headings if present. Do not create a full new visit note.',
+    responseSchema:continuationResponseSchema(),
+    onRetry
+  });
+  const responseText = payload.candidates?.[0]?.content?.parts?.map(part => part.text || '').join('').trim();
+  if (!responseText) throw new Error('The service returned an empty response.');
+  try{
+    return String(JSON.parse(responseText).text || '').trim();
+  }catch(error){
+    throw new Error('The service returned an invalid structured response.');
+  }
+}
+
+function wireContinuationDock(){
+  renderContinuationDock();
+  continuationStartBtn.addEventListener('click', startContinuationRecording);
+  continuationPauseBtn.addEventListener('click', pauseResumeContinuationRecording);
+  continuationExtendBtn.addEventListener('click', extendContinuationRecording);
+  continuationStopBtn.addEventListener('click', stopAndAppendContinuation);
+  continuationCloseBtn.addEventListener('click', () => closeContinuationDock());
+  continuationDockHandle.addEventListener('pointerdown', dragContinuationDock);
+}
+
+wireContinuationDock();
 
 function blobToBase64(blob){
   return new Promise((resolve, reject) => {
@@ -2119,12 +2437,22 @@ signoutBtn.addEventListener('click', async () => {
 
 const recordBtn = document.getElementById('recordBtn');
 const recordSub = document.getElementById('recordSub');
-recordBtn.addEventListener('click', createVoiceDraft);
+recordBtn.addEventListener('click', handleRecordButtonClick);
 addNoteBtn.addEventListener('click', createManualDraft);
 
 document.addEventListener('keydown', (event) => {
-  const isTyping = ['INPUT','TEXTAREA'].includes(document.activeElement?.tagName);
+  const isTyping = ['INPUT','TEXTAREA'].includes(document.activeElement?.tagName) || document.activeElement?.isContentEditable;
   if (isTyping || authModal.classList.contains('open') || credentialModal.classList.contains('open')) return;
+  if (continuationState.open && continuationState.hasStarted){
+    if (event.code === 'Space'){
+      event.preventDefault();
+      pauseResumeContinuationRecording();
+    }else if (event.code === 'Enter'){
+      event.preventDefault();
+      stopAndAppendContinuation();
+    }
+    return;
+  }
   if (activeIndex === null || !records[activeIndex]?.isDraft) return;
   if (event.code === 'Space'){
     event.preventDefault();
