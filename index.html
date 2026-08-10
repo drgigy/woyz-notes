@@ -464,21 +464,8 @@
   .topbar-mode-btn:hover{ background:var(--teal-wash); border-color:rgba(31,95,82,.28); }
   .topbar-mode-btn.active{ background:#FBE7E7; border-color:#F45155; color:#A72B31; }
   .topbar-mode-btn:disabled{ opacity:.5; cursor:not-allowed; }
-  .topbar-continue-btn{
-    width:38px;
-    height:38px;
-    border:0;
-    border-radius:999px;
-    background:#D7383A;
-    color:#fff;
-    display:none;
-    place-items:center;
-    cursor:pointer;
-    box-shadow:0 10px 22px rgba(215,56,58,.22);
-  }
-  .topbar-continue-btn.visible{ display:grid; }
-  .topbar-continue-btn svg{ width:21px; height:21px; }
-  .topbar-continue-btn:hover{ transform:translateY(-1px); }
+  .topbar-review-btn{ display:none; }
+  .topbar-review-btn.visible{ display:inline-flex; align-items:center; }
   /* ---------- SETTINGS ---------- */
   .settings-wrap{ position:relative; flex-shrink:0; }
 
@@ -977,13 +964,11 @@
           <button class="visit-toggle-btn" data-mobile-visit-type="IP">IP</button>
         </div>
       </div>
-      <div class="topbar-doc-actions" id="topbarDocActions" aria-label="Voice note document type">
+      <div class="topbar-doc-actions" id="topbarDocActions" aria-label="Voice note actions">
+        <button class="topbar-mode-btn topbar-review-btn" id="topbarContinueBtn" aria-label="Continue selected note by dictation" title="Continue dictation">Review</button>
         <button class="topbar-mode-btn" data-topbar-voice-mode="Medical certificate">Medical Certificate</button>
         <button class="topbar-mode-btn" data-topbar-voice-mode="Reply letter">Reply Letter</button>
       </div>
-      <button class="topbar-continue-btn" id="topbarContinueBtn" aria-label="Continue selected note by dictation" title="Continue dictation">
-        <svg viewBox="0 0 24 24" fill="none"><rect x="9" y="3" width="6" height="11" rx="3" stroke="currentColor" stroke-width="2"/><path d="M5.5 11.5a6.5 6.5 0 0 0 13 0M12 18v3M9 21h6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-      </button>
       <div class="date-nav" id="dateNav" aria-label="Visit date navigation">
         <button class="date-step" id="previousDateBtn" aria-label="Previous day">&lsaquo;</button>
         <input class="date-input" id="visitDateInput" type="date" aria-label="Visit date">
@@ -1515,7 +1500,7 @@ function updateContinueNoteButton(){
   const showVoiceModes = Boolean(record?.voiceDraft);
   continueNoteBtn.classList.toggle('visible', canContinue);
   topbarContinueBtn.classList.toggle('visible', canContinue);
-  topbarDocActions.classList.toggle('visible', showVoiceModes);
+  topbarDocActions.classList.toggle('visible', canContinue || showVoiceModes);
   topbarDocActions.querySelectorAll('[data-topbar-voice-mode]').forEach(button => {
     button.classList.toggle('active', record?.selectedMode === button.dataset.topbarVoiceMode);
     button.disabled = continuationState.hasStarted || continuationState.processing;
