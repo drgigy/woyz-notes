@@ -1877,7 +1877,7 @@ function formatGeneratedOutput(data, mode, patient){
 
 function formatSectionValue(label, value){
   if (label !== 'Current Medications' && label !== 'Review of Investigations') return value || 'NIL';
-  const text = String(value || '').trim();
+  const text = normalizeNumberedLines(String(value || '').trim());
   if (!text || isNilLike(text)) return 'NIL';
   if (/^\s*\d+[.)]\s+/m.test(text)) return text;
   const items = text
@@ -1886,6 +1886,13 @@ function formatSectionValue(label, value){
     .filter(Boolean);
   if (items.length <= 1) return text;
   return items.map((item, index) => `${index + 1}. ${item}`).join('\n');
+}
+
+function normalizeNumberedLines(text){
+  return String(text || '')
+    .replace(/\s+(\d+[.)]\s+)/g, '\n$1')
+    .replace(/^\n+/, '')
+    .trim();
 }
 
 async function createVoiceDraft(){
