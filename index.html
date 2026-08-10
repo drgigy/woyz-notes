@@ -224,6 +224,26 @@
   .continuation-action:disabled{ opacity:.45; cursor:not-allowed; }
   .continuation-action svg{ width:28px; height:28px; }
   .continuation-status{ width:100%; min-height:18px; color:#C9C9CF; text-align:center; font-size:12px; font-weight:800; }
+  .continue-note-btn{
+    display:none;
+    position:fixed;
+    right:24px;
+    bottom:24px;
+    z-index:86;
+    width:64px;
+    height:64px;
+    border:0;
+    border-radius:999px;
+    background:#D7383A;
+    color:#fff;
+    box-shadow:0 16px 34px rgba(215,56,58,.28);
+    cursor:pointer;
+    place-items:center;
+  }
+  .continue-note-btn.visible{ display:grid; }
+  .continue-note-btn svg{ width:31px; height:31px; }
+  .continue-note-btn:hover{ transform:translateY(-1px); }
+  .continue-note-btn:active{ transform:scale(.97); }
 
   .generated-note{ width:100%; min-height:100%; background:#fff; padding:0; }
   .generated-note-card{ min-height:100%; background:#fff; padding:34px 38px 90px; display:flex; flex-direction:column; }
@@ -812,6 +832,12 @@
       color:#fff;
       box-shadow:0 12px 28px -14px rgba(215,56,58,.75);
     }
+    .continue-note-btn{
+      right:18px;
+      bottom:92px;
+      width:58px;
+      height:58px;
+    }
     .main-topbar > .btn{ display:none !important; }
   }
 
@@ -946,6 +972,10 @@
     </button>
   </nav>
 </div>
+
+<button class="continue-note-btn" id="continueNoteBtn" aria-label="Continue selected note by dictation" title="Continue dictation">
+  <svg viewBox="0 0 24 24" fill="none"><rect x="9" y="3" width="6" height="11" rx="3" stroke="currentColor" stroke-width="2"/><path d="M5.5 11.5a6.5 6.5 0 0 0 13 0M12 18v3M9 21h6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+</button>
 
 <div class="continuation-dock" id="continuationDock" aria-live="polite">
   <div class="continuation-dock-head" id="continuationDockHandle">
@@ -1100,6 +1130,8 @@ const visitToggle = document.getElementById('visitToggle');
 const mobileVisitToggle = document.getElementById('mobileVisitToggle');
 const todayBtn = document.getElementById('todayBtn');
 const addNoteBtn = document.getElementById('addNoteBtn');
+const recordBtn = document.getElementById('recordBtn');
+const recordSub = document.getElementById('recordSub');
 const appShell = document.getElementById('appShell');
 const mobileMenuBtn = document.getElementById('mobileMenuBtn');
 const mobileBackdrop = document.getElementById('mobileBackdrop');
@@ -1108,6 +1140,7 @@ const mobileDeleteBtn = document.getElementById('mobileDeleteBtn');
 const mobileRecordBtn = document.getElementById('mobileRecordBtn');
 const mobileAddNoteBtn = document.getElementById('mobileAddNoteBtn');
 const mobileSaveBtn = document.getElementById('mobileSaveBtn');
+const continueNoteBtn = document.getElementById('continueNoteBtn');
 const loginScreen = document.getElementById('loginScreen');
 const loginForm = document.getElementById('loginForm');
 const loginEmail = document.getElementById('loginEmail');
@@ -1117,6 +1150,7 @@ const loginError = document.getElementById('loginError');
 const userEmail = document.getElementById('userEmail');
 const continuationDock = document.getElementById('continuationDock');
 const continuationDockHandle = document.getElementById('continuationDockHandle');
+const continuationTitle = continuationDock.querySelector('.continuation-title');
 const continuationLevel = document.getElementById('continuationLevel');
 const continuationTimer = document.getElementById('continuationTimer');
 const continuationStartBtn = document.getElementById('continuationStartBtn');
@@ -1160,10 +1194,12 @@ let currentUser = null;
 let notesUnsubscribe = null;
 let userProfileUnsubscribe = null;
 let pendingSelectId = null;
+let pendingNewVoiceDockId = null;
 let latestDateLookupInProgress = false;
 let dateSubscriptionRequestId = 0;
 let continuationState = {
   open:false,
+  mode:'continue',
   targetId:null,
   recording:false,
   paused:false,
@@ -1177,6 +1213,44 @@ const MANUAL_NOTE_TEMPLATE = `Patient Name:
 Age: 
 UHID: 
 Sex: `;
+
+const VOICE_NOTE_TEMPLATE = `Patient Name: NIL
+Age: NIL
+UHID: NIL
+Sex: NIL
+
+Presenting Complaint:
+NIL
+
+History of Present Illness:
+NIL
+
+Past Medical or Surgical History:
+NIL
+
+Allergies:
+NIL
+
+Family History:
+NIL
+
+Personal History:
+NIL
+
+Examination Findings:
+NIL
+
+Review of Investigations:
+NIL
+
+Current Medications:
+NIL
+
+Diagnosis:
+NIL
+
+Treatment Plan:
+NIL`;
 
 function renderEntries(){
   entryList.innerHTML = '';
@@ -1227,6 +1301,7 @@ function noteFromSnapshot(snapshot){
     isDraft:data.isDraft === true,
     transcription:data.transcription || '',
     patientData:data.patientData || {name:'NIL',age:'NIL',uhid:'NIL'},
+    voiceDraft:data.voiceDraft === true,
     visitType:data.visitType === 'IP' || data.visitType === 'OP' ? data.visitType : null
   };
 }
@@ -1290,7 +1365,13 @@ function subscribeToSelectedDate({allowLatestDateFallback = false} = {}){
     const targetId = pendingSelectId || previousId;
     const targetIndex = targetId ? records.findIndex(record => record.firestoreId === targetId) : -1;
     pendingSelectId = null;
-    if (targetIndex >= 0) selectEntry(targetIndex);
+    if (targetIndex >= 0){
+      selectEntry(targetIndex);
+      if (pendingNewVoiceDockId && records[activeIndex]?.firestoreId === pendingNewVoiceDockId){
+        pendingNewVoiceDockId = null;
+        openNewVoiceDock();
+      }
+    }
     else if (records.length) selectEntry(0);
     else if (allowLatestDateFallback && !latestDateLookupInProgress){
       latestDateLookupInProgress = true;
@@ -1317,11 +1398,16 @@ function subscribeToSelectedDate({allowLatestDateFallback = false} = {}){
 
 function showEmptyDate(message = 'No notes saved for this date.'){
   activeIndex = null;
+  updateContinueNoteButton();
   topbarPatient.classList.remove('visible');
   copyBtn.style.display = 'none';
   saveDraftBtn.classList.remove('visible');
   deleteBtn.classList.remove('visible');
   mainScroll.innerHTML = `<div class="empty-state"><div class="empty-title">No notes</div><div class="empty-sub">${escapeHtml(message)}</div></div>`;
+}
+
+function updateContinueNoteButton(){
+  continueNoteBtn.classList.toggle('visible', selectedRecordCanContinue());
 }
 
 async function persistRecord(record, changes){
@@ -1368,6 +1454,8 @@ onAuthStateChanged(auth,user => {
     userProfileUnsubscribe = null;
     records = [];
     renderEntries();
+    updateContinueNoteButton();
+    closeContinuationDock();
     appShell.classList.remove('authenticated');
     loginScreen.classList.remove('hidden');
     userEmail.textContent = '';
@@ -1440,6 +1528,7 @@ function selectEntry(i){
   saveDraftBtn.querySelector('span').textContent = r.saved ? '✓' : 'Save note';
   copyBtn.classList.remove('copied');
   copyBtn.textContent = 'Copy';
+  updateContinueNoteButton();
 
   if (isGeneratedRecord){
     renderGeneratedNote(r);
@@ -1579,6 +1668,7 @@ function resizeNoteEditor(editor){
 
 function renderVoiceWorkspace(){
   const draft = records[activeIndex];
+  updateContinueNoteButton();
   if (draft.transcription){
     renderGeneratedNote(draft);
     return;
@@ -1629,6 +1719,7 @@ function renderGeneratedNote(draft){
   });
   recordBtn.classList.remove('is-recording');
   copyBtn.style.display = 'flex';
+  updateContinueNoteButton();
 }
 
 function renderProcessingState(draft){
@@ -1874,6 +1965,7 @@ function setContinuationStatus(message){
 
 function renderContinuationDock(){
   continuationLevel.innerHTML = Array.from({length:28}, () => '<span></span>').join('');
+  continuationTitle.textContent = continuationState.mode === 'new' ? 'Voice note draft' : 'Continue dictation';
   continuationDock.classList.toggle('visible', continuationState.open);
   continuationStartBtn.style.display = continuationState.hasStarted ? 'none' : 'grid';
   continuationPauseBtn.style.display = continuationState.hasStarted ? 'grid' : 'none';
@@ -1888,12 +1980,16 @@ function renderContinuationDock(){
   continuationExtendBtn.disabled = continuationState.processing;
   continuationStopBtn.disabled = continuationState.processing;
   continuationStatus.textContent = continuationState.status;
+  recordBtn.classList.toggle('is-recording', continuationState.open && continuationState.mode === 'new' && continuationState.recording);
+  recordSub.textContent = continuationState.open && continuationState.mode === 'new'
+    ? (continuationState.recording ? 'Listening...' : 'Voice draft open')
+    : 'Tap to record a note';
   updateTimer();
 }
 
 function selectedRecordCanContinue(){
   const record = records[activeIndex];
-  return Boolean(record && (record.transcription || record.kind === 'generated'));
+  return Boolean(record && !record.voiceDraft && (record.transcription || record.kind === 'generated'));
 }
 
 function openContinuationDock(){
@@ -1901,6 +1997,7 @@ function openContinuationDock(){
   stopVoiceTimer();
   stopMediaTracks();
   continuationState.open = true;
+  continuationState.mode = 'continue';
   continuationState.targetId = records[activeIndex].firestoreId;
   continuationState.recording = false;
   continuationState.paused = false;
@@ -1908,6 +2005,25 @@ function openContinuationDock(){
   continuationState.hasStarted = false;
   continuationState.status = 'Ready to continue selected note';
   remainingSeconds = 300;
+  placeDock('right');
+  renderContinuationDock();
+}
+
+function openNewVoiceDock(){
+  const record = records[activeIndex];
+  if (!record?.voiceDraft) return;
+  stopVoiceTimer();
+  stopMediaTracks();
+  continuationState.open = true;
+  continuationState.mode = 'new';
+  continuationState.targetId = record.firestoreId;
+  continuationState.recording = false;
+  continuationState.paused = false;
+  continuationState.processing = false;
+  continuationState.hasStarted = false;
+  continuationState.status = 'Ready to record new voice note';
+  remainingSeconds = 300;
+  placeDock('left');
   renderContinuationDock();
 }
 
@@ -1987,9 +2103,14 @@ async function stopAndAppendContinuation(){
       openAuthModal();
       return;
     }
-    const addition = await sendContinuationAudioToGemini(audioBlob, apiKey, message => setContinuationStatus(message));
-    appendContinuationText(addition);
-    setContinuationStatus('Added to selected note. Review and save.');
+    if (continuationState.mode === 'new'){
+      await finishNewVoiceDraft(audioBlob, apiKey);
+      setContinuationStatus('Note generated. Review and save.');
+    }else{
+      const addition = await sendContinuationAudioToGemini(audioBlob, apiKey, message => setContinuationStatus(message));
+      appendContinuationText(addition);
+      setContinuationStatus('Added to selected note. Review and save.');
+    }
     closeContinuationDock({releaseMic:false});
   }catch(error){
     setContinuationStatus('Dictation failed. Try again.');
@@ -1998,6 +2119,32 @@ async function stopAndAppendContinuation(){
     stopMediaTracks();
     renderContinuationDock();
   }
+}
+
+async function finishNewVoiceDraft(audioBlob, apiKey){
+  const targetIndex = records.findIndex(record => record.firestoreId === continuationState.targetId);
+  if (targetIndex < 0) return;
+  activeIndex = targetIndex;
+  const draft = records[targetIndex];
+  setContinuationStatus('Creating your note...');
+  const generated = await sendAudioToGemini(audioBlob, apiKey, draft.selectedMode, message => setContinuationStatus(message));
+  draft.transcription = generated.text;
+  draft.patientData = generated.patientData;
+  draft.voiceDraft = false;
+  draft.kind = 'generated';
+  draft.saved = false;
+  draft.status = 'Note ready';
+  await persistRecord(draft,{
+    kind:'generated',
+    voiceDraft:false,
+    transcription:draft.transcription,
+    patientData:draft.patientData,
+    selectedMode:draft.selectedMode,
+    visitType:draft.visitType || selectedVisitType,
+    status:'Note ready',
+    updatedAt:serverTimestamp()
+  });
+  renderGeneratedNote(draft);
 }
 
 function appendContinuationText(addition){
@@ -2021,6 +2168,18 @@ function handleRecordButtonClick(){
   else createVoiceDraft();
 }
 
+function placeDock(side){
+  continuationDock.style.top = 'auto';
+  continuationDock.style.bottom = '22px';
+  if (side === 'right'){
+    continuationDock.style.left = 'auto';
+    continuationDock.style.right = '18px';
+  }else{
+    continuationDock.style.left = '18px';
+    continuationDock.style.right = 'auto';
+  }
+}
+
 function dragContinuationDock(event){
   if (event.target.closest('button')) return;
   const startRect = continuationDock.getBoundingClientRect();
@@ -2032,6 +2191,7 @@ function dragContinuationDock(event){
     continuationDock.style.left = `${nextLeft}px`;
     continuationDock.style.top = `${nextTop}px`;
     continuationDock.style.bottom = 'auto';
+    continuationDock.style.right = 'auto';
   };
   const up = () => {
     document.removeEventListener('pointermove', move);
@@ -2217,9 +2377,13 @@ async function createVoiceDraft(){
   if (!currentUser) return;
   const existingDrafts = await getDocs(query(userNotesCollection(),where('isDraft','==',true)));
   if (!existingDrafts.empty){
-    const existing = existingDrafts.docs.find(item => (item.data().visitType === 'IP' ? 'IP' : 'OP') === selectedVisitType);
+    const existing = existingDrafts.docs.find(item => {
+      const data = item.data();
+      return data.voiceDraft === true && (data.visitType === 'IP' ? 'IP' : 'OP') === selectedVisitType;
+    });
     if (existing){
       pendingSelectId = existing.id;
+      pendingNewVoiceDockId = existing.id;
       const existingDate = existing.data().visitDate;
       if (existingDate){
         const [year,month,day] = existingDate.split('-').map(Number);
@@ -2243,14 +2407,17 @@ async function createVoiceDraft(){
     isDraft: true,
     everSaved:false,
     saved:false,
+    kind:'generated',
+    voiceDraft:true,
     recording: false,
     hasStarted: false,
     selectedMode: null,
-    status: 'Press Space to start recording',
-    transcription: '',
-    patientData:{name:'NIL',age:'NIL',uhid:'NIL'}
+    status: 'Ready to record',
+    transcription: VOICE_NOTE_TEMPLATE,
+    patientData:{name:'NIL',age:'NIL',uhid:'NIL',sex:'NIL'}
   });
   pendingSelectId = newDraft.id;
+  pendingNewVoiceDockId = newDraft.id;
   remainingSeconds = 300;
 }
 
@@ -2388,9 +2555,10 @@ topbarPatient.addEventListener('keydown', event => {
 mobileBackdrop.addEventListener('click', closeMobileSidebar);
 mobileCopyBtn.addEventListener('click', () => copyBtn.click());
 mobileDeleteBtn.addEventListener('click', () => deleteBtn.click());
-mobileRecordBtn.addEventListener('click', () => recordBtn.click());
+mobileRecordBtn.addEventListener('click', createVoiceDraft);
 mobileAddNoteBtn.addEventListener('click', () => addNoteBtn.click());
 mobileSaveBtn.addEventListener('click', () => saveDraftBtn.click());
+continueNoteBtn.addEventListener('click', openContinuationDock);
 
 copyBtn.addEventListener('click', async () => {
   if (activeIndex === null) return;
@@ -2435,21 +2603,20 @@ signoutBtn.addEventListener('click', async () => {
   await firebaseSignOut(auth);
 });
 
-const recordBtn = document.getElementById('recordBtn');
-const recordSub = document.getElementById('recordSub');
-recordBtn.addEventListener('click', handleRecordButtonClick);
+recordBtn.addEventListener('click', createVoiceDraft);
 addNoteBtn.addEventListener('click', createManualDraft);
 
 document.addEventListener('keydown', (event) => {
   const isTyping = ['INPUT','TEXTAREA'].includes(document.activeElement?.tagName) || document.activeElement?.isContentEditable;
   if (isTyping || authModal.classList.contains('open') || credentialModal.classList.contains('open')) return;
-  if (continuationState.open && continuationState.hasStarted){
+  if (continuationState.open){
     if (event.code === 'Space'){
       event.preventDefault();
-      pauseResumeContinuationRecording();
+      if (continuationState.hasStarted) pauseResumeContinuationRecording();
+      else startContinuationRecording();
     }else if (event.code === 'Enter'){
       event.preventDefault();
-      stopAndAppendContinuation();
+      if (continuationState.hasStarted) stopAndAppendContinuation();
     }
     return;
   }
@@ -2519,12 +2686,14 @@ saveDraftBtn.addEventListener('click', async () => {
   draft.everSaved = true;
   draft.isDraft = false;
   draft.kind = 'generated';
+  draft.voiceDraft = false;
   draft.visitType = draft.visitType || selectedVisitType;
   saveDraftBtn.querySelector('span').textContent = '✓';
   deleteBtn.classList.add('visible');
   renderEntries();
   await persistRecord(draft,{
     kind:'generated',
+    voiceDraft:false,
     isDraft:false,
     saved:true,
     everSaved:true,
