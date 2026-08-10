@@ -767,6 +767,7 @@ let notesUnsubscribe = null;
 let userProfileUnsubscribe = null;
 let pendingSelectId = null;
 let latestDateLookupInProgress = false;
+let dateSubscriptionRequestId = 0;
 
 const MANUAL_NOTE_TEMPLATE = `Patient Name: 
 Age: 
@@ -848,9 +849,10 @@ function updateVisitToggle(){
   });
 }
 
-function subscribeToSelectedDate(){
+function subscribeToSelectedDate({allowLatestDateFallback = false} = {}){
   if (!currentUser) return;
   if (notesUnsubscribe) notesUnsubscribe();
+  const requestId = ++dateSubscriptionRequestId;
   const selectedDate = dateInputValue(selectedVisitDate);
   const notesQuery = query(userNotesCollection(),where('visitDate','==',selectedDate));
   notesUnsubscribe = onSnapshot(notesQuery,async snapshot => {
@@ -866,10 +868,11 @@ function subscribeToSelectedDate(){
     pendingSelectId = null;
     if (targetIndex >= 0) selectEntry(targetIndex);
     else if (records.length) selectEntry(0);
-    else if (!latestDateLookupInProgress){
+    else if (allowLatestDateFallback && !latestDateLookupInProgress){
       latestDateLookupInProgress = true;
       try{
         const latestDate = await latestVisitDateForSelectedType();
+        if (requestId !== dateSubscriptionRequestId) return;
         if (latestDate && latestDate !== selectedDate){
           const [year,month,day] = latestDate.split('-').map(Number);
           selectedVisitDate = new Date(year,month-1,day);
@@ -933,7 +936,7 @@ onAuthStateChanged(auth,user => {
     });
     selectedVisitDate = new Date();
     updateDateNavigation();
-    subscribeToSelectedDate();
+    subscribeToSelectedDate({allowLatestDateFallback:true});
   }else{
     if (notesUnsubscribe) notesUnsubscribe();
     if (userProfileUnsubscribe) userProfileUnsubscribe();
