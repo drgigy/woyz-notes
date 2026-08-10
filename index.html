@@ -206,7 +206,7 @@
   .continuation-title{ display:inline-flex; align-items:center; gap:8px; color:#FF514A; font-size:13px; font-weight:900; }
   .continuation-title::before{ content:''; width:7px; height:7px; border-radius:999px; background:#FF514A; box-shadow:0 0 0 4px rgba(255,81,74,.1); }
   .continuation-close{ width:28px; height:28px; border:0; border-radius:8px; background:#2F2F32; color:#F7F7FB; cursor:pointer; font-size:18px; line-height:1; }
-  .continuation-body{ display:grid; grid-template-rows:auto auto auto auto; justify-items:center; align-content:center; gap:10px; min-height:0; }
+  .continuation-body{ display:grid; grid-template-rows:auto auto auto auto auto; justify-items:center; align-content:center; gap:10px; min-height:0; }
   .continuation-level{ width:76%; height:30px; display:grid; grid-template-columns:repeat(28,1fr); gap:3px; align-items:end; padding:1px 0; }
   .continuation-level span{ height:4px; border-radius:999px 999px 3px 3px; background:rgba(255,81,74,.22); opacity:.65; transition:height .08s linear, background .08s linear, opacity .08s linear; }
   .continuation-level span.active{ background:#FF514A; opacity:1; }
@@ -223,6 +223,11 @@
   .continuation-action.stop{ background:#2F2F32; color:#FF514A; }
   .continuation-action:disabled{ opacity:.45; cursor:not-allowed; }
   .continuation-action svg{ width:28px; height:28px; }
+  .continuation-mode-bar{ width:100%; display:none; grid-template-columns:repeat(3,minmax(0,1fr)); gap:6px; }
+  .continuation-mode-bar.visible{ display:grid; }
+  .continuation-mode-btn{ min-height:32px; border:0; border-radius:9px; background:#2F2F32; color:#F7F7FB; padding:5px 6px; font:900 10px/1.05 'Inter',sans-serif; cursor:pointer; }
+  .continuation-mode-btn.active{ background:#592927; color:#FFB4AD; }
+  .continuation-mode-btn:disabled{ opacity:.55; cursor:not-allowed; }
   .continuation-status{ width:100%; min-height:18px; color:#C9C9CF; text-align:center; font-size:12px; font-weight:800; }
   .continue-note-btn{
     display:none;
@@ -997,6 +1002,11 @@
         <svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12"/></svg>
       </button>
     </div>
+    <div class="continuation-mode-bar" id="continuationModeBar" aria-label="Voice note type">
+      <button class="continuation-mode-btn active" data-new-voice-mode="">Visit note</button>
+      <button class="continuation-mode-btn" data-new-voice-mode="Medical certificate">Medical certificate</button>
+      <button class="continuation-mode-btn" data-new-voice-mode="Reply letter">Reply letter</button>
+    </div>
     <div class="continuation-status" id="continuationStatus">Ready</div>
   </div>
 </div>
@@ -1159,6 +1169,7 @@ const continuationExtendBtn = document.getElementById('continuationExtendBtn');
 const continuationStopBtn = document.getElementById('continuationStopBtn');
 const continuationCloseBtn = document.getElementById('continuationCloseBtn');
 const continuationStatus = document.getElementById('continuationStatus');
+const continuationModeBar = document.getElementById('continuationModeBar');
 
 const GEMINI_KEY_STORAGE = 'woyz_gemini_authorization_key';
 const GEMINI_MODEL = 'gemini-3.6-flash';
@@ -1964,6 +1975,8 @@ function setContinuationStatus(message){
 }
 
 function renderContinuationDock(){
+  const activeDraft = records.find(record => record.firestoreId === continuationState.targetId);
+  const selectedMode = activeDraft?.selectedMode || '';
   continuationLevel.innerHTML = Array.from({length:28}, () => '<span></span>').join('');
   continuationTitle.textContent = continuationState.mode === 'new' ? 'Voice note draft' : 'Continue dictation';
   continuationDock.classList.toggle('visible', continuationState.open);
@@ -1979,6 +1992,11 @@ function renderContinuationDock(){
   continuationPauseBtn.disabled = continuationState.processing;
   continuationExtendBtn.disabled = continuationState.processing;
   continuationStopBtn.disabled = continuationState.processing;
+  continuationModeBar.classList.toggle('visible', continuationState.mode === 'new');
+  continuationModeBar.querySelectorAll('[data-new-voice-mode]').forEach(button => {
+    button.classList.toggle('active', button.dataset.newVoiceMode === selectedMode);
+    button.disabled = continuationState.hasStarted || continuationState.processing;
+  });
   continuationStatus.textContent = continuationState.status;
   recordBtn.classList.toggle('is-recording', continuationState.open && continuationState.mode === 'new' && continuationState.recording);
   recordSub.textContent = continuationState.open && continuationState.mode === 'new'
@@ -2086,6 +2104,15 @@ function extendContinuationRecording(){
   if (continuationState.recording && !voiceInterval) startVoiceTimer();
   setContinuationStatus('Five minutes added.');
   updateTimer();
+}
+
+function setNewVoiceMode(mode){
+  if (continuationState.mode !== 'new' || continuationState.hasStarted || continuationState.processing) return;
+  const draft = records.find(record => record.firestoreId === continuationState.targetId);
+  if (!draft) return;
+  draft.selectedMode = mode || null;
+  persistRecord(draft,{selectedMode:draft.selectedMode});
+  renderContinuationDock();
 }
 
 async function stopAndAppendContinuation(){
@@ -2234,6 +2261,11 @@ function wireContinuationDock(){
   continuationStopBtn.addEventListener('click', stopAndAppendContinuation);
   continuationCloseBtn.addEventListener('click', () => closeContinuationDock());
   continuationDockHandle.addEventListener('pointerdown', dragContinuationDock);
+  continuationModeBar.addEventListener('click', event => {
+    const button = event.target.closest('[data-new-voice-mode]');
+    if (!button) return;
+    setNewVoiceMode(button.dataset.newVoiceMode);
+  });
 }
 
 wireContinuationDock();
