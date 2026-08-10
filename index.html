@@ -574,9 +574,9 @@
   .mobile-app-bar,.mobile-backdrop,.mobile-visit-row,.mobile-bottom-actions{ display:none; }
 
   @media (max-width:720px){
-    html,body{ height:100%; background:#fff; }
+    html,body{ height:100%; background:#F6F7F5; }
     body{ overflow:hidden; }
-    .app.authenticated{ display:block; height:100dvh; overflow:hidden; background:#fff; }
+    .app.authenticated{ display:block; height:100dvh; overflow:hidden; background:#F6F7F5; }
     .mobile-app-bar{
       position:fixed;
       top:0; left:0; right:0;
@@ -585,7 +585,7 @@
       display:grid;
       grid-template-columns:56px 1fr 56px;
       align-items:center;
-      padding:0 14px;
+      padding:0 12px;
       border-bottom:1px solid var(--border);
       background:rgba(255,255,255,.96);
       backdrop-filter:blur(12px);
@@ -614,7 +614,7 @@
       font-size:20px;
       font-weight:800;
       letter-spacing:.03em;
-      color:#3E3D3B;
+      color:#222624;
     }
     .mobile-backdrop{
       position:fixed;
@@ -630,17 +630,27 @@
       position:fixed;
       z-index:80;
       top:0; bottom:0; left:0;
-      width:min(86vw,340px);
+      width:min(88vw,350px);
       min-width:0;
-      padding:78px 16px 18px;
+      padding:78px 14px 18px;
       box-shadow:20px 0 60px -34px rgba(0,0,0,.45);
       transform:translateX(-102%);
       transition:transform .2s ease;
       border-right:1px solid var(--border);
     }
     .app.sidebar-open .sidebar{ transform:translateX(0); }
-    .note-action-row{ min-height:74px; }
-    .sidebar .visit-toggle{ display:none; }
+    .note-action-row{
+      min-height:72px;
+      grid-template-columns:minmax(0,1fr) minmax(0,1fr);
+      gap:10px;
+    }
+    .sidebar .visit-toggle{
+      display:flex;
+      margin:14px 0 0;
+      height:46px;
+      border-radius:14px;
+      background:#F4F7F6;
+    }
     .sidebar-section-label{ margin-top:20px; }
     .entry-list{ padding-bottom:18px; }
     .main{
@@ -649,7 +659,7 @@
       display:flex;
       flex-direction:column;
       padding-top:64px;
-      background:#fff;
+      background:#F6F7F5;
     }
     .main-topbar{
       position:relative;
@@ -659,20 +669,20 @@
       align-items:stretch;
       gap:0;
       padding:0;
-      border-bottom:1px solid var(--border);
+      border-bottom:1px solid #E6E8E4;
       background:#fff;
     }
     .settings-wrap{
       position:fixed;
-      top:13px;
-      right:18px;
+      top:11px;
+      right:12px;
       z-index:65;
     }
     .settings-btn{
-      width:42px;height:42px;
+      width:44px;height:44px;
       border:0;
       background:transparent;
-      color:#777;
+      color:#71716F;
     }
     .settings-menu{ position:fixed; top:60px; right:12px; }
     .user-email{ display:none !important; }
@@ -713,8 +723,8 @@
       display:flex;
       align-items:center;
       gap:12px;
-      min-height:72px;
-      padding:12px 28px;
+      min-height:68px;
+      padding:10px 24px;
       border-bottom:1px solid var(--border);
       background:#fff;
     }
@@ -723,7 +733,7 @@
       height:48px;
       padding:4px;
       border:0;
-      background:#FAFAFA;
+      background:#F7F8F6;
       border-radius:13px;
     }
     .mobile-visit-row .visit-toggle-btn{
@@ -736,10 +746,10 @@
     .mobile-visit-row .visit-toggle-btn.active{ background:#050505; color:#fff; }
     .date-nav{
       position:absolute;
-      right:28px;
-      bottom:16px;
+      right:22px;
+      bottom:15px;
       margin-left:0;
-      gap:10px;
+      gap:7px;
     }
     .date-step{
       width:34px;
@@ -750,7 +760,7 @@
       color:#575757;
     }
     .date-input{
-      width:112px;
+      width:110px;
       height:38px;
       border:0;
       background:transparent;
@@ -768,15 +778,15 @@
       -webkit-overflow-scrolling:touch;
       overscroll-behavior:contain;
       padding:0 0 96px;
-      background:#fff;
+      background:#F6F7F5;
     }
     .generated-note,.generated-note-card{
       min-height:0;
-      background:#fff;
+      background:transparent;
       padding:0;
       display:block;
     }
-    .generated-note-card{ padding:28px 28px 24px; }
+    .generated-note-card{ padding:24px 18px 24px; }
     .generated-note-head{ display:block; margin-bottom:16px; }
     .generated-note-title{
       font:800 17px 'Inter',sans-serif;
@@ -786,14 +796,16 @@
     }
     .note-editor{
       min-height:auto;
-      font:18px/1.25 'Inter',sans-serif;
+      font:17px/1.36 'Inter',sans-serif;
       color:#0F1110;
-      padding-bottom:0;
+      padding:18px;
+      border-radius:18px;
+      background:#fff;
+      box-shadow:0 1px 0 rgba(20,35,29,.04);
     }
     .note-editor{
       width:100%;
       border:0;
-      background:#fff;
       -webkit-user-select:text;
       user-select:text;
     }
@@ -2664,6 +2676,8 @@ signoutBtn.addEventListener('click', async () => {
 
 recordBtn.addEventListener('click', createVoiceDraft);
 addNoteBtn.addEventListener('click', createManualDraft);
+recordBtn.addEventListener('click', closeMobileSidebar);
+addNoteBtn.addEventListener('click', closeMobileSidebar);
 
 document.addEventListener('keydown', (event) => {
   const isTyping = ['INPUT','TEXTAREA'].includes(document.activeElement?.tagName) || document.activeElement?.isContentEditable;
