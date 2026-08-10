@@ -1500,9 +1500,9 @@ function updateContinueNoteButton(){
   const showVoiceModes = Boolean(record?.voiceDraft);
   continueNoteBtn.classList.toggle('visible', canContinue);
   topbarContinueBtn.classList.toggle('visible', canContinue);
-  topbarDocActions.classList.toggle('visible', canContinue || showVoiceModes);
+  topbarDocActions.classList.toggle('visible', Boolean(currentUser));
   topbarDocActions.querySelectorAll('[data-topbar-voice-mode]').forEach(button => {
-    button.classList.toggle('active', record?.selectedMode === button.dataset.topbarVoiceMode);
+    button.classList.toggle('active', showVoiceModes && record?.selectedMode === button.dataset.topbarVoiceMode);
     button.disabled = continuationState.hasStarted || continuationState.processing;
   });
 }
@@ -2513,13 +2513,22 @@ function normalizeNumberedLines(text){
     .trim();
 }
 
-async function createVoiceDraft(){
+function voiceDraftHeadingForMode(mode){
+  if (mode === 'Medical certificate') return 'Medical Certificate draft';
+  if (mode === 'Reply letter') return 'Reply Letter draft';
+  return 'Visit Note draft';
+}
+
+async function createVoiceDraft(mode = null){
   if (!currentUser) return;
+  const selectedMode = mode || null;
   const existingDrafts = await getDocs(query(userNotesCollection(),where('isDraft','==',true)));
   if (!existingDrafts.empty){
     const existing = existingDrafts.docs.find(item => {
       const data = item.data();
-      return data.voiceDraft === true && (data.visitType === 'IP' ? 'IP' : 'OP') === selectedVisitType;
+      return data.voiceDraft === true
+        && (data.visitType === 'IP' ? 'IP' : 'OP') === selectedVisitType
+        && (data.selectedMode || null) === selectedMode;
     });
     if (existing){
       pendingSelectId = existing.id;
@@ -2539,7 +2548,7 @@ async function createVoiceDraft(){
   const now = new Date();
   const createdAt = now.toLocaleDateString('en-GB', {day:'2-digit', month:'short', year:'numeric'}) + ', ' + now.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
   const newDraft = await addDoc(userNotesCollection(),{
-    heading: 'Visit Note draft',
+    heading: voiceDraftHeadingForMode(selectedMode),
     createdAt:serverTimestamp(),
     createdAtLabel:createdAt,
     visitDate:dateInputValue(selectedVisitDate),
@@ -2551,9 +2560,9 @@ async function createVoiceDraft(){
     voiceDraft:true,
     recording: false,
     hasStarted: false,
-    selectedMode: null,
+    selectedMode,
     status: 'Ready to record',
-    transcription:newVoiceTemplateForMode(null),
+    transcription:newVoiceTemplateForMode(selectedMode),
     patientData:{name:'NIL',age:'NIL',uhid:'NIL',sex:'NIL'}
   });
   pendingSelectId = newDraft.id;
@@ -2695,7 +2704,7 @@ topbarPatient.addEventListener('keydown', event => {
 mobileBackdrop.addEventListener('click', closeMobileSidebar);
 mobileCopyBtn.addEventListener('click', () => copyBtn.click());
 mobileDeleteBtn.addEventListener('click', () => deleteBtn.click());
-mobileRecordBtn.addEventListener('click', createVoiceDraft);
+mobileRecordBtn.addEventListener('click', () => createVoiceDraft());
 mobileAddNoteBtn.addEventListener('click', () => addNoteBtn.click());
 mobileSaveBtn.addEventListener('click', () => saveDraftBtn.click());
 continueNoteBtn.addEventListener('click', openContinuationDock);
@@ -2703,11 +2712,15 @@ topbarContinueBtn.addEventListener('click', openContinuationDock);
 topbarDocActions.addEventListener('click', event => {
   const button = event.target.closest('[data-topbar-voice-mode]');
   if (!button || continuationState.hasStarted || continuationState.processing) return;
+  const mode = button.dataset.topbarVoiceMode;
   const draft = records[activeIndex];
-  if (!draft?.voiceDraft) return;
-  const nextMode = draft.selectedMode === button.dataset.topbarVoiceMode ? null : button.dataset.topbarVoiceMode;
-  setVoiceDraftMode(draft, nextMode);
-  if (continuationState.open && continuationState.mode === 'new') renderContinuationDock();
+  if (draft?.voiceDraft){
+    const nextMode = draft.selectedMode === mode ? null : mode;
+    setVoiceDraftMode(draft, nextMode);
+    if (continuationState.open && continuationState.mode === 'new') renderContinuationDock();
+    return;
+  }
+  createVoiceDraft(mode);
 });
 
 copyBtn.addEventListener('click', async () => {
@@ -2753,7 +2766,7 @@ signoutBtn.addEventListener('click', async () => {
   await firebaseSignOut(auth);
 });
 
-recordBtn.addEventListener('click', createVoiceDraft);
+recordBtn.addEventListener('click', () => createVoiceDraft());
 addNoteBtn.addEventListener('click', createManualDraft);
 recordBtn.addEventListener('click', closeMobileSidebar);
 addNoteBtn.addEventListener('click', closeMobileSidebar);
