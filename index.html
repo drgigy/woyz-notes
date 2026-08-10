@@ -111,6 +111,7 @@
     100%{ box-shadow:0 0 0 0 rgba(255,255,255,0); }
   }
   .record-label{ text-align:left; }
+  .mobile-doc-actions{ display:none; }
   .record-title{
     font-family:'Inter',system-ui,sans-serif;
     font-size:20px;
@@ -616,23 +617,23 @@
       position:fixed;
       top:0; left:0; right:0;
       z-index:60;
-      height:60px;
+      height:52px;
       display:grid;
-      grid-template-columns:56px 1fr 56px;
+      grid-template-columns:52px 1fr;
       align-items:center;
       padding:0 max(10px,env(safe-area-inset-right)) 0 max(10px,env(safe-area-inset-left));
-      border-bottom:1px solid var(--border);
-      background:rgba(255,255,255,.96);
-      backdrop-filter:blur(12px);
+      pointer-events:none;
+      background:transparent;
     }
     .mobile-menu-btn{
-      width:44px;height:44px;
+      width:42px;height:42px;
       border:0;
       background:transparent;
       color:#777;
       display:grid;
       place-items:center;
       cursor:pointer;
+      pointer-events:auto;
     }
     .mobile-menu-btn span,.mobile-menu-btn span::before,.mobile-menu-btn span::after{
       content:'';
@@ -644,13 +645,7 @@
     }
     .mobile-menu-btn span::before{ transform:translateY(-8px); }
     .mobile-menu-btn span::after{ transform:translateY(5.5px); }
-    .mobile-title{
-      text-align:center;
-      font-size:20px;
-      font-weight:800;
-      letter-spacing:.03em;
-      color:#222624;
-    }
+    .mobile-title{ display:none; }
     .mobile-backdrop{
       position:fixed;
       inset:0;
@@ -667,7 +662,7 @@
       top:0; bottom:0; left:0;
       width:min(86vw,330px);
       min-width:0;
-      padding:74px 14px calc(18px + env(safe-area-inset-bottom));
+      padding:72px 14px calc(18px + env(safe-area-inset-bottom));
       box-shadow:20px 0 60px -34px rgba(0,0,0,.45);
       transform:translateX(-102%);
       transition:transform .2s ease;
@@ -691,8 +686,23 @@
       letter-spacing:.2px;
       line-height:1.1;
     }
+    .mobile-doc-actions{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:8px;
+      margin-top:10px;
+    }
+    .mobile-doc-action{
+      min-height:42px;
+      border:1px solid #D8E1E7;
+      border-radius:12px;
+      background:#fff;
+      color:var(--teal-deep);
+      font:800 12px 'Inter',sans-serif;
+      cursor:pointer;
+    }
     .sidebar .visit-toggle{
-      display:flex;
+      display:none;
       margin:14px 0 0;
       height:46px;
       border-radius:14px;
@@ -705,7 +715,7 @@
       min-height:0;
       display:flex;
       flex-direction:column;
-      padding-top:60px;
+      padding-top:0;
       background:#F6F7F5;
     }
     .main-topbar{
@@ -720,10 +730,14 @@
       background:#fff;
     }
     .settings-wrap{
+      display:none;
+    }
+    .app.sidebar-open .settings-wrap{
+      display:block;
       position:fixed;
-      top:11px;
-      right:12px;
-      z-index:65;
+      top:14px;
+      left:calc(min(86vw,330px) - 60px);
+      z-index:90;
     }
     .settings-btn{
       width:44px;height:44px;
@@ -731,7 +745,7 @@
       background:transparent;
       color:#71716F;
     }
-    .settings-menu{ position:fixed; top:60px; right:12px; }
+    .settings-menu{ position:fixed; top:60px; left:14px; right:auto; }
     .user-email{ display:none !important; }
     .topbar-patient{
       display:none !important;
@@ -741,45 +755,45 @@
       align-items:center;
       justify-content:space-between;
       gap:12px;
-      min-height:62px;
-      padding:9px 18px;
+      min-height:52px;
+      padding:6px 12px 6px 58px;
       border-bottom:1px solid var(--border);
       background:#fff;
     }
     .mobile-visit-row .visit-toggle{
       display:flex;
-      height:48px;
+      height:40px;
       padding:4px;
       border:0;
       background:#F7F8F6;
       border-radius:13px;
     }
     .mobile-visit-row .visit-toggle-btn{
-      min-width:56px;
-      height:40px;
+      min-width:48px;
+      height:32px;
       border-radius:10px;
-      font-size:16px;
+      font-size:14px;
       color:#595C57;
     }
     .mobile-visit-row .visit-toggle-btn.active{ background:#050505; color:#fff; }
     .date-nav{
       position:absolute;
-      right:14px;
-      bottom:12px;
+      right:8px;
+      bottom:8px;
       margin-left:0;
-      gap:4px;
+      gap:2px;
     }
     .date-step{
-      width:30px;
-      height:34px;
+      width:28px;
+      height:32px;
       border:0;
       background:transparent;
       font-size:30px;
       color:#575757;
     }
     .date-input{
-      width:104px;
-      height:34px;
+      width:98px;
+      height:32px;
       border:0;
       background:transparent;
       padding:0;
@@ -876,8 +890,8 @@
     }
     .mobile-action.danger{ color:#A92E24; }
     .mobile-action.primary{
-      width:66px;height:66px;
-      margin-top:-28px;
+      width:54px;height:54px;
+      margin-top:0;
       border-radius:50%;
       background:#D7383A;
       color:#fff;
@@ -939,6 +953,10 @@
     <div class="visit-toggle" id="visitToggle" aria-label="Visit type">
       <button class="visit-toggle-btn active" data-visit-type="OP">OP</button>
       <button class="visit-toggle-btn" data-visit-type="IP">IP</button>
+    </div>
+    <div class="mobile-doc-actions" aria-label="Mobile document type">
+      <button class="mobile-doc-action" data-mobile-voice-mode="Medical certificate">Certificate</button>
+      <button class="mobile-doc-action" data-mobile-voice-mode="Reply letter">Reply Letter</button>
     </div>
 
     <div class="sidebar-section-label">Records</div>
@@ -2710,10 +2728,8 @@ mobileAddNoteBtn.addEventListener('click', () => addNoteBtn.click());
 mobileSaveBtn.addEventListener('click', () => saveDraftBtn.click());
 continueNoteBtn.addEventListener('click', openContinuationDock);
 topbarContinueBtn.addEventListener('click', openContinuationDock);
-topbarDocActions.addEventListener('click', event => {
-  const button = event.target.closest('[data-topbar-voice-mode]');
-  if (!button || continuationState.hasStarted || continuationState.processing) return;
-  const mode = button.dataset.topbarVoiceMode;
+function handleDocumentModeAction(mode){
+  if (!mode || continuationState.hasStarted || continuationState.processing) return;
   const draft = records[activeIndex];
   if (draft?.voiceDraft){
     const nextMode = draft.selectedMode === mode ? null : mode;
@@ -2722,6 +2738,18 @@ topbarDocActions.addEventListener('click', event => {
     return;
   }
   createVoiceDraft(mode);
+}
+
+topbarDocActions.addEventListener('click', event => {
+  const button = event.target.closest('[data-topbar-voice-mode]');
+  if (!button) return;
+  handleDocumentModeAction(button.dataset.topbarVoiceMode);
+});
+document.addEventListener('click', event => {
+  const button = event.target.closest('[data-mobile-voice-mode]');
+  if (!button) return;
+  handleDocumentModeAction(button.dataset.mobileVoiceMode);
+  closeMobileSidebar();
 });
 
 copyBtn.addEventListener('click', async () => {
