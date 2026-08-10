@@ -2278,18 +2278,26 @@ async function sendContinuationAudioToGemini(audioBlob, apiKey, onRetry){
     apiKey,
     audioBlob,
     audioData,
-    systemPrompt:'You are a clinical dictation assistant. Convert this additional dictation into concise professional clinical English to append to an existing note. Correct spelling and grammar only. Do not add, remove, infer, summarize, or change clinical information. Preserve medicines, doses, investigations, numeric values, units, dates, advice, and chronology exactly as dictated. Do not repeat patient identifiers unless the doctor dictates them as clinical content. Return only the requested JSON object.',
-    taskPrompt:'Transcribe this continuation dictation as append-only note text. Keep dictated headings if present. Do not create a full new visit note.',
+    systemPrompt:'You are a clinical dictation assistant. Convert this additional dictation into concise professional clinical English to append to an existing note. Correct spelling and grammar only. Do not add, remove, infer, summarize, or change clinical information. Preserve medicines, doses, investigations, numeric values, units, dates, advice, and chronology exactly as dictated. If investigation reports are dictated, output them under the exact heading "Review of Investigations:" and format each investigation as a numbered item, with every numbered item starting on a new line. For blood investigations, list each test separately with dictated value and unit. If no investigations are dictated, do not add an investigation heading; return only the simple continuation paragraph or dictated headings. Do not repeat patient identifiers unless the doctor dictates them as clinical content. Return only the requested JSON object.',
+    taskPrompt:'Transcribe this continuation dictation as append-only note text. Keep dictated headings if present. Do not create a full new visit note. Only create a "Review of Investigations:" section when investigation reports are dictated; then number the investigations one by one.',
     responseSchema:continuationResponseSchema(),
     onRetry
   });
   const responseText = payload.candidates?.[0]?.content?.parts?.map(part => part.text || '').join('').trim();
   if (!responseText) throw new Error('The service returned an empty response.');
   try{
-    return String(JSON.parse(responseText).text || '').trim();
+    return formatContinuationText(String(JSON.parse(responseText).text || '').trim());
   }catch(error){
     throw new Error('The service returned an invalid structured response.');
   }
+}
+
+function formatContinuationText(text){
+  return String(text || '')
+    .replace(/(Review of Investigations:\s*)/i, 'Review of Investigations:\n')
+    .replace(/\s+(\d+[.)]\s+)/g, '\n$1')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
 }
 
 function wireContinuationDock(){
