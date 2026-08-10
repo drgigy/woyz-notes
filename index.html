@@ -2283,7 +2283,9 @@ function appendContinuationText(addition){
   const record = records[targetIndex];
   const editor = document.getElementById('generatedNoteEditor');
   const existing = editor ? editorPlainText(editor) : record.transcription;
-  record.transcription = `${String(existing || '').trimEnd()}\n\n${text}`.trim();
+  const baseText = String(existing || '').trimEnd();
+  const reviewHeading = /^Review Note:\s*$/im.test(baseText) ? '' : 'Review Note:\n';
+  record.transcription = `${baseText}\n\n${reviewHeading}${text}`.trim();
   record.saved = false;
   saveDraftBtn.querySelector('span').textContent = 'Save note';
   renderGeneratedNote(record);
