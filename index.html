@@ -2886,8 +2886,8 @@ deleteBtn.addEventListener('click', async () => {
   if (activeIndex === null) return;
   const draft = records[activeIndex];
   if (!draft?.firestoreId || !currentUser) return;
-  const isSavedNote = !draft.isDraft || draft.everSaved;
-  if (isSavedNote && !window.confirm('Delete this selected note?')) return;
+  const noteName = draft.patientData?.name || draft.name || 'this selected note';
+  if (!window.confirm(`Delete ${noteName}?`)) return;
   stopVoiceTimer();
   stopMediaTracks();
   await deleteDoc(doc(db,'users',currentUser.uid,'notes',draft.firestoreId));
