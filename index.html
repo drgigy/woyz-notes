@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>WOYZ Notes</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
@@ -606,7 +607,7 @@
 
   .mobile-app-bar,.mobile-backdrop,.mobile-visit-row,.mobile-bottom-actions{ display:none; }
 
-  @media (max-width:720px){
+  @media (max-width:600px){
     html,body{ height:100%; background:#F6F7F5; }
     body{ overflow:hidden; }
     .app.authenticated{ display:block; height:100dvh; overflow:hidden; background:#F6F7F5; }
@@ -614,11 +615,11 @@
       position:fixed;
       top:0; left:0; right:0;
       z-index:60;
-      height:64px;
+      height:60px;
       display:grid;
       grid-template-columns:56px 1fr 56px;
       align-items:center;
-      padding:0 12px;
+      padding:0 max(10px,env(safe-area-inset-right)) 0 max(10px,env(safe-area-inset-left));
       border-bottom:1px solid var(--border);
       background:rgba(255,255,255,.96);
       backdrop-filter:blur(12px);
@@ -663,9 +664,9 @@
       position:fixed;
       z-index:80;
       top:0; bottom:0; left:0;
-      width:min(88vw,350px);
+      width:min(86vw,330px);
       min-width:0;
-      padding:78px 14px 18px;
+      padding:74px 14px calc(18px + env(safe-area-inset-bottom));
       box-shadow:20px 0 60px -34px rgba(0,0,0,.45);
       transform:translateX(-102%);
       transition:transform .2s ease;
@@ -695,7 +696,7 @@
       min-height:0;
       display:flex;
       flex-direction:column;
-      padding-top:64px;
+      padding-top:60px;
       background:#F6F7F5;
     }
     .main-topbar{
@@ -724,44 +725,15 @@
     .settings-menu{ position:fixed; top:60px; right:12px; }
     .user-email{ display:none !important; }
     .topbar-patient{
-      position:relative;
-      margin:0;
-      min-height:92px;
-      display:none;
-      grid-template-columns:1fr;
-      align-content:center;
-      gap:4px;
-      padding:16px 74px 16px 28px;
-      border-bottom:1px solid var(--border);
-      opacity:1;
-      transform:none;
-      cursor:pointer;
-    }
-    .topbar-patient:active{ background:#FAFAFA; }
-    .topbar-patient::after{
-      content:'';
-      position:absolute;
-      right:31px;
-      top:50%;
-      width:12px;
-      height:12px;
-      border-right:2.5px solid #8A8782;
-      border-bottom:2.5px solid #8A8782;
-      transform:translateY(-65%) rotate(45deg);
-    }
-    .topbar-patient-name{ font-size:21px; font-weight:800; color:#111; }
-    .topbar-patient-uhid,.topbar-patient-age{
-      font:700 16px 'Inter',sans-serif;
-      color:#8A8782;
-      border:0;
-      padding:0;
+      display:none !important;
     }
     .mobile-visit-row{
       display:flex;
       align-items:center;
+      justify-content:space-between;
       gap:12px;
-      min-height:68px;
-      padding:10px 24px;
+      min-height:62px;
+      padding:9px 18px;
       border-bottom:1px solid var(--border);
       background:#fff;
     }
@@ -783,22 +755,22 @@
     .mobile-visit-row .visit-toggle-btn.active{ background:#050505; color:#fff; }
     .date-nav{
       position:absolute;
-      right:22px;
-      bottom:15px;
+      right:14px;
+      bottom:12px;
       margin-left:0;
-      gap:7px;
+      gap:4px;
     }
     .date-step{
-      width:34px;
-      height:38px;
+      width:30px;
+      height:34px;
       border:0;
       background:transparent;
-      font-size:32px;
+      font-size:30px;
       color:#575757;
     }
     .date-input{
-      width:110px;
-      height:38px;
+      width:104px;
+      height:34px;
       border:0;
       background:transparent;
       padding:0;
@@ -827,17 +799,17 @@
     .generated-note-card{ padding:24px 18px 24px; }
     .generated-note-head{ display:block; margin-bottom:16px; }
     .generated-note-title{
-      font:800 17px 'Inter',sans-serif;
+      font:800 16px 'Inter',sans-serif;
       letter-spacing:.08em;
       text-transform:uppercase;
       color:#8A8782;
     }
     .note-editor{
       min-height:auto;
-      font:17px/1.36 'Inter',sans-serif;
+      font:16px/1.38 'Inter',sans-serif;
       color:#0F1110;
-      padding:18px;
-      border-radius:18px;
+      padding:16px;
+      border-radius:16px;
       background:#fff;
       box-shadow:0 1px 0 rgba(20,35,29,.04);
     }
@@ -858,11 +830,11 @@
       position:fixed;
       left:0; right:0; bottom:0;
       z-index:55;
-      height:78px;
+      height:76px;
       display:grid;
       grid-template-columns:repeat(5,1fr);
       align-items:center;
-      padding:8px 22px max(8px,env(safe-area-inset-bottom));
+      padding:8px 18px max(8px,env(safe-area-inset-bottom));
       border-top:1px solid var(--border);
       background:rgba(255,255,255,.97);
       backdrop-filter:blur(12px);
