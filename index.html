@@ -163,9 +163,15 @@
   .voice-controls.visible{ display:flex; }
   .voice-action{ width:82px; height:82px; border:0; border-radius:50%; padding:0; color:#fff; cursor:pointer; display:flex; align-items:center; justify-content:center; box-shadow:0 10px 24px -13px rgba(0,0,0,.7); }
   .voice-action.pause{ background:#FF9D00; }
+  .voice-action.extend{ background:#1F5F52; font:800 19px 'Inter',sans-serif; }
+  .voice-action.extend.blink{ animation:extendBlink .85s ease-in-out infinite; }
   .voice-action.stop{ background:#F04B00; }
   .voice-action svg{ width:29px; height:29px; }
   .voice-action:disabled{ opacity:.45; cursor:not-allowed; }
+  @keyframes extendBlink{
+    0%,100%{ transform:scale(1); box-shadow:0 0 0 0 rgba(31,95,82,.65),0 10px 24px -13px rgba(0,0,0,.7); }
+    50%{ transform:scale(1.08); box-shadow:0 0 0 12px rgba(31,95,82,0),0 10px 24px -13px rgba(0,0,0,.7); }
+  }
   .voice-status{ min-height:20px; margin-top:10px; color:#687080; text-align:center; font-size:13px; font-weight:700; }
   .voice-result{ display:none; margin-top:20px; border:1.5px solid #D2D7DF; border-radius:16px; padding:20px; background:#fff; }
   .voice-result.visible{ display:block; }
@@ -1078,6 +1084,7 @@ function voiceMarkup(){
             <button class="voice-action pause" id="pauseResumeBtn" aria-label="${isRecording ? 'Pause recording' : 'Resume recording'}">
               ${isRecording ? '<svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="5" width="4" height="14"/><rect x="14" y="5" width="4" height="14"/></svg>' : '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7L8 5Z"/></svg>'}
             </button>
+            <button class="voice-action extend" id="extendRecordingBtn" aria-label="Extend recording by five minutes">+5</button>
             <button class="voice-action stop" id="stopTranscribeBtn" aria-label="Stop and transcribe" ${draft.transcribing ? 'disabled' : ''}>
               <svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12"/></svg>
             </button>
@@ -1149,8 +1156,10 @@ function renderVoiceWorkspace(){
   recordSub.textContent = draft.recording ? 'Listening…' : 'Voice draft open';
   if (micBtn) micBtn.addEventListener('click', handleSpaceAction);
   const pauseResumeBtn = document.getElementById('pauseResumeBtn');
+  const extendRecordingBtn = document.getElementById('extendRecordingBtn');
   const stopTranscribeBtn = document.getElementById('stopTranscribeBtn');
   if (pauseResumeBtn) pauseResumeBtn.addEventListener('click', handleSpaceAction);
+  if (extendRecordingBtn) extendRecordingBtn.addEventListener('click', extendRecordingTime);
   if (stopTranscribeBtn) stopTranscribeBtn.addEventListener('click', stopAndTranscribe);
   document.querySelectorAll('.voice-mode').forEach(button => button.addEventListener('click', () => {
     draft.selectedMode = draft.selectedMode === button.textContent ? null : button.textContent;
@@ -1220,7 +1229,6 @@ function startVoiceTimer(){
   voiceInterval = setInterval(() => {
     if (remainingSeconds > 0) remainingSeconds -= 1;
     updateTimer();
-    if (remainingSeconds === 0) stopAndTranscribe();
   }, 1000);
 }
 
@@ -1231,10 +1239,23 @@ function stopVoiceTimer(){
 
 function updateTimer(){
   const timer = document.getElementById('voiceTimer');
+  const extendButton = document.getElementById('extendRecordingBtn');
   if (!timer) return;
   const minutes = String(Math.floor(remainingSeconds / 60)).padStart(2, '0');
   const seconds = String(remainingSeconds % 60).padStart(2, '0');
   timer.textContent = `${minutes}:${seconds}`;
+  extendButton?.classList.toggle('blink', remainingSeconds === 0);
+}
+
+function extendRecordingTime(){
+  if (activeIndex === null || !records[activeIndex]?.hasStarted || records[activeIndex]?.transcribing) return;
+  remainingSeconds += 300;
+  const draft = records[activeIndex];
+  draft.status = 'Recording extended by 5 minutes';
+  if (draft.recording && !voiceInterval) startVoiceTimer();
+  updateTimer();
+  const status = document.getElementById('voiceStatus');
+  if (status) status.textContent = draft.status;
 }
 
 async function handleSpaceAction(){
