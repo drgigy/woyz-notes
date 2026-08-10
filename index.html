@@ -254,7 +254,7 @@
     cursor:pointer;
     place-items:center;
   }
-  .continue-note-btn.visible{ display:grid; }
+  .continue-note-btn.visible{ display:none; }
   .continue-note-btn svg{ width:31px; height:31px; }
   .continue-note-btn:hover{ transform:translateY(-1px); }
   .continue-note-btn:active{ transform:scale(.97); }
@@ -442,6 +442,43 @@
   }
   .btn-copy:hover{ background:var(--teal-wash); }
   .btn-copy.copied{ background:var(--teal); color:#fff; border-color:var(--teal); }
+  .topbar-doc-actions{
+    margin-right:auto;
+    display:none;
+    align-items:center;
+    gap:8px;
+    min-width:0;
+  }
+  .topbar-doc-actions.visible{ display:flex; }
+  .topbar-mode-btn{
+    height:38px;
+    border:1px solid #D8E1E7;
+    border-radius:999px;
+    background:#fff;
+    color:var(--teal-deep);
+    padding:0 13px;
+    font:800 12px 'Inter',sans-serif;
+    cursor:pointer;
+    white-space:nowrap;
+  }
+  .topbar-mode-btn:hover{ background:var(--teal-wash); border-color:rgba(31,95,82,.28); }
+  .topbar-mode-btn.active{ background:#FBE7E7; border-color:#F45155; color:#A72B31; }
+  .topbar-mode-btn:disabled{ opacity:.5; cursor:not-allowed; }
+  .topbar-continue-btn{
+    width:38px;
+    height:38px;
+    border:0;
+    border-radius:999px;
+    background:#D7383A;
+    color:#fff;
+    display:none;
+    place-items:center;
+    cursor:pointer;
+    box-shadow:0 10px 22px rgba(215,56,58,.22);
+  }
+  .topbar-continue-btn.visible{ display:grid; }
+  .topbar-continue-btn svg{ width:21px; height:21px; }
+  .topbar-continue-btn:hover{ transform:translateY(-1px); }
   /* ---------- SETTINGS ---------- */
   .settings-wrap{ position:relative; flex-shrink:0; }
 
@@ -783,6 +820,7 @@
     }
     .date-today{ display:none; }
     .main-topbar > .date-nav{ display:flex; }
+    .topbar-doc-actions,.topbar-continue-btn{ display:none !important; }
     .main-scroll{
       flex:1;
       min-height:0;
@@ -868,6 +906,7 @@
       width:58px;
       height:58px;
     }
+    .continue-note-btn.visible{ display:grid; }
     .main-topbar > .btn{ display:none !important; }
   }
 
@@ -938,6 +977,13 @@
           <button class="visit-toggle-btn" data-mobile-visit-type="IP">IP</button>
         </div>
       </div>
+      <div class="topbar-doc-actions" id="topbarDocActions" aria-label="Voice note document type">
+        <button class="topbar-mode-btn" data-topbar-voice-mode="Medical certificate">Medical Certificate</button>
+        <button class="topbar-mode-btn" data-topbar-voice-mode="Reply letter">Reply Letter</button>
+      </div>
+      <button class="topbar-continue-btn" id="topbarContinueBtn" aria-label="Continue selected note by dictation" title="Continue dictation">
+        <svg viewBox="0 0 24 24" fill="none"><rect x="9" y="3" width="6" height="11" rx="3" stroke="currentColor" stroke-width="2"/><path d="M5.5 11.5a6.5 6.5 0 0 0 13 0M12 18v3M9 21h6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      </button>
       <div class="date-nav" id="dateNav" aria-label="Visit date navigation">
         <button class="date-step" id="previousDateBtn" aria-label="Previous day">&lsaquo;</button>
         <input class="date-input" id="visitDateInput" type="date" aria-label="Visit date">
@@ -1176,6 +1222,8 @@ const mobileRecordBtn = document.getElementById('mobileRecordBtn');
 const mobileAddNoteBtn = document.getElementById('mobileAddNoteBtn');
 const mobileSaveBtn = document.getElementById('mobileSaveBtn');
 const continueNoteBtn = document.getElementById('continueNoteBtn');
+const topbarDocActions = document.getElementById('topbarDocActions');
+const topbarContinueBtn = document.getElementById('topbarContinueBtn');
 const loginScreen = document.getElementById('loginScreen');
 const loginForm = document.getElementById('loginForm');
 const loginEmail = document.getElementById('loginEmail');
@@ -1462,7 +1510,16 @@ function showEmptyDate(message = 'No notes saved for this date.'){
 }
 
 function updateContinueNoteButton(){
-  continueNoteBtn.classList.toggle('visible', selectedRecordCanContinue());
+  const canContinue = selectedRecordCanContinue();
+  const record = records[activeIndex];
+  const showVoiceModes = Boolean(record?.voiceDraft);
+  continueNoteBtn.classList.toggle('visible', canContinue);
+  topbarContinueBtn.classList.toggle('visible', canContinue);
+  topbarDocActions.classList.toggle('visible', showVoiceModes);
+  topbarDocActions.querySelectorAll('[data-topbar-voice-mode]').forEach(button => {
+    button.classList.toggle('active', record?.selectedMode === button.dataset.topbarVoiceMode);
+    button.disabled = continuationState.hasStarted || continuationState.processing;
+  });
 }
 
 async function persistRecord(record, changes){
@@ -2036,7 +2093,7 @@ function renderContinuationDock(){
   continuationPauseBtn.disabled = continuationState.processing;
   continuationExtendBtn.disabled = continuationState.processing;
   continuationStopBtn.disabled = continuationState.processing;
-  continuationModeBar.classList.toggle('visible', continuationState.mode === 'new');
+  continuationModeBar.classList.remove('visible');
   continuationModeBar.querySelectorAll('[data-new-voice-mode]').forEach(button => {
     button.classList.toggle('active', button.dataset.newVoiceMode === selectedMode);
     button.disabled = continuationState.hasStarted || continuationState.processing;
@@ -2046,6 +2103,7 @@ function renderContinuationDock(){
   recordSub.textContent = continuationState.open && continuationState.mode === 'new'
     ? (continuationState.recording ? 'Listening...' : 'Voice draft open')
     : 'Tap to record a note';
+  updateContinueNoteButton();
   updateTimer();
 }
 
@@ -2156,14 +2214,19 @@ function extendContinuationRecording(){
   updateTimer();
 }
 
-function setNewVoiceMode(mode){
-  if (continuationState.mode !== 'new' || continuationState.hasStarted || continuationState.processing) return;
-  const draft = records.find(record => record.firestoreId === continuationState.targetId);
+function setVoiceDraftMode(draft, mode){
   if (!draft) return;
   draft.selectedMode = mode || null;
   draft.transcription = newVoiceTemplateForMode(draft.selectedMode);
   persistRecord(draft,{selectedMode:draft.selectedMode,transcription:draft.transcription});
   if (records[activeIndex]?.firestoreId === draft.firestoreId) renderGeneratedNote(draft);
+  updateContinueNoteButton();
+}
+
+function setNewVoiceMode(mode){
+  if (continuationState.mode !== 'new' || continuationState.hasStarted || continuationState.processing) return;
+  const draft = records.find(record => record.firestoreId === continuationState.targetId);
+  setVoiceDraftMode(draft, mode);
   renderContinuationDock();
 }
 
@@ -2651,6 +2714,16 @@ mobileRecordBtn.addEventListener('click', createVoiceDraft);
 mobileAddNoteBtn.addEventListener('click', () => addNoteBtn.click());
 mobileSaveBtn.addEventListener('click', () => saveDraftBtn.click());
 continueNoteBtn.addEventListener('click', openContinuationDock);
+topbarContinueBtn.addEventListener('click', openContinuationDock);
+topbarDocActions.addEventListener('click', event => {
+  const button = event.target.closest('[data-topbar-voice-mode]');
+  if (!button || continuationState.hasStarted || continuationState.processing) return;
+  const draft = records[activeIndex];
+  if (!draft?.voiceDraft) return;
+  const nextMode = draft.selectedMode === button.dataset.topbarVoiceMode ? null : button.dataset.topbarVoiceMode;
+  setVoiceDraftMode(draft, nextMode);
+  if (continuationState.open && continuationState.mode === 'new') renderContinuationDock();
+});
 
 copyBtn.addEventListener('click', async () => {
   if (activeIndex === null) return;
