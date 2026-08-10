@@ -64,7 +64,16 @@
     overflow:hidden;
   }
 
-  .note-action-row{ display:grid; grid-template-columns:1fr 1fr; gap:14px; align-items:stretch; }
+  .note-action-row{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:12px;
+    align-items:stretch;
+    margin:-20px -16px 0;
+    padding:14px;
+    border-bottom:1px solid var(--border);
+    background:#FBFCFB;
+  }
   .record-btn{
     width:100%;
     min-width:0;
@@ -266,7 +275,7 @@
 
   .date-nav{ display:flex; align-items:center; gap:7px; flex-shrink:0; }
   .visit-toggle{ height:38px; display:flex; align-items:center; gap:4px; padding:4px; border:1px solid #D8E1E7; border-radius:10px; background:#fff; flex-shrink:0; }
-  .sidebar .visit-toggle{ height:44px; margin:16px 4px 0; justify-content:center; }
+  .sidebar .visit-toggle{ height:44px; margin:14px 4px 0; justify-content:center; }
   .visit-toggle-btn{ height:28px; min-width:38px; border:0; border-radius:7px; background:transparent; color:var(--muted); font:800 12px 'Inter',sans-serif; cursor:pointer; }
   .sidebar .visit-toggle-btn{ height:34px; flex:1; font-size:13px; }
   .visit-toggle-btn.active{ background:var(--teal); color:#fff; }
@@ -643,6 +652,10 @@
       min-height:72px;
       grid-template-columns:minmax(0,1fr) minmax(0,1fr);
       gap:10px;
+      margin:0;
+      padding:0;
+      border-bottom:0;
+      background:transparent;
     }
     .sidebar .visit-toggle{
       display:flex;
@@ -889,16 +902,16 @@
   <!-- SIDEBAR -->
   <aside class="sidebar">
     <div class="note-action-row">
-      <button class="add-note-btn" id="addNoteBtn">
-        <span class="add-note-icon">+</span>
-        <span>Note</span>
-      </button>
       <button class="record-btn" id="recordBtn">
         <span class="record-dot"></span>
         <span class="record-label">
           <div class="record-title">WOYZ</div>
           <div class="record-sub" id="recordSub">Tap to record a note</div>
         </span>
+      </button>
+      <button class="add-note-btn" id="addNoteBtn">
+        <span class="add-note-icon">+</span>
+        <span>Note</span>
       </button>
     </div>
     <div class="visit-toggle" id="visitToggle" aria-label="Visit type">
