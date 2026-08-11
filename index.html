@@ -1592,6 +1592,30 @@ function clearNotesSubscriptions(){
   notesUnsubscribes = [];
 }
 
+function ownerIdsChanged(nextIds){
+  const current = [...sharedOwnerIds].sort().join('|');
+  const next = [...nextIds].sort().join('|');
+  return current !== next;
+}
+
+async function applySharedOwners(ownerIds){
+  const nextOwnerIds = Array.from(new Set(ownerIds.filter(uid => typeof uid === 'string' && uid.trim())));
+  if (!currentUser || !nextOwnerIds.includes(currentUser.uid)) nextOwnerIds.unshift(currentUser.uid);
+  const shouldReload = ownerIdsChanged(nextOwnerIds) || !notesUnsubscribes.length;
+  if (!shouldReload) return;
+  sharedOwnerIds = nextOwnerIds;
+  const profileEntries = await Promise.all(sharedOwnerIds.map(async uid => {
+    try{
+      const profile = await getDoc(doc(db,'users',uid));
+      return [uid, profile.data() || {}];
+    }catch(error){
+      return [uid, ownerProfiles[uid] || {}];
+    }
+  }));
+  ownerProfiles = {...ownerProfiles, ...Object.fromEntries(profileEntries)};
+  subscribeToSelectedDate({allowLatestDateFallback:true});
+}
+
 function subscribeToGroups(){
   if (groupsUnsubscribe) groupsUnsubscribe();
   groupsUnsubscribe = onSnapshot(query(collection(db,'groups'),where('memberUids','array-contains',currentUser.uid)), async snapshot => {
@@ -1601,21 +1625,10 @@ function subscribeToGroups(){
         if (typeof uid === 'string') ownerIds.add(uid);
       });
     });
-    sharedOwnerIds = Array.from(ownerIds);
-    const profileEntries = await Promise.all(sharedOwnerIds.map(async uid => {
-      try{
-        const profile = await getDoc(doc(db,'users',uid));
-        return [uid, profile.data() || {}];
-      }catch(error){
-        return [uid, {}];
-      }
-    }));
-    ownerProfiles = Object.fromEntries(profileEntries);
-    subscribeToSelectedDate({allowLatestDateFallback:true});
+    applySharedOwners(Array.from(ownerIds));
   }, error => {
     console.error('Unable to load mappings:',error);
-    sharedOwnerIds = [currentUser.uid];
-    subscribeToSelectedDate({allowLatestDateFallback:true});
+    applySharedOwners([currentUser.uid]);
   });
 }
 
@@ -1672,7 +1685,12 @@ onAuthStateChanged(auth,user => {
     appShell.classList.add('authenticated');
     userEmail.textContent = '';
     userProfileUnsubscribe = onSnapshot(doc(db,'users',user.uid), snapshot => {
-      userEmail.textContent = displayCredentialName(snapshot.data()?.credentialName) || '';
+      const profile = snapshot.data() || {};
+      userEmail.textContent = displayCredentialName(profile.credentialName) || '';
+      ownerProfiles[user.uid] = profile;
+      if (Array.isArray(profile.sharedWith)){
+        applySharedOwners([user.uid, ...profile.sharedWith]);
+      }
     }, error => {
       userEmail.textContent = '';
     });
