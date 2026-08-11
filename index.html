@@ -319,11 +319,13 @@
     border-radius:12px;
     background:#fff;
     color:var(--ink);
-    padding:0 12px;
+    padding:10px 12px;
     font:700 13px 'Inter',sans-serif;
     outline:none;
+    overflow:hidden;
+    white-space:nowrap;
   }
-  .record-search-input::placeholder{ color:#8A938C; font-weight:600; }
+  .record-search-input:empty::before{ content:attr(data-placeholder); color:#8A938C; font-weight:600; }
   .record-search-input:focus{ border-color:var(--focus); box-shadow:0 0 0 3px rgba(143,185,172,.2); }
 
   .sidebar-section-label{
@@ -1029,7 +1031,7 @@
       <button class="mobile-doc-action" data-mobile-voice-mode="Reply letter">Reply Letter</button>
     </div>
     <div class="record-search">
-      <input class="record-search-input" id="recordSearchInput" name="woyz-record-filter" type="search" autocomplete="new-password" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="Search name or UHID" aria-label="Search records by name or UHID">
+      <div class="record-search-input" id="recordSearchInput" contenteditable="true" role="searchbox" aria-label="Search records by name or UHID" data-placeholder="Search name or UHID"></div>
     </div>
 
     <div class="sidebar-section-label">Records</div>
@@ -1732,7 +1734,7 @@ async function persistRecord(record, changes){
 
 function clearRecordSearch(){
   recordSearchTerm = '';
-  if (recordSearchInput) recordSearchInput.value = '';
+  if (recordSearchInput) recordSearchInput.textContent = '';
 }
 
 loginForm.addEventListener('submit', async event => {
@@ -2932,15 +2934,24 @@ updateVisitToggle();
 updateDateNavigation();
 
 recordSearchInput.addEventListener('input', () => {
-  recordSearchTerm = recordSearchInput.value;
+  recordSearchTerm = recordSearchInput.textContent || '';
   renderEntries();
 });
-setTimeout(() => {
-  if (recordSearchInput?.value && /@/.test(recordSearchInput.value)){
+recordSearchInput.addEventListener('keydown', event => {
+  if (event.key === 'Enter'){
+    event.preventDefault();
+    return;
+  }
+  if (event.key === 'Escape'){
     clearRecordSearch();
     renderEntries();
+    recordSearchInput.blur();
   }
-}, 300);
+});
+recordSearchInput.addEventListener('paste', event => {
+  event.preventDefault();
+  document.execCommand('insertText', false, event.clipboardData?.getData('text/plain') || '');
+});
 mobileMenuBtn.addEventListener('click', openMobileSidebar);
 topbarPatient.addEventListener('click', openMobileSidebar);
 topbarPatient.addEventListener('keydown', event => {
