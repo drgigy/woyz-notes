@@ -308,6 +308,23 @@
   .auth-input{ width:100%; border:1.5px solid var(--border); border-radius:10px; padding:12px 13px; font:14px 'IBM Plex Mono',monospace; outline:none; }
   .auth-input:focus{ border-color:var(--focus); box-shadow:0 0 0 3px rgba(143,185,172,.2); }
   .auth-actions{ display:flex; justify-content:flex-end; gap:10px; margin-top:20px; }
+  .record-search{
+    margin:14px 4px 0;
+    position:relative;
+  }
+  .record-search-input{
+    width:100%;
+    height:40px;
+    border:1.5px solid #D8E1E7;
+    border-radius:12px;
+    background:#fff;
+    color:var(--ink);
+    padding:0 12px;
+    font:700 13px 'Inter',sans-serif;
+    outline:none;
+  }
+  .record-search-input::placeholder{ color:#8A938C; font-weight:600; }
+  .record-search-input:focus{ border-color:var(--focus); box-shadow:0 0 0 3px rgba(143,185,172,.2); }
 
   .sidebar-section-label{
     font-size:11px;
@@ -1011,6 +1028,9 @@
       <button class="mobile-doc-action" data-mobile-voice-mode="Medical certificate">Certificate</button>
       <button class="mobile-doc-action" data-mobile-voice-mode="Reply letter">Reply Letter</button>
     </div>
+    <div class="record-search">
+      <input class="record-search-input" id="recordSearchInput" type="search" autocomplete="off" placeholder="Search name or UHID" aria-label="Search records by name or UHID">
+    </div>
 
     <div class="sidebar-section-label">Records</div>
     <div class="entry-list" id="entryList"></div>
@@ -1233,6 +1253,7 @@ function initials(name){
 }
 
 const entryList = document.getElementById('entryList');
+const recordSearchInput = document.getElementById('recordSearchInput');
 const mainScroll = document.getElementById('mainScroll');
 const topbarPatient = document.getElementById('topbarPatient');
 const topbarName = document.getElementById('topbarName');
@@ -1332,6 +1353,7 @@ let userProfileUnsubscribe = null;
 let groupsUnsubscribe = null;
 let sharedOwnerIds = [];
 let ownerProfiles = {};
+let recordSearchTerm = '';
 let pendingSelectId = null;
 let pendingNewVoiceDockId = null;
 let latestDateLookupInProgress = false;
@@ -1412,7 +1434,14 @@ Thank you`;
 
 function renderEntries(){
   entryList.innerHTML = '';
-  records.forEach((r, i) => {
+  const visibleRecords = records
+    .map((record, index) => ({record, index}))
+    .filter(item => recordMatchesSearch(item.record));
+  if (!visibleRecords.length && recordSearchTerm){
+    entryList.innerHTML = '<div class="empty-sub" style="padding:10px 8px;">No matching records.</div>';
+    return;
+  }
+  visibleRecords.forEach(({record:r, index:i}) => {
     const btn = document.createElement('button');
     btn.className = 'entry' + (i === activeIndex ? ' active' : '');
     const generatedEntry = r.kind === 'generated' && r.everSaved;
@@ -1439,6 +1468,22 @@ function renderEntries(){
 }
 
 renderEntries();
+
+function recordMatchesSearch(record){
+  const queryText = recordSearchTerm.trim().toLowerCase();
+  if (!queryText) return true;
+  const patient = record?.patientData || {};
+  const haystack = [
+    patient.name,
+    record?.name,
+    patient.uhid,
+    record?.uhid,
+    patient.sex,
+    record?.sex,
+    cleanAge(patient.age || record?.age)
+  ].map(value => String(value || '').toLowerCase()).join(' ');
+  return haystack.includes(queryText);
+}
 
 function cleanAge(value){
   const text = String(value || '').trim();
@@ -2879,6 +2924,10 @@ mobileVisitToggle.addEventListener('click', event => {
 updateVisitToggle();
 updateDateNavigation();
 
+recordSearchInput.addEventListener('input', () => {
+  recordSearchTerm = recordSearchInput.value;
+  renderEntries();
+});
 mobileMenuBtn.addEventListener('click', openMobileSidebar);
 topbarPatient.addEventListener('click', openMobileSidebar);
 topbarPatient.addEventListener('keydown', event => {
