@@ -497,8 +497,7 @@
     box-shadow:none;
   }
   .topbar-mode-btn.inactive:hover{ background:#DDEFE9; border-color:#C9E1D9; }
-  .topbar-review-btn{ display:none; }
-  .topbar-review-btn.visible{ display:inline-flex; align-items:center; }
+  .topbar-review-btn{ display:inline-flex; align-items:center; }
   /* ---------- SETTINGS ---------- */
   .settings-wrap{ position:relative; flex-shrink:0; }
 
@@ -1060,8 +1059,10 @@
         <button class="topbar-mode-btn topbar-review-btn" id="topbarContinueBtn" aria-label="Add on to selected note by dictation" title="Add on dictation">Add On</button>
         <button class="topbar-mode-btn" data-topbar-voice-mode="Medical certificate">Certificate</button>
         <button class="topbar-mode-btn" data-topbar-voice-mode="Reply letter">Reply Letter</button>
+        <button class="topbar-mode-btn inactive" type="button" disabled>Initial Assessment</button>
         <button class="topbar-mode-btn inactive" type="button" disabled>Discharge Summary</button>
         <button class="topbar-mode-btn inactive" type="button" disabled>Treatment Summary</button>
+        <button class="topbar-mode-btn inactive" type="button" disabled>Cross Consultation</button>
       </div>
       <div class="date-nav" id="dateNav" aria-label="Visit date navigation">
         <button class="date-step" id="previousDateBtn" aria-label="Previous day">&lsaquo;</button>
@@ -1724,7 +1725,8 @@ function updateContinueNoteButton(){
   const record = records[activeIndex];
   const showVoiceModes = Boolean(record?.voiceDraft);
   continueNoteBtn.classList.toggle('visible', canContinue);
-  topbarContinueBtn.classList.toggle('visible', canContinue);
+  topbarContinueBtn.disabled = !canContinue || continuationState.hasStarted || continuationState.processing;
+  topbarContinueBtn.classList.toggle('inactive', !canContinue);
   topbarDocActions.classList.toggle('visible', Boolean(currentUser));
   topbarDocActions.querySelectorAll('[data-topbar-voice-mode]').forEach(button => {
     button.classList.toggle('active', showVoiceModes && record?.selectedMode === button.dataset.topbarVoiceMode);
