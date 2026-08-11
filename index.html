@@ -3008,8 +3008,10 @@ saveDraftBtn.addEventListener('click', async () => {
   draft.kind = 'generated';
   draft.voiceDraft = false;
   draft.visitType = draft.visitType || selectedVisitType;
+  draft.adminCopiedAt = null;
+  draft.adminCopiedBy = null;
   saveDraftBtn.querySelector('span').textContent = '✓';
-  deleteBtn.classList.add('visible');
+  deleteBtn.classList.toggle('visible', Boolean(draft.firestoreId && noteOwnerUid(draft) === currentUser?.uid));
   renderEntries();
   await persistRecord(draft,{
     kind:'generated',
@@ -3022,6 +3024,9 @@ saveDraftBtn.addEventListener('click', async () => {
     selectedMode:draft.selectedMode,
     visitDate:dateInputValue(selectedVisitDate),
     visitType:draft.visitType,
+    adminCopiedAt:null,
+    adminCopiedBy:null,
+    userSavedAt:serverTimestamp(),
     updatedAt:serverTimestamp()
   });
 });
