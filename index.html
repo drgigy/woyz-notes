@@ -1892,9 +1892,7 @@ function focusEditorEnd(editor){
 }
 
 function displayCredentialName(value){
-  const name = String(value || '').trim();
-  if (/^[A-Z]{1,3}$/.test(name)) return 'Dr Gigy';
-  return name;
+  return String(value || '').trim();
 }
 
 function resizeNoteEditor(editor){
