@@ -478,18 +478,25 @@
   .topbar-mode-btn{
     height:38px;
     border:1px solid #D8E1E7;
-    border-radius:999px;
+    border-radius:10px;
     background:var(--teal);
     border-color:var(--teal);
     color:#fff;
-    padding:0 13px;
+    padding:0 14px;
     font:800 12px 'Inter',sans-serif;
     cursor:pointer;
     white-space:nowrap;
   }
   .topbar-mode-btn:hover{ background:var(--teal-deep); border-color:var(--teal-deep); }
   .topbar-mode-btn.active{ background:var(--teal-deep); border-color:var(--teal-deep); color:#fff; }
-  .topbar-mode-btn:disabled{ opacity:.5; cursor:not-allowed; }
+  .topbar-mode-btn:disabled{ cursor:not-allowed; }
+  .topbar-mode-btn.inactive{
+    background:#DDEFE9;
+    border-color:#C9E1D9;
+    color:#7D918A;
+    box-shadow:none;
+  }
+  .topbar-mode-btn.inactive:hover{ background:#DDEFE9; border-color:#C9E1D9; }
   .topbar-review-btn{ display:none; }
   .topbar-review-btn.visible{ display:inline-flex; align-items:center; }
   /* ---------- SETTINGS ---------- */
@@ -657,9 +664,9 @@
     .settings-wrap{ order:6; }
     .topbar-mode-btn{
       height:34px;
-      padding:0 11px;
+      padding:0 10px;
       font-size:11px;
-      max-width:170px;
+      max-width:150px;
       overflow:hidden;
       text-overflow:ellipsis;
     }
@@ -1053,6 +1060,8 @@
         <button class="topbar-mode-btn topbar-review-btn" id="topbarContinueBtn" aria-label="Add on to selected note by dictation" title="Add on dictation">Add On</button>
         <button class="topbar-mode-btn" data-topbar-voice-mode="Medical certificate">Certificate</button>
         <button class="topbar-mode-btn" data-topbar-voice-mode="Reply letter">Reply Letter</button>
+        <button class="topbar-mode-btn inactive" type="button" disabled>Discharge Summary</button>
+        <button class="topbar-mode-btn inactive" type="button" disabled>Treatment Summary</button>
       </div>
       <div class="date-nav" id="dateNav" aria-label="Visit date navigation">
         <button class="date-step" id="previousDateBtn" aria-label="Previous day">&lsaquo;</button>
