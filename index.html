@@ -1424,13 +1424,12 @@ function renderEntries(){
     const entryMeta = (r.isDraft || generatedEntry)
       ? (namedDraft ? `UHID ${r.patientData.uhid || 'NIL'} · ${r.patientData.age || 'NIL'} yrs` : r.createdAt)
       : `UHID ${r.uhid}`;
-    const ownerLabel = ownerDisplayName(noteOwnerUid(r));
-    const ownerPrefix = ownerLabel ? `${ownerLabel} · ` : '';
+    const ownerCode = ownerInitials(noteOwnerUid(r)) || ((r.isDraft || generatedEntry) ? (namedDraft ? initials(r.patientData.name) : 'D') : initials(r.name));
     btn.innerHTML = `
-      <span class="entry-avatar">${(r.isDraft || generatedEntry) ? (namedDraft ? initials(r.patientData.name) : 'D') : initials(r.name)}</span>
+      <span class="entry-avatar">${escapeHtml(ownerCode)}</span>
       <span class="entry-text">
         <div class="entry-name">${escapeHtml(entryName)}</div>
-        <div class="entry-uhid">${escapeHtml(ownerPrefix + entryMeta)}</div>
+        <div class="entry-uhid">${escapeHtml(entryMeta)}</div>
       </span>
     `;
     btn.addEventListener('click', () => {
@@ -1461,6 +1460,13 @@ function noteDocRef(record){
 function ownerDisplayName(ownerUid){
   if (!ownerUid || ownerUid === currentUser?.uid) return '';
   return displayCredentialName(ownerProfiles[ownerUid]?.credentialName) || ownerProfiles[ownerUid]?.credentialName || 'Shared user';
+}
+
+function ownerInitials(ownerUid){
+  const credential = displayCredentialName(ownerProfiles[ownerUid]?.credentialName);
+  const parts = credential.split(/\s+/).filter(Boolean);
+  if (parts.length > 1) return parts.slice(0, 2).map(part => part[0]).join('').toUpperCase();
+  return credential.replace(/[^a-z0-9]/gi, '').slice(0, 2).toUpperCase();
 }
 
 function noteFromSnapshot(snapshot, ownerUid = currentUser?.uid){
