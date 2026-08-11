@@ -1327,8 +1327,11 @@ let processingInterval = null;
 let selectedVisitDate = new Date();
 let selectedVisitType = 'OP';
 let currentUser = null;
-let notesUnsubscribe = null;
+let notesUnsubscribes = [];
 let userProfileUnsubscribe = null;
+let groupsUnsubscribe = null;
+let sharedOwnerIds = [];
+let ownerProfiles = {};
 let pendingSelectId = null;
 let pendingNewVoiceDockId = null;
 let latestDateLookupInProgress = false;
@@ -1421,11 +1424,13 @@ function renderEntries(){
     const entryMeta = (r.isDraft || generatedEntry)
       ? (namedDraft ? `UHID ${r.patientData.uhid || 'NIL'} · ${r.patientData.age || 'NIL'} yrs` : r.createdAt)
       : `UHID ${r.uhid}`;
+    const ownerLabel = ownerDisplayName(noteOwnerUid(r));
+    const ownerPrefix = ownerLabel ? `${ownerLabel} · ` : '';
     btn.innerHTML = `
       <span class="entry-avatar">${(r.isDraft || generatedEntry) ? (namedDraft ? initials(r.patientData.name) : 'D') : initials(r.name)}</span>
       <span class="entry-text">
         <div class="entry-name">${escapeHtml(entryName)}</div>
-        <div class="entry-uhid">${escapeHtml(entryMeta)}</div>
+        <div class="entry-uhid">${escapeHtml(ownerPrefix + entryMeta)}</div>
       </span>
     `;
     btn.addEventListener('click', () => {
@@ -1443,11 +1448,28 @@ function userNotesCollection(){
   return collection(db,'users',currentUser.uid,'notes');
 }
 
-function noteFromSnapshot(snapshot){
+function noteOwnerUid(record){
+  return record?.ownerUid || currentUser?.uid || null;
+}
+
+function noteDocRef(record){
+  const ownerUid = noteOwnerUid(record);
+  if (!ownerUid || !record?.firestoreId) throw new Error('This note is not available.');
+  return doc(db,'users',ownerUid,'notes',record.firestoreId);
+}
+
+function ownerDisplayName(ownerUid){
+  if (!ownerUid || ownerUid === currentUser?.uid) return '';
+  return displayCredentialName(ownerProfiles[ownerUid]?.credentialName) || ownerProfiles[ownerUid]?.credentialName || 'Shared user';
+}
+
+function noteFromSnapshot(snapshot, ownerUid = currentUser?.uid){
   const data = snapshot.data();
   return {
     ...data,
     firestoreId:snapshot.id,
+    ownerUid,
+    ownerLabel:ownerDisplayName(ownerUid),
     createdAtValue:data.createdAt,
     name:data.patientData?.name || 'Visit Note draft',
     uhid:data.patientData?.uhid || 'NIL',
@@ -1470,9 +1492,10 @@ function noteMatchesSelectedVisitType(note){
 }
 
 async function latestVisitDateForSelectedType(){
-  const snapshot = await getDocs(userNotesCollection());
-  return snapshot.docs
-    .map(noteFromSnapshot)
+  const owners = sharedOwnerIds.length ? sharedOwnerIds : [currentUser.uid];
+  const snapshots = await Promise.all(owners.map(ownerUid => getDocs(collection(db,'users',ownerUid,'notes')).catch(() => null)));
+  return snapshots
+    .flatMap((snapshot, index) => snapshot ? snapshot.docs.map(docSnap => noteFromSnapshot(docSnap, owners[index])) : [])
     .filter(noteMatchesSelectedVisitType)
     .map(note => note.visitDate)
     .filter(Boolean)
@@ -1505,20 +1528,22 @@ function openMobileSidebar(){
 
 function subscribeToSelectedDate({allowLatestDateFallback = false} = {}){
   if (!currentUser) return;
-  if (notesUnsubscribe) notesUnsubscribe();
+  clearNotesSubscriptions();
   const requestId = ++dateSubscriptionRequestId;
   const selectedDate = dateInputValue(selectedVisitDate);
-  const notesQuery = query(userNotesCollection(),where('visitDate','==',selectedDate));
-  notesUnsubscribe = onSnapshot(notesQuery,async snapshot => {
-    const previousId = activeIndex !== null ? records[activeIndex]?.firestoreId : null;
-    records = snapshot.docs.map(noteFromSnapshot).filter(noteMatchesSelectedVisitType).sort((a,b) => {
+  const owners = sharedOwnerIds.length ? sharedOwnerIds : [currentUser.uid];
+  const ownerRecords = new Map();
+  let receivedOwners = 0;
+  const applyRecords = async () => {
+    const previousId = activeIndex !== null ? `${noteOwnerUid(records[activeIndex])}:${records[activeIndex]?.firestoreId}` : null;
+    records = Array.from(ownerRecords.values()).flat().filter(noteMatchesSelectedVisitType).sort((a,b) => {
       const aTime = a.createdAtValue?.toMillis?.() || 0;
       const bTime = b.createdAtValue?.toMillis?.() || 0;
       return bTime - aTime;
     });
     renderEntries();
     const targetId = pendingSelectId || previousId;
-    const targetIndex = targetId ? records.findIndex(record => record.firestoreId === targetId) : -1;
+    const targetIndex = targetId ? records.findIndex(record => `${noteOwnerUid(record)}:${record.firestoreId}` === targetId || record.firestoreId === targetId) : -1;
     pendingSelectId = null;
     if (targetIndex >= 0){
       selectEntry(targetIndex);
@@ -1528,7 +1553,7 @@ function subscribeToSelectedDate({allowLatestDateFallback = false} = {}){
       }
     }
     else if (records.length) selectEntry(0);
-    else if (allowLatestDateFallback && !latestDateLookupInProgress){
+    else if (allowLatestDateFallback && receivedOwners >= owners.length && !latestDateLookupInProgress){
       latestDateLookupInProgress = true;
       try{
         const latestDate = await latestVisitDateForSelectedType();
@@ -1544,10 +1569,53 @@ function subscribeToSelectedDate({allowLatestDateFallback = false} = {}){
         latestDateLookupInProgress = false;
       }
       showEmptyDate(`No ${selectedVisitType} notes saved for this date.`);
-    }else showEmptyDate(`No ${selectedVisitType} notes saved for this date.`);
+    }else if (receivedOwners >= owners.length) showEmptyDate(`No ${selectedVisitType} notes saved for this date.`);
+  };
+  owners.forEach(ownerUid => {
+    const notesQuery = query(collection(db,'users',ownerUid,'notes'),where('visitDate','==',selectedDate));
+    const unsubscribe = onSnapshot(notesQuery,async snapshot => {
+      receivedOwners += ownerRecords.has(ownerUid) ? 0 : 1;
+      ownerRecords.set(ownerUid, snapshot.docs.map(docSnap => noteFromSnapshot(docSnap, ownerUid)));
+      await applyRecords();
+    }, error => {
+      console.error('Unable to load notes:',error);
+      receivedOwners += ownerRecords.has(ownerUid) ? 0 : 1;
+      ownerRecords.set(ownerUid, []);
+      if (receivedOwners >= owners.length) showEmptyDate('Unable to load notes for this date.');
+    });
+    notesUnsubscribes.push(unsubscribe);
+  });
+}
+
+function clearNotesSubscriptions(){
+  notesUnsubscribes.forEach(unsubscribe => unsubscribe());
+  notesUnsubscribes = [];
+}
+
+function subscribeToGroups(){
+  if (groupsUnsubscribe) groupsUnsubscribe();
+  groupsUnsubscribe = onSnapshot(query(collection(db,'groups'),where('memberUids','array-contains',currentUser.uid)), async snapshot => {
+    const ownerIds = new Set([currentUser.uid]);
+    snapshot.docs.forEach(groupDoc => {
+      (groupDoc.data().memberUids || []).forEach(uid => {
+        if (typeof uid === 'string') ownerIds.add(uid);
+      });
+    });
+    sharedOwnerIds = Array.from(ownerIds);
+    const profileEntries = await Promise.all(sharedOwnerIds.map(async uid => {
+      try{
+        const profile = await getDoc(doc(db,'users',uid));
+        return [uid, profile.data() || {}];
+      }catch(error){
+        return [uid, {}];
+      }
+    }));
+    ownerProfiles = Object.fromEntries(profileEntries);
+    subscribeToSelectedDate({allowLatestDateFallback:true});
   }, error => {
-    console.error('Unable to load notes:',error);
-    showEmptyDate('Unable to load notes for this date.');
+    console.error('Unable to load mappings:',error);
+    sharedOwnerIds = [currentUser.uid];
+    subscribeToSelectedDate({allowLatestDateFallback:true});
   });
 }
 
@@ -1576,7 +1644,7 @@ function updateContinueNoteButton(){
 
 async function persistRecord(record, changes){
   if (!currentUser || !record?.firestoreId) return;
-  await updateDoc(doc(db,'users',currentUser.uid,'notes',record.firestoreId),changes);
+  await updateDoc(noteDocRef(record),changes);
 }
 
 loginForm.addEventListener('submit', async event => {
@@ -1610,12 +1678,17 @@ onAuthStateChanged(auth,user => {
     });
     selectedVisitDate = new Date();
     updateDateNavigation();
-    subscribeToSelectedDate({allowLatestDateFallback:true});
+    sharedOwnerIds = [user.uid];
+    ownerProfiles = {};
+    subscribeToGroups();
   }else{
-    if (notesUnsubscribe) notesUnsubscribe();
+    clearNotesSubscriptions();
     if (userProfileUnsubscribe) userProfileUnsubscribe();
-    notesUnsubscribe = null;
+    if (groupsUnsubscribe) groupsUnsubscribe();
     userProfileUnsubscribe = null;
+    groupsUnsubscribe = null;
+    sharedOwnerIds = [];
+    ownerProfiles = {};
     records = [];
     renderEntries();
     updateContinueNoteButton();
@@ -1687,7 +1760,7 @@ function selectEntry(i){
   topbarAge.textContent = (r.patientData?.age || r.age) + ' yrs';
   topbarPatient.classList.add('visible');
   copyBtn.style.display = (!r.isDraft || r.transcription) ? 'flex' : 'none';
-  deleteBtn.classList.toggle('visible', Boolean(r.firestoreId));
+  deleteBtn.classList.toggle('visible', Boolean(r.firestoreId && noteOwnerUid(r) === currentUser?.uid));
   saveDraftBtn.classList.toggle('visible', Boolean(r.isDraft || isGeneratedRecord));
   saveDraftBtn.querySelector('span').textContent = r.saved ? '✓' : 'Save note';
   copyBtn.classList.remove('copied');
@@ -2971,7 +3044,7 @@ deleteBtn.addEventListener('click', async () => {
   if (!window.confirm(`Delete ${noteName}?`)) return;
   stopVoiceTimer();
   stopMediaTracks();
-  await deleteDoc(doc(db,'users',currentUser.uid,'notes',draft.firestoreId));
+  await deleteDoc(noteDocRef(draft));
 });
 </script>
 <script>

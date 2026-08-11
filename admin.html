@@ -76,6 +76,11 @@
   .copy-btn{ border-color:rgba(31,95,82,0.3); color:var(--teal-deep); }
   .copy-btn:hover{ background:var(--teal-wash); }
   .copy-btn.copied{ background:var(--teal); color:#fff; border-color:var(--teal); }
+  .admin-settings{ position:relative; flex-shrink:0; }
+  .settings-menu{ position:absolute; top:calc(100% + 8px); right:0; width:154px; background:#fff; border:1px solid var(--border); border-radius:12px; box-shadow:0 18px 38px -24px rgba(20,35,29,.45); padding:6px; display:none; z-index:20; }
+  .settings-menu.open{ display:block; }
+  .settings-item{ width:100%; border:0; background:transparent; border-radius:9px; padding:10px 12px; text-align:left; font:700 13px 'Inter',sans-serif; color:var(--ink); cursor:pointer; }
+  .settings-item:hover{ background:#F6F8F6; }
   .main-scroll{ flex:1; min-height:0; overflow-y:auto; overscroll-behavior:contain; padding:36px 42px 80px; }
   .note-title{ margin:0 0 20px; font:600 31px 'Fraunces',serif; }
   .note-editor{ width:100%; min-height:calc(100vh - 190px); border:0; outline:none; resize:vertical; background:#fff; color:#26302B; font:16px/1.55 'Inter',system-ui,sans-serif; padding:0; white-space:pre-wrap; }
@@ -91,6 +96,24 @@
   .user-pill.pending:hover{ background:#B93B28; border-color:#B93B28; }
   .user-pill.active{ box-shadow:0 0 0 3px rgba(31,95,82,.18); }
   .blocked{ color:var(--red); background:var(--red-wash); border:1px solid #F3B3A9; border-radius:12px; padding:14px; font-size:13px; }
+  .modal{ position:fixed; inset:0; z-index:40; display:none; align-items:center; justify-content:center; padding:22px; background:rgba(20,27,24,.34); }
+  .modal.open{ display:flex; }
+  .modal-card{ width:min(760px,100%); max-height:min(82vh,760px); overflow:auto; background:#fff; border:1px solid var(--border); border-radius:18px; box-shadow:0 26px 74px -34px rgba(15,24,21,.55); padding:24px; }
+  .modal-head{ display:flex; align-items:flex-start; justify-content:space-between; gap:16px; margin-bottom:18px; }
+  .modal-title{ margin:0 0 5px; font:600 27px 'Fraunces',serif; }
+  .modal-sub{ margin:0; color:var(--muted); font-size:13px; }
+  .modal-close{ width:36px; height:36px; border:1px solid var(--border); border-radius:10px; background:#fff; cursor:pointer; font-size:22px; line-height:1; }
+  .mapping-row{ display:grid; grid-template-columns:minmax(0,1fr) auto; gap:10px; margin-bottom:14px; }
+  .mapping-input{ height:40px; border:1.5px solid var(--border); border-radius:10px; padding:0 12px; font:14px 'Inter',sans-serif; outline:none; }
+  .mapping-input:focus{ border-color:#8FB9AC; box-shadow:0 0 0 3px rgba(143,185,172,.2); }
+  .mapping-users{ display:grid; grid-template-columns:repeat(auto-fit,minmax(210px,1fr)); gap:8px; margin:10px 0 18px; }
+  .mapping-user{ display:flex; align-items:center; gap:9px; border:1px solid var(--border); border-radius:10px; padding:10px; font-size:13px; color:var(--ink); }
+  .mapping-user span{ min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .mapping-groups{ display:flex; flex-direction:column; gap:8px; border-top:1px solid var(--border); padding-top:14px; }
+  .mapping-group{ display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:center; gap:12px; border:1px solid var(--border); border-radius:12px; padding:11px 12px; }
+  .mapping-group-title{ font-weight:800; }
+  .mapping-group-members{ color:var(--muted); font-size:12px; margin-top:3px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .danger-btn{ color:var(--red); border-color:#F3B3A9; }
   @media (max-width:900px){
     .app.authenticated{ grid-template-columns:240px 1fr 66px; }
     .sidebar{ padding:16px 12px; }
@@ -141,7 +164,13 @@
       </div>
       <button class="btn copy-btn" id="saveNoteBtn" style="display:none;">Save</button>
       <button class="btn copy-btn" id="copyBtn" style="display:none;">Copy note</button>
-      <button class="btn" id="signoutBtn">Sign out</button>
+      <div class="admin-settings">
+        <button class="btn" id="adminSettingsBtn" aria-expanded="false">Settings</button>
+        <div class="settings-menu" id="adminSettingsMenu">
+          <button class="settings-item" id="mappingBtn" type="button">Mapping</button>
+          <button class="settings-item" id="signoutBtn" type="button">Sign out</button>
+        </div>
+      </div>
     </div>
     <div class="main-scroll" id="mainScroll"></div>
   </main>
@@ -150,10 +179,28 @@
   </nav>
 </div>
 
+<div class="modal" id="mappingModal" aria-hidden="true">
+  <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="mappingTitle">
+    <div class="modal-head">
+      <div>
+        <h2 class="modal-title" id="mappingTitle">Mapping</h2>
+        <p class="modal-sub">Create groups so selected users can see and edit each other's OP and IP notes. Delete remains owner-only.</p>
+      </div>
+      <button class="modal-close" id="mappingCloseBtn" type="button" aria-label="Close mapping">&times;</button>
+    </div>
+    <div class="mapping-row">
+      <input class="mapping-input" id="mappingGroupName" type="text" placeholder="Group name">
+      <button class="btn copy-btn" id="saveMappingBtn" type="button">Create group</button>
+    </div>
+    <div class="mapping-users" id="mappingUserList"></div>
+    <div class="mapping-groups" id="mappingGroupsList"></div>
+  </div>
+</div>
+
 <script type="module">
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/12.16.0/firebase-app.js';
 import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut } from 'https://www.gstatic.com/firebasejs/12.16.0/firebase-auth.js';
-import { getFirestore, collection, collectionGroup, doc, onSnapshot, serverTimestamp, updateDoc } from 'https://www.gstatic.com/firebasejs/12.16.0/firebase-firestore.js';
+import { getFirestore, addDoc, collection, collectionGroup, deleteDoc, doc, getDocs, onSnapshot, serverTimestamp, setDoc, updateDoc } from 'https://www.gstatic.com/firebasejs/12.16.0/firebase-firestore.js';
 import { firebaseConfig } from './firebase-config.js';
 
 const ADMIN_UID = 'th8Jr2dzCdbBaKQYST1MzQZDG4G3';
@@ -182,13 +229,24 @@ const adminVisitDateInput = document.getElementById('adminVisitDateInput');
 const adminTodayBtn = document.getElementById('adminTodayBtn');
 const saveNoteBtn = document.getElementById('saveNoteBtn');
 const copyBtn = document.getElementById('copyBtn');
+const adminSettingsBtn = document.getElementById('adminSettingsBtn');
+const adminSettingsMenu = document.getElementById('adminSettingsMenu');
+const mappingBtn = document.getElementById('mappingBtn');
 const signoutBtn = document.getElementById('signoutBtn');
 const notesLabel = document.getElementById('notesLabel');
+const mappingModal = document.getElementById('mappingModal');
+const mappingCloseBtn = document.getElementById('mappingCloseBtn');
+const mappingGroupName = document.getElementById('mappingGroupName');
+const mappingUserList = document.getElementById('mappingUserList');
+const mappingGroupsList = document.getElementById('mappingGroupsList');
+const saveMappingBtn = document.getElementById('saveMappingBtn');
 
 let notesUnsubscribe = null;
 let profilesUnsubscribe = null;
+let groupsUnsubscribe = null;
 let allNotes = [];
 let userProfiles = {};
+let allGroups = [];
 let users = [];
 let selectedUserId = null;
 let selectedNoteId = null;
@@ -358,6 +416,77 @@ function userLabel(userId, index){
   return userProfiles[userId]?.credentialName || `User ${index + 1}`;
 }
 
+function allKnownUsers(){
+  const ids = new Set([...Object.keys(userProfiles), ...allNotes.map(note => note.userId)]);
+  return Array.from(ids)
+    .filter(uid => uid && uid !== 'unknown' && uid !== ADMIN_UID)
+    .sort()
+    .map((uid, index) => ({uid, label:userLabel(uid, index)}));
+}
+
+function groupMemberLabels(memberUids = []){
+  return memberUids.map(uid => userProfiles[uid]?.credentialName || uid.slice(0, 8)).join(', ');
+}
+
+function renderMapping(){
+  const knownUsers = allKnownUsers();
+  mappingUserList.innerHTML = knownUsers.length
+    ? knownUsers.map(user => `
+      <label class="mapping-user">
+        <input type="checkbox" value="${escapeHtml(user.uid)}">
+        <span>${escapeHtml(user.label)}</span>
+      </label>
+    `).join('')
+    : '<div class="empty-sub">No users available yet.</div>';
+  mappingGroupsList.innerHTML = allGroups.length
+    ? allGroups.map(group => `
+      <div class="mapping-group">
+        <div>
+          <div class="mapping-group-title">${escapeHtml(group.name)}</div>
+          <div class="mapping-group-members">${escapeHtml(groupMemberLabels(group.memberUids))}</div>
+        </div>
+        <button class="btn danger-btn" data-delete-group="${escapeHtml(group.id)}" type="button">Remove</button>
+      </div>
+    `).join('')
+    : '<div class="empty-sub">No mapping groups created.</div>';
+}
+
+function closeAdminSettings(){
+  adminSettingsMenu.classList.remove('open');
+  adminSettingsBtn.setAttribute('aria-expanded','false');
+}
+
+function openMapping(){
+  closeAdminSettings();
+  renderMapping();
+  mappingModal.classList.add('open');
+  mappingModal.setAttribute('aria-hidden','false');
+  setTimeout(() => mappingGroupName.focus(), 0);
+}
+
+function closeMapping(){
+  mappingModal.classList.remove('open');
+  mappingModal.setAttribute('aria-hidden','true');
+  mappingGroupName.value = '';
+}
+
+async function syncUserMappings(){
+  const groupsSnapshot = await getDocs(collection(db,'groups'));
+  const groups = groupsSnapshot.docs.map(groupDoc => ({id:groupDoc.id, ...groupDoc.data()}));
+  const knownUsers = allKnownUsers();
+  await Promise.all(knownUsers.map(user => {
+    const memberGroups = groups.filter(group => (group.memberUids || []).includes(user.uid));
+    const sharedWith = Array.from(new Set(memberGroups.flatMap(group => group.memberUids || []).filter(uid => uid !== user.uid)));
+    const groupIds = memberGroups.map(group => group.id);
+    return setDoc(doc(db,'users',user.uid),{
+      groupIds,
+      sharedWith,
+      mappingUpdatedAt:serverTimestamp(),
+      mappingUpdatedBy:ADMIN_UID
+    },{merge:true});
+  }));
+}
+
 function showEmpty(title, message){
   copyBtn.style.display = 'none';
   saveNoteBtn.style.display = 'none';
@@ -490,6 +619,17 @@ function subscribeToUserProfiles(){
   profilesUnsubscribe = onSnapshot(collection(db,'users'), snapshot => {
     userProfiles = Object.fromEntries(snapshot.docs.map(doc => [doc.id, doc.data()]));
     render();
+    renderMapping();
+  }, error => {
+    console.error(error);
+  });
+}
+
+function subscribeToGroups(){
+  if (groupsUnsubscribe) groupsUnsubscribe();
+  groupsUnsubscribe = onSnapshot(collection(db,'groups'), snapshot => {
+    allGroups = snapshot.docs.map(groupDoc => ({id:groupDoc.id, ...groupDoc.data()}));
+    renderMapping();
   }, error => {
     console.error(error);
   });
@@ -514,10 +654,13 @@ loginForm.addEventListener('submit', async event => {
 onAuthStateChanged(auth, user => {
   if (notesUnsubscribe) notesUnsubscribe();
   if (profilesUnsubscribe) profilesUnsubscribe();
+  if (groupsUnsubscribe) groupsUnsubscribe();
   notesUnsubscribe = null;
   profilesUnsubscribe = null;
+  groupsUnsubscribe = null;
   allNotes = [];
   userProfiles = {};
+  allGroups = [];
   selectedUserId = null;
   selectedNoteId = null;
   if (!user){
@@ -539,6 +682,7 @@ onAuthStateChanged(auth, user => {
   userEmail.textContent = '';
   updateDateNavigation();
   subscribeToUserProfiles();
+  subscribeToGroups();
   subscribeToAllNotes();
 });
 
@@ -618,6 +762,71 @@ saveNoteBtn.addEventListener('click', async () => {
     console.error(error);
     saveNoteBtn.textContent = 'Try again';
     saveNoteBtn.disabled = false;
+  }
+});
+
+adminSettingsBtn.addEventListener('click', event => {
+  event.stopPropagation();
+  const isOpen = adminSettingsMenu.classList.toggle('open');
+  adminSettingsBtn.setAttribute('aria-expanded', String(isOpen));
+});
+
+document.addEventListener('click', event => {
+  if (!adminSettingsMenu.contains(event.target) && event.target !== adminSettingsBtn){
+    closeAdminSettings();
+  }
+});
+
+mappingBtn.addEventListener('click', openMapping);
+mappingCloseBtn.addEventListener('click', closeMapping);
+mappingModal.addEventListener('click', event => {
+  if (event.target === mappingModal) closeMapping();
+});
+
+saveMappingBtn.addEventListener('click', async () => {
+  const selectedUids = Array.from(mappingUserList.querySelectorAll('input[type="checkbox"]:checked')).map(input => input.value);
+  if (selectedUids.length < 2){
+    alert('Select at least two users for mapping.');
+    return;
+  }
+  const name = mappingGroupName.value.trim() || selectedUids.map(uid => userProfiles[uid]?.credentialName || uid.slice(0, 6)).join(' + ');
+  saveMappingBtn.disabled = true;
+  saveMappingBtn.textContent = 'Saving...';
+  try{
+    await addDoc(collection(db,'groups'),{
+      name,
+      memberUids:selectedUids,
+      createdAt:serverTimestamp(),
+      mappingUpdatedAt:serverTimestamp(),
+      mappingUpdatedBy:ADMIN_UID
+    });
+    mappingGroupName.value = '';
+    await syncUserMappings();
+    saveMappingBtn.textContent = 'Created';
+    setTimeout(() => {
+      saveMappingBtn.textContent = 'Create group';
+      saveMappingBtn.disabled = false;
+    }, 900);
+  }catch(error){
+    console.error(error);
+    saveMappingBtn.textContent = 'Try again';
+    saveMappingBtn.disabled = false;
+  }
+});
+
+mappingGroupsList.addEventListener('click', async event => {
+  const button = event.target.closest('[data-delete-group]');
+  if (!button) return;
+  const groupId = button.dataset.deleteGroup;
+  const group = allGroups.find(item => item.id === groupId);
+  if (!confirm(`Remove mapping ${group?.name || 'group'}?`)) return;
+  button.disabled = true;
+  try{
+    await deleteDoc(doc(db,'groups',groupId));
+    await syncUserMappings();
+  }catch(error){
+    console.error(error);
+    button.disabled = false;
   }
 });
 
