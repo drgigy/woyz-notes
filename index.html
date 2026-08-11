@@ -1421,9 +1421,7 @@ function renderEntries(){
     const modeSuffix = r.everSaved && ['Reply letter','Medical certificate'].includes(r.selectedMode) ? ` (${r.selectedMode})` : '';
     const draftEntryName = namedDraft ? `${r.patientData.name}${modeSuffix}` : `${manualNote ? 'Manual note' : 'Visit Note'} draft${modeSuffix}`;
     const entryName = (r.isDraft || generatedEntry) ? draftEntryName : r.name;
-    const entryMeta = (r.isDraft || generatedEntry)
-      ? (namedDraft ? `UHID ${r.patientData.uhid || 'NIL'} · ${r.patientData.age || 'NIL'} yrs` : r.createdAt)
-      : `UHID ${r.uhid}`;
+    const entryMeta = (r.isDraft || generatedEntry) && !namedDraft ? r.createdAt : patientMetaLine(r);
     const ownerCode = ownerInitials(noteOwnerUid(r)) || ((r.isDraft || generatedEntry) ? (namedDraft ? initials(r.patientData.name) : 'D') : initials(r.name));
     btn.innerHTML = `
       <span class="entry-avatar">${escapeHtml(ownerCode)}</span>
@@ -1441,6 +1439,26 @@ function renderEntries(){
 }
 
 renderEntries();
+
+function cleanAge(value){
+  const text = String(value || '').trim();
+  if (!text || /^nil$/i.test(text)) return 'NIL';
+  const number = text.match(/\d+(?:\.\d+)?/)?.[0];
+  return number || text.replace(/\b(years?|yrs?|old)\b/gi, '').trim() || 'NIL';
+}
+
+function cleanSex(value){
+  const text = String(value || '').trim();
+  return text || 'NIL';
+}
+
+function patientMetaLine(record){
+  const patient = record?.patientData || {};
+  const uhid = patient.uhid || record?.uhid || 'NIL';
+  const sex = cleanSex(patient.sex || record?.sex || 'NIL');
+  const age = cleanAge(patient.age || record?.age || 'NIL');
+  return `UHID ${uhid} · ${sex} · ${age}`;
+}
 
 function userNotesCollection(){
   if (!currentUser) throw new Error('You must sign in first.');
@@ -1480,10 +1498,11 @@ function noteFromSnapshot(snapshot, ownerUid = currentUser?.uid){
     name:data.patientData?.name || 'Visit Note draft',
     uhid:data.patientData?.uhid || 'NIL',
     age:data.patientData?.age || 'NIL',
+    sex:data.patientData?.sex || 'NIL',
     createdAt:data.createdAtLabel || '',
     isDraft:data.isDraft === true,
     transcription:data.transcription || '',
-    patientData:data.patientData || {name:'NIL',age:'NIL',uhid:'NIL'},
+    patientData:data.patientData || {name:'NIL',age:'NIL',uhid:'NIL',sex:'NIL'},
     voiceDraft:data.voiceDraft === true,
     visitType:data.visitType === 'IP' || data.visitType === 'OP' ? data.visitType : null
   };
