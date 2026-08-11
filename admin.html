@@ -216,10 +216,14 @@ function compactNoteText(text){
 }
 
 function richNoteHtml(text){
-  return compactNoteText(text).split(/\n{2,}/).map(block => {
-    const escaped = escapeHtml(block).replace(/\n/g, '<br>');
-    return `<p>${escaped.replace(/^([^:<\n]{2,90}:)/, '<strong>$1</strong>')}</p>`;
-  }).join('');
+  return String(text || '')
+    .replace(/\r\n/g, '\n')
+    .split('\n')
+    .map(line => {
+      const escaped = escapeHtml(line);
+      return escaped.replace(/^([^:<\n]{2,90}:)(\s*)/, '<strong>$1</strong>$2');
+    })
+    .join('<br>');
 }
 
 function editorPlainText(editor){

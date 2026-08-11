@@ -1032,7 +1032,7 @@
         </div>
       </div>
       <div class="topbar-doc-actions" id="topbarDocActions" aria-label="Voice note actions">
-        <button class="topbar-mode-btn topbar-review-btn" id="topbarContinueBtn" aria-label="Continue selected note by dictation" title="Continue dictation">Review</button>
+        <button class="topbar-mode-btn topbar-review-btn" id="topbarContinueBtn" aria-label="Add on to selected note by dictation" title="Add on dictation">Add On</button>
         <button class="topbar-mode-btn" data-topbar-voice-mode="Medical certificate">Certificate</button>
         <button class="topbar-mode-btn" data-topbar-voice-mode="Reply letter">Reply Letter</button>
       </div>
@@ -1867,7 +1867,7 @@ function renderGeneratedNote(draft){
           </div>
         </div>
         <div class="note-editor" id="generatedNoteEditor" contenteditable="true" spellcheck="true" role="textbox" aria-multiline="true" aria-label="Editable generated note">${richNoteHtml(draft.transcription)}</div>
-        <button class="mobile-review-inline ${selectedRecordCanContinue() ? 'visible' : ''}" id="mobileInlineReviewBtn" aria-label="Continue selected note by dictation">Review</button>
+        <button class="mobile-review-inline ${selectedRecordCanContinue() ? 'visible' : ''}" id="mobileInlineReviewBtn" aria-label="Add on to selected note by dictation">Add On</button>
       </section>
     </div>`;
   const editor = document.getElementById('generatedNoteEditor');
