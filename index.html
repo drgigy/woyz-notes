@@ -1029,7 +1029,7 @@
       <button class="mobile-doc-action" data-mobile-voice-mode="Reply letter">Reply Letter</button>
     </div>
     <div class="record-search">
-      <input class="record-search-input" id="recordSearchInput" type="search" autocomplete="off" placeholder="Search name or UHID" aria-label="Search records by name or UHID">
+      <input class="record-search-input" id="recordSearchInput" name="woyz-record-filter" type="search" autocomplete="new-password" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="Search name or UHID" aria-label="Search records by name or UHID">
     </div>
 
     <div class="sidebar-section-label">Records</div>
@@ -1730,6 +1730,11 @@ async function persistRecord(record, changes){
   await updateDoc(noteDocRef(record),changes);
 }
 
+function clearRecordSearch(){
+  recordSearchTerm = '';
+  if (recordSearchInput) recordSearchInput.value = '';
+}
+
 loginForm.addEventListener('submit', async event => {
   event.preventDefault();
   loginError.textContent = '';
@@ -1751,6 +1756,7 @@ onAuthStateChanged(auth,user => {
   if (userProfileUnsubscribe) userProfileUnsubscribe();
   userProfileUnsubscribe = null;
   if (user){
+    clearRecordSearch();
     loginScreen.classList.add('hidden');
     appShell.classList.add('authenticated');
     userEmail.textContent = '';
@@ -1770,6 +1776,7 @@ onAuthStateChanged(auth,user => {
     ownerProfiles = {};
     subscribeToGroups();
   }else{
+    clearRecordSearch();
     clearNotesSubscriptions();
     if (userProfileUnsubscribe) userProfileUnsubscribe();
     if (groupsUnsubscribe) groupsUnsubscribe();
@@ -2928,6 +2935,12 @@ recordSearchInput.addEventListener('input', () => {
   recordSearchTerm = recordSearchInput.value;
   renderEntries();
 });
+setTimeout(() => {
+  if (recordSearchInput?.value && /@/.test(recordSearchInput.value)){
+    clearRecordSearch();
+    renderEntries();
+  }
+}, 300);
 mobileMenuBtn.addEventListener('click', openMobileSidebar);
 topbarPatient.addEventListener('click', openMobileSidebar);
 topbarPatient.addEventListener('keydown', event => {
