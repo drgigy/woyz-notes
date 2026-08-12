@@ -1553,6 +1553,7 @@ let pendingSelectId = null;
 let pendingNewVoiceDockId = null;
 let latestDateLookupInProgress = false;
 let dateSubscriptionRequestId = 0;
+let saveFeedbackTimer = null;
 let continuationState = {
   open:false,
   mode:'continue',
@@ -1920,6 +1921,16 @@ function updateContinueNoteButton(){
     button.classList.toggle('active', showVoiceModes && record?.selectedMode === button.dataset.topbarVoiceMode);
     button.disabled = continuationState.hasStarted || continuationState.processing;
   });
+}
+
+function flashSaveButton(){
+  const label = saveDraftBtn.querySelector('span');
+  if (!label) return;
+  clearTimeout(saveFeedbackTimer);
+  label.textContent = 'Saved';
+  saveFeedbackTimer = setTimeout(() => {
+    if (saveDraftBtn.classList.contains('visible')) label.textContent = 'Save';
+  }, 1000);
 }
 
 async function persistRecord(record, changes){
@@ -2504,6 +2515,7 @@ function renderContinuationDock(){
   continuationPauseBtn.style.display = continuationState.hasStarted && !hasSavedAudio ? 'grid' : 'none';
   continuationExtendBtn.style.display = continuationState.hasStarted && !hasSavedAudio ? 'grid' : 'none';
   continuationStopBtn.style.display = continuationState.hasStarted ? 'grid' : 'none';
+  continuationCloseBtn.style.display = continuationState.mode === 'new' ? 'none' : 'grid';
   continuationPauseBtn.innerHTML = continuationState.recording
     ? '<svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="5" width="4" height="14"/><rect x="14" y="5" width="4" height="14"/></svg>'
     : '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7L8 5Z"/></svg>';
@@ -2978,29 +2990,28 @@ function voiceDraftHeadingForMode(mode){
   return 'Visit Note draft';
 }
 
+function selectExistingDraftSnapshot(snapshot){
+  const data = snapshot.data();
+  pendingSelectId = snapshot.id;
+  pendingNewVoiceDockId = data.voiceDraft === true ? snapshot.id : null;
+  selectedVisitType = data.visitType === 'IP' ? 'IP' : 'OP';
+  updateVisitToggle();
+  const existingDate = data.visitDate;
+  if (existingDate){
+    const [year,month,day] = existingDate.split('-').map(Number);
+    selectedVisitDate = new Date(year,month-1,day);
+    updateDateNavigation();
+  }
+  subscribeToSelectedDate();
+}
+
 async function createVoiceDraft(mode = null){
   if (!currentUser) return;
   const selectedMode = mode || null;
   const existingDrafts = await getDocs(query(userNotesCollection(),where('isDraft','==',true)));
   if (!existingDrafts.empty){
-    const existing = existingDrafts.docs.find(item => {
-      const data = item.data();
-      return data.voiceDraft === true
-        && (data.visitType === 'IP' ? 'IP' : 'OP') === selectedVisitType
-        && (data.selectedMode || null) === selectedMode;
-    });
-    if (existing){
-      pendingSelectId = existing.id;
-      pendingNewVoiceDockId = existing.id;
-      const existingDate = existing.data().visitDate;
-      if (existingDate){
-        const [year,month,day] = existingDate.split('-').map(Number);
-        selectedVisitDate = new Date(year,month-1,day);
-        updateDateNavigation();
-        subscribeToSelectedDate();
-      }
-      return;
-    }
+    selectExistingDraftSnapshot(existingDrafts.docs[0]);
+    return;
   }
   stopVoiceTimer();
   stopMediaTracks();
@@ -3033,18 +3044,8 @@ async function createManualDraft(){
   if (!currentUser) return;
   const existingDrafts = await getDocs(query(userNotesCollection(),where('isDraft','==',true)));
   if (!existingDrafts.empty){
-    const existing = existingDrafts.docs.find(item => (item.data().visitType === 'IP' ? 'IP' : 'OP') === selectedVisitType);
-    if (existing){
-      pendingSelectId = existing.id;
-      const existingDate = existing.data().visitDate;
-      if (existingDate){
-        const [year,month,day] = existingDate.split('-').map(Number);
-        selectedVisitDate = new Date(year,month-1,day);
-        updateDateNavigation();
-        subscribeToSelectedDate();
-      }
-      return;
-    }
+    selectExistingDraftSnapshot(existingDrafts.docs[0]);
+    return;
   }
   stopVoiceTimer();
   stopMediaTracks();
@@ -3343,7 +3344,6 @@ saveDraftBtn.addEventListener('click', async () => {
   draft.visitType = draft.visitType || selectedVisitType;
   draft.adminCopiedAt = null;
   draft.adminCopiedBy = null;
-  saveDraftBtn.querySelector('span').textContent = 'Save';
   deleteBtn.classList.toggle('visible', Boolean(draft.firestoreId && noteOwnerUid(draft) === currentUser?.uid));
   renderEntries();
   await persistRecord(draft,{
@@ -3362,6 +3362,7 @@ saveDraftBtn.addEventListener('click', async () => {
     userSavedAt:serverTimestamp(),
     updatedAt:serverTimestamp()
   });
+  flashSaveButton();
 });
 
 function extractPatientFromNote(text, fallback = {}){
