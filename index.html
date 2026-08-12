@@ -28,7 +28,7 @@
     --focus:#8FB9AC;
   }
   *{box-sizing:border-box;}
-  html,body{height:100%;}
+  html,body{height:100%; min-height:-webkit-fill-available;}
   body{
     margin:0;
     background:var(--bg);
@@ -39,8 +39,9 @@
   .app{
     display:none;
     height:100vh;
+    height:100dvh;
+    min-height:100dvh;
     overflow:hidden;
-    min-height:0;
   }
   .app.authenticated{ display:flex; }
 
@@ -723,10 +724,34 @@
   }
 
   @media (min-width:601px) and (max-width:1180px){
+    .app.authenticated{
+      height:100dvh;
+      max-height:100dvh;
+      min-height:-webkit-fill-available;
+      overflow:hidden;
+    }
     .sidebar{
       width:270px;
       min-width:270px;
+      height:100dvh;
+      max-height:100dvh;
       padding:18px 12px;
+    }
+    .entry-list{
+      flex:1 1 auto;
+      min-height:0;
+      overflow-y:auto;
+      -webkit-overflow-scrolling:touch;
+    }
+    .main{
+      height:100dvh;
+      max-height:100dvh;
+      min-height:0;
+    }
+    .main-scroll{
+      min-height:0;
+      overflow-y:auto;
+      -webkit-overflow-scrolling:touch;
     }
     .note-action-row{
       margin:-18px -12px 0;
@@ -807,6 +832,18 @@
     .generated-note-card{ padding:28px 30px 80px; }
     .note-editor{ min-height:calc(100vh - 178px); }
     .note-wrap{ padding:32px 26px 70px; }
+  }
+
+  @supports (-webkit-touch-callout:none){
+    @media (min-width:601px) and (max-width:1180px){
+      .app.authenticated,.sidebar,.main{
+        height:-webkit-fill-available;
+        max-height:-webkit-fill-available;
+      }
+      .sidebar{
+        padding-bottom:calc(18px + env(safe-area-inset-bottom));
+      }
+    }
   }
 
   @media (min-width:601px) and (max-width:860px){
