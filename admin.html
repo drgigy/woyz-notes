@@ -299,6 +299,11 @@ function twoLetterCode(value, fallback){
   return label.replace(/[^a-z0-9]/gi,'').slice(0,2).toUpperCase().padEnd(2,'N');
 }
 
+function noteOwnerCode(note, fallback){
+  const credential = userProfiles[note.userId]?.credentialName || fallback || '';
+  return twoLetterCode(credential, initials(notePatientName(note)));
+}
+
 function isNilLike(value){
   return /^(nil|none|no|not applicable|n\/a|na|negative)$/i.test(String(value || '').trim());
 }
@@ -526,7 +531,7 @@ function renderEntries(){
       note.id === selectedNoteId ? 'active' : ''
     ].filter(Boolean).join(' ');
     button.innerHTML = `
-      <span class="entry-avatar">${escapeHtml(initials(notePatientName(note)))}</span>
+      <span class="entry-avatar">${escapeHtml(noteOwnerCode(note, selectedUser?.label))}</span>
       <span class="entry-text">
         <div class="entry-name">${escapeHtml(notePatientName(note))}</div>
         <div class="entry-meta">${escapeHtml(noteMeta(note))}</div>
