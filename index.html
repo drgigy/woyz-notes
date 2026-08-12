@@ -1476,7 +1476,7 @@ const continuationStatus = document.getElementById('continuationStatus');
 const continuationModeBar = document.getElementById('continuationModeBar');
 
 const GEMINI_KEY_STORAGE = 'woyz_gemini_authorization_key';
-const GEMINI_MODEL = 'gemini-3.6-flash';
+const GEMINI_MODELS = ['gemini-3.6-flash','gemini-flash-latest','gemini-2.5-flash'];
 const PATIENT_FIELDS = {
   patientName:{type:'string',description:'Patient name exactly as spoken at the beginning, otherwise NIL.'},
   patientAge:{type:'string',description:'Patient age exactly as spoken at the beginning, otherwise NIL.'},
@@ -1524,6 +1524,7 @@ let continuationState = {
   paused:false,
   processing:false,
   hasStarted:false,
+  audioBlob:null,
   status:'Ready',
   position:null
 };
@@ -2380,7 +2381,7 @@ async function stopAndTranscribe(){
     draft.progress = 100;
     draft.status = 'Note ready';
   }catch(error){
-    draft.status = 'Transcription failed: ' + (error.message || 'Please try again.');
+    draft.status = 'Transcription failed. Press stop again to retry the same recording. ' + (error.message || '');
   }finally{
     stopProcessingProgress();
     draft.transcribing = false;
@@ -2458,12 +2459,13 @@ function setContinuationStatus(message){
 function renderContinuationDock(){
   const activeDraft = records.find(record => record.firestoreId === continuationState.targetId);
   const selectedMode = activeDraft?.selectedMode || '';
+  const hasSavedAudio = Boolean(continuationState.audioBlob);
   continuationLevel.innerHTML = Array.from({length:28}, () => '<span></span>').join('');
   continuationTitle.textContent = continuationState.mode === 'new' ? 'Voice note draft' : 'Continue dictation';
   continuationDock.classList.toggle('visible', continuationState.open);
   continuationStartBtn.style.display = continuationState.hasStarted ? 'none' : 'grid';
-  continuationPauseBtn.style.display = continuationState.hasStarted ? 'grid' : 'none';
-  continuationExtendBtn.style.display = continuationState.hasStarted ? 'grid' : 'none';
+  continuationPauseBtn.style.display = continuationState.hasStarted && !hasSavedAudio ? 'grid' : 'none';
+  continuationExtendBtn.style.display = continuationState.hasStarted && !hasSavedAudio ? 'grid' : 'none';
   continuationStopBtn.style.display = continuationState.hasStarted ? 'grid' : 'none';
   continuationPauseBtn.innerHTML = continuationState.recording
     ? '<svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="5" width="4" height="14"/><rect x="14" y="5" width="4" height="14"/></svg>'
@@ -2509,6 +2511,7 @@ function openContinuationDock(){
   continuationState.paused = false;
   continuationState.processing = false;
   continuationState.hasStarted = false;
+  continuationState.audioBlob = null;
   continuationState.status = 'Ready to continue selected note';
   remainingSeconds = 300;
   placeDock('right');
@@ -2527,6 +2530,7 @@ function openNewVoiceDock(){
   continuationState.paused = false;
   continuationState.processing = false;
   continuationState.hasStarted = false;
+  continuationState.audioBlob = null;
   continuationState.status = 'Ready to record new voice note';
   remainingSeconds = 300;
   placeDock('left');
@@ -2539,6 +2543,7 @@ function closeContinuationDock({releaseMic = true} = {}){
   continuationState.paused = false;
   continuationState.processing = false;
   continuationState.hasStarted = false;
+  continuationState.audioBlob = null;
   if (releaseMic){
     stopVoiceTimer();
     stopMediaTracks();
@@ -2549,6 +2554,7 @@ function closeContinuationDock({releaseMic = true} = {}){
 async function startContinuationRecording(){
   if (!continuationState.open || continuationState.processing) return;
   try{
+    continuationState.audioBlob = null;
     mediaStream = await navigator.mediaDevices.getUserMedia({audio:true});
     audioChunks = [];
     setupAudioAnalyser(mediaStream);
@@ -2618,7 +2624,8 @@ async function stopAndAppendContinuation(){
   setContinuationStatus('Processing dictation...');
   renderContinuationDock();
   try{
-    const audioBlob = await stopMediaRecorder();
+    const audioBlob = continuationState.audioBlob || await stopMediaRecorder();
+    continuationState.audioBlob = audioBlob;
     const apiKey = localStorage.getItem(GEMINI_KEY_STORAGE);
     if (!apiKey){
       setContinuationStatus('Add authorization key in Settings.');
@@ -2635,7 +2642,8 @@ async function stopAndAppendContinuation(){
     }
     closeContinuationDock({releaseMic:false});
   }catch(error){
-    setContinuationStatus('Dictation failed. Try again.');
+    continuationState.hasStarted = Boolean(continuationState.audioBlob);
+    setContinuationStatus('Dictation failed. Press stop again to retry the same audio.');
   }finally{
     continuationState.processing = false;
     stopMediaTracks();
@@ -2824,17 +2832,32 @@ function sleep(ms){
 
 function isTransientGeminiError(status, message){
   return [408,429,500,502,503,504].includes(status)
+    || (status === 404 && /model|not found|unavailable/i.test(message || ''))
+    || (status === 400 && /model|not supported|unavailable/i.test(message || ''))
     || /overload|overloaded|high demand|busy|unavailable|resource exhausted|rate limit|quota|temporar/i.test(message || '');
 }
 
 async function generateContentWithRetry({apiKey,audioBlob,audioData,systemPrompt,taskPrompt,responseSchema,onRetry}){
-  const maxAttempts = 4;
+  const attemptPlan = [
+    {model:GEMINI_MODELS[0],waitMs:1200},
+    {model:GEMINI_MODELS[0],waitMs:2800},
+    {model:GEMINI_MODELS[1],waitMs:4500},
+    {model:GEMINI_MODELS[1],waitMs:7500},
+    {model:GEMINI_MODELS[2],waitMs:11000},
+    {model:GEMINI_MODELS[2],waitMs:0}
+  ];
+  const requestTimeoutMs = 120000;
+  const maxAttempts = attemptPlan.length;
   let lastMessage = '';
   for (let attempt = 1; attempt <= maxAttempts; attempt += 1){
+    const plan = attemptPlan[attempt - 1];
     let response;
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), requestTimeoutMs);
     try{
-      response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`, {
+      response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${plan.model}:generateContent`, {
         method:'POST',
+        signal:controller.signal,
         headers:{'Content-Type':'application/json','x-goog-api-key':apiKey},
         body:JSON.stringify({
           systemInstruction:{parts:[{text:systemPrompt}]},
@@ -2846,12 +2869,14 @@ async function generateContentWithRetry({apiKey,audioBlob,audioData,systemPrompt
         })
       });
     }catch(error){
-      lastMessage = error.message || 'Network request failed.';
+      lastMessage = error.name === 'AbortError' ? 'Gemini request timed out.' : (error.message || 'Network request failed.');
       if (attempt === maxAttempts) throw new Error(lastMessage);
-      const waitMs = [1500,3500,7000][attempt - 1] || 7000;
-      onRetry?.(`Connection issue. Retrying automatically (${attempt + 1}/${maxAttempts})…`);
-      await sleep(waitMs);
+      const nextModel = attemptPlan[attempt]?.model;
+      onRetry?.(`Connection issue. Retrying ${nextModel !== plan.model ? 'with backup model' : 'automatically'} (${attempt + 1}/${maxAttempts})...`);
+      await sleep(plan.waitMs);
       continue;
+    }finally{
+      clearTimeout(timeoutId);
     }
     const payload = await response.json().catch(() => ({}));
     lastMessage = payload.error?.message || response.statusText || 'Note processing failed.';
@@ -2859,9 +2884,9 @@ async function generateContentWithRetry({apiKey,audioBlob,audioData,systemPrompt
     if (!isTransientGeminiError(response.status, lastMessage) || attempt === maxAttempts){
       throw new Error(lastMessage);
     }
-    const waitMs = [1500,3500,7000][attempt - 1] || 7000;
-    onRetry?.(`Gemini is busy. Retrying automatically (${attempt + 1}/${maxAttempts})…`);
-    await sleep(waitMs);
+    const nextModel = attemptPlan[attempt]?.model;
+    onRetry?.(`Gemini is busy. Retrying ${nextModel !== plan.model ? 'with backup model' : 'automatically'} (${attempt + 1}/${maxAttempts})...`);
+    await sleep(plan.waitMs);
   }
   throw new Error(lastMessage || 'Note processing failed.');
 }
