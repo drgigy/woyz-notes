@@ -1554,6 +1554,7 @@ let pendingNewVoiceDockId = null;
 let latestDateLookupInProgress = false;
 let dateSubscriptionRequestId = 0;
 let saveFeedbackTimer = null;
+let saveFeedbackUntil = 0;
 let continuationState = {
   open:false,
   mode:'continue',
@@ -1927,10 +1928,16 @@ function flashSaveButton(){
   const label = saveDraftBtn.querySelector('span');
   if (!label) return;
   clearTimeout(saveFeedbackTimer);
+  saveFeedbackUntil = Date.now() + 1200;
   label.textContent = 'Saved';
   saveFeedbackTimer = setTimeout(() => {
+    saveFeedbackUntil = 0;
     if (saveDraftBtn.classList.contains('visible')) label.textContent = 'Save';
-  }, 1000);
+  }, 1200);
+}
+
+function saveButtonLabel(){
+  return Date.now() < saveFeedbackUntil ? 'Saved' : 'Save';
 }
 
 async function persistRecord(record, changes){
@@ -2065,7 +2072,7 @@ function selectEntry(i){
   copyBtn.style.display = (!r.isDraft || r.transcription) ? 'flex' : 'none';
   deleteBtn.classList.toggle('visible', Boolean(r.firestoreId && noteOwnerUid(r) === currentUser?.uid));
   saveDraftBtn.classList.toggle('visible', Boolean(r.isDraft || isGeneratedRecord));
-  saveDraftBtn.querySelector('span').textContent = 'Save';
+  saveDraftBtn.querySelector('span').textContent = saveButtonLabel();
   copyBtn.classList.remove('copied');
   copyBtn.textContent = 'Copy';
   updateContinueNoteButton();
@@ -2251,6 +2258,8 @@ function renderGeneratedNote(draft){
   editor.addEventListener('input', () => {
     draft.transcription = editorPlainText(editor);
     draft.saved = false;
+    clearTimeout(saveFeedbackTimer);
+    saveFeedbackUntil = 0;
     saveDraftBtn.querySelector('span').textContent = 'Save';
     resizeNoteEditor(editor);
   });
@@ -2739,6 +2748,8 @@ function appendContinuationText(addition){
   const reviewHeading = /^Review Note:\s*$/im.test(baseText) ? '' : 'Review Note:\n';
   record.transcription = `${baseText}\n\n${reviewHeading}${text}`.trim();
   record.saved = false;
+  clearTimeout(saveFeedbackTimer);
+  saveFeedbackUntil = 0;
   saveDraftBtn.querySelector('span').textContent = 'Save';
   renderGeneratedNote(record);
   focusEditorEnd(document.getElementById('generatedNoteEditor'));
@@ -3381,6 +3392,10 @@ deleteBtn.addEventListener('click', async () => {
   if (!draft?.firestoreId || !currentUser) return;
   const noteName = draft.patientData?.name || draft.name || 'this selected note';
   if (!window.confirm(`Delete ${noteName}?`)) return;
+  if (draft.isDraft || continuationState.targetId === draft.firestoreId){
+    closeContinuationDock();
+    pendingNewVoiceDockId = null;
+  }
   stopVoiceTimer();
   stopMediaTracks();
   await deleteDoc(noteDocRef(draft));
