@@ -2897,6 +2897,13 @@ function isTransientGeminiError(status, message){
     || /overload|overloaded|high demand|busy|unavailable|resource exhausted|rate limit|quota|temporar/i.test(message || '');
 }
 
+function userSafeNoteServiceMessage(message){
+  const raw = String(message || '').trim();
+  if (!raw) return 'Please try again.';
+  if (/gemini|generativelanguage|google|model|api/i.test(raw)) return 'The note service is temporarily busy. Please try again.';
+  return raw;
+}
+
 async function generateContentWithRetry({apiKey,audioBlob,audioData,systemPrompt,taskPrompt,responseSchema,onRetry}){
   const attemptPlan = [
     {model:GEMINI_MODELS[0],waitMs:1200},
@@ -2929,10 +2936,10 @@ async function generateContentWithRetry({apiKey,audioBlob,audioData,systemPrompt
         })
       });
     }catch(error){
-      lastMessage = error.name === 'AbortError' ? 'Gemini request timed out.' : (error.message || 'Network request failed.');
-      if (attempt === maxAttempts) throw new Error(lastMessage);
+      lastMessage = error.name === 'AbortError' ? 'The note service timed out.' : (error.message || 'Network request failed.');
+      if (attempt === maxAttempts) throw new Error(userSafeNoteServiceMessage(lastMessage));
       const nextModel = attemptPlan[attempt]?.model;
-      onRetry?.(`Connection issue. Retrying ${nextModel !== plan.model ? 'with backup model' : 'automatically'} (${attempt + 1}/${maxAttempts})...`);
+      onRetry?.(`Connection issue. Retrying ${nextModel !== plan.model ? 'with backup service' : 'automatically'} (${attempt + 1}/${maxAttempts})...`);
       await sleep(plan.waitMs);
       continue;
     }finally{
@@ -2942,13 +2949,13 @@ async function generateContentWithRetry({apiKey,audioBlob,audioData,systemPrompt
     lastMessage = payload.error?.message || response.statusText || 'Note processing failed.';
     if (response.ok) return payload;
     if (!isTransientGeminiError(response.status, lastMessage) || attempt === maxAttempts){
-      throw new Error(lastMessage);
+      throw new Error(userSafeNoteServiceMessage(lastMessage));
     }
     const nextModel = attemptPlan[attempt]?.model;
-    onRetry?.(`Gemini is busy. Retrying ${nextModel !== plan.model ? 'with backup model' : 'automatically'} (${attempt + 1}/${maxAttempts})...`);
+    onRetry?.(`Note service is busy. Retrying ${nextModel !== plan.model ? 'with backup service' : 'automatically'} (${attempt + 1}/${maxAttempts})...`);
     await sleep(plan.waitMs);
   }
-  throw new Error(lastMessage || 'Note processing failed.');
+  throw new Error(userSafeNoteServiceMessage(lastMessage || 'Note processing failed.'));
 }
 
 function formatGeneratedOutput(data, mode, patient){
