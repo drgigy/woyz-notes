@@ -2403,6 +2403,7 @@ async function stopAndTranscribe(){
   draft.recording = false;
   draft.stopped = true;
   draft.transcribing = true;
+  draft.cancelProcessing = false;
   draft.status = 'Processing recording…';
   draft.progress = 4;
   renderProcessingState(draft);
@@ -2419,13 +2420,21 @@ async function stopAndTranscribe(){
     draft.status = 'Creating your note…';
     const processingStatus = document.getElementById('processingStatus');
     if (processingStatus) processingStatus.textContent = draft.status;
-    const generated = await sendAudioToGemini(audioBlob, apiKey, draft.selectedMode, message => {
+    const updateProcessingStatus = message => {
       draft.status = message;
       const processingStatus = document.getElementById('processingStatus');
       if (processingStatus) processingStatus.textContent = message;
-    });
+    };
+    const generated = await runUntilGenerated(
+      onRetry => sendAudioToGemini(audioBlob, apiKey, draft.selectedMode, onRetry),
+      {
+        setStatus:updateProcessingStatus,
+        shouldContinue:() => !draft.cancelProcessing && records.some(record => record.firestoreId === draft.firestoreId)
+      }
+    );
     draft.transcription = generated.text;
     draft.patientData = generated.patientData;
+    draft.audioBlob = null;
     await persistRecord(draft,{
       kind:'generated',
       transcription:draft.transcription,
@@ -2438,7 +2447,7 @@ async function stopAndTranscribe(){
     draft.progress = 100;
     draft.status = 'Note ready';
   }catch(error){
-    draft.status = 'Transcription failed. Press stop again to retry the same recording. ' + (error.message || '');
+    draft.status = 'Note generation paused. The recording is still kept. ' + (error.message || '');
   }finally{
     stopProcessingProgress();
     draft.transcribing = false;
@@ -2690,18 +2699,31 @@ async function stopAndAppendContinuation(){
       openAuthModal();
       return;
     }
+    const targetId = continuationState.targetId;
     if (continuationState.mode === 'new'){
-      await finishNewVoiceDraft(audioBlob, apiKey);
+      await runUntilGenerated(
+        onRetry => finishNewVoiceDraft(audioBlob, apiKey, onRetry),
+        {
+          setStatus:setContinuationStatus,
+          shouldContinue:() => continuationState.open && continuationState.targetId === targetId
+        }
+      );
       setContinuationStatus('Note generated. Review and save.');
     }else{
-      const addition = await sendContinuationAudioToGemini(audioBlob, apiKey, message => setContinuationStatus(message));
+      const addition = await runUntilGenerated(
+        onRetry => sendContinuationAudioToGemini(audioBlob, apiKey, onRetry),
+        {
+          setStatus:setContinuationStatus,
+          shouldContinue:() => continuationState.open && continuationState.targetId === targetId
+        }
+      );
       appendContinuationText(addition);
       setContinuationStatus('Added to selected note. Review and save.');
     }
     closeContinuationDock({releaseMic:false});
   }catch(error){
     continuationState.hasStarted = Boolean(continuationState.audioBlob);
-    setContinuationStatus('Dictation failed. Press stop again to retry the same audio.');
+    setContinuationStatus('Note generation paused. The audio is still kept.');
   }finally{
     continuationState.processing = false;
     stopMediaTracks();
@@ -2709,13 +2731,13 @@ async function stopAndAppendContinuation(){
   }
 }
 
-async function finishNewVoiceDraft(audioBlob, apiKey){
+async function finishNewVoiceDraft(audioBlob, apiKey, onRetry){
   const targetIndex = records.findIndex(record => record.firestoreId === continuationState.targetId);
   if (targetIndex < 0) return;
   activeIndex = targetIndex;
   const draft = records[targetIndex];
   setContinuationStatus('Creating your note...');
-  const generated = await sendAudioToGemini(audioBlob, apiKey, draft.selectedMode, message => setContinuationStatus(message));
+  const generated = await sendAudioToGemini(audioBlob, apiKey, draft.selectedMode, onRetry || (message => setContinuationStatus(message)));
   draft.transcription = generated.text;
   draft.patientData = generated.patientData;
   draft.voiceDraft = false;
@@ -2810,11 +2832,11 @@ async function sendContinuationAudioToGemini(audioBlob, apiKey, onRetry){
     onRetry
   });
   const responseText = payload.candidates?.[0]?.content?.parts?.map(part => part.text || '').join('').trim();
-  if (!responseText) throw new Error('The service returned an empty response.');
+  if (!responseText) throw noteServiceError('The service returned an empty response.', true);
   try{
     return formatContinuationText(String(JSON.parse(responseText).text || '').trim());
   }catch(error){
-    throw new Error('The service returned an invalid structured response.');
+    throw noteServiceError('The service returned an invalid structured response.', true);
   }
 }
 
@@ -2874,10 +2896,10 @@ async function sendAudioToGemini(audioBlob, apiKey, selectedMode, onRetry){
     onRetry
   });
   const responseText = payload.candidates?.[0]?.content?.parts?.map(part => part.text || '').join('').trim();
-  if (!responseText) throw new Error('The service returned an empty response.');
+  if (!responseText) throw noteServiceError('The service returned an empty response.', true);
   let parsed;
   try{ parsed = JSON.parse(responseText); }
-  catch(error){ throw new Error('The service returned an invalid structured response.'); }
+  catch(error){ throw noteServiceError('The service returned an invalid structured response.', true); }
   const patientData = {
     name:String(parsed.patientName || 'NIL').trim(),
     age:String(parsed.patientAge || 'NIL').trim(),
@@ -2902,6 +2924,28 @@ function userSafeNoteServiceMessage(message){
   if (!raw) return 'Please try again.';
   if (/gemini|generativelanguage|google|model|api/i.test(raw)) return 'The note service is temporarily busy. Please try again.';
   return raw;
+}
+
+function noteServiceError(message, retryable = false){
+  const error = new Error(userSafeNoteServiceMessage(message));
+  error.retryable = retryable;
+  return error;
+}
+
+async function runUntilGenerated(task, {setStatus,shouldContinue} = {}){
+  let cycle = 0;
+  while (shouldContinue?.() !== false){
+    try{
+      return await task(message => setStatus?.(message));
+    }catch(error){
+      if (!error.retryable) throw error;
+      cycle += 1;
+      const waitMs = Math.min(60000, 12000 + (cycle - 1) * 8000);
+      setStatus?.(`Still creating your note. Temporary issue detected. Waiting and retrying automatically (${cycle})...`);
+      await sleep(waitMs);
+    }
+  }
+  throw noteServiceError('Note generation was stopped.', false);
 }
 
 async function generateContentWithRetry({apiKey,audioBlob,audioData,systemPrompt,taskPrompt,responseSchema,onRetry}){
@@ -2937,7 +2981,7 @@ async function generateContentWithRetry({apiKey,audioBlob,audioData,systemPrompt
       });
     }catch(error){
       lastMessage = error.name === 'AbortError' ? 'The note service timed out.' : (error.message || 'Network request failed.');
-      if (attempt === maxAttempts) throw new Error(userSafeNoteServiceMessage(lastMessage));
+      if (attempt === maxAttempts) throw noteServiceError(lastMessage, true);
       const nextModel = attemptPlan[attempt]?.model;
       onRetry?.(`Connection issue. Retrying ${nextModel !== plan.model ? 'with backup service' : 'automatically'} (${attempt + 1}/${maxAttempts})...`);
       await sleep(plan.waitMs);
@@ -2949,13 +2993,13 @@ async function generateContentWithRetry({apiKey,audioBlob,audioData,systemPrompt
     lastMessage = payload.error?.message || response.statusText || 'Note processing failed.';
     if (response.ok) return payload;
     if (!isTransientGeminiError(response.status, lastMessage) || attempt === maxAttempts){
-      throw new Error(userSafeNoteServiceMessage(lastMessage));
+      throw noteServiceError(lastMessage, isTransientGeminiError(response.status, lastMessage));
     }
     const nextModel = attemptPlan[attempt]?.model;
     onRetry?.(`Note service is busy. Retrying ${nextModel !== plan.model ? 'with backup service' : 'automatically'} (${attempt + 1}/${maxAttempts})...`);
     await sleep(plan.waitMs);
   }
-  throw new Error(userSafeNoteServiceMessage(lastMessage || 'Note processing failed.'));
+  throw noteServiceError(lastMessage || 'Note processing failed.', true);
 }
 
 function formatGeneratedOutput(data, mode, patient){
@@ -3399,6 +3443,7 @@ deleteBtn.addEventListener('click', async () => {
   if (!draft?.firestoreId || !currentUser) return;
   const noteName = draft.patientData?.name || draft.name || 'this selected note';
   if (!window.confirm(`Delete ${noteName}?`)) return;
+  draft.cancelProcessing = true;
   if (draft.isDraft || continuationState.targetId === draft.firestoreId){
     closeContinuationDock();
     pendingNewVoiceDockId = null;
