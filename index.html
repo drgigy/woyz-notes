@@ -1914,7 +1914,7 @@ function refreshAnonymizedView(){
 function setVisitType(type){
   selectedVisitType = type === 'IP' ? 'IP' : 'OP';
   updateVisitToggle();
-  subscribeToSelectedDate({allowLatestDateFallback:true});
+  subscribeToSelectedDate();
 }
 
 function closeMobileSidebar(){
@@ -3326,7 +3326,7 @@ function dateInputValue(date){
 
 function updateDateNavigation(){
   visitDateInput.value = dateInputValue(selectedVisitDate);
-  todayBtn.textContent = new Date().toLocaleDateString('en-US',{weekday:'long'});
+  todayBtn.textContent = selectedVisitDate.toLocaleDateString('en-US',{weekday:'long'});
 }
 
 function moveVisitDate(days){
