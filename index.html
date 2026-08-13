@@ -157,35 +157,45 @@
     display:flex;
     align-items:center;
     justify-content:space-between;
-    gap:10px;
+    gap:12px;
     min-height:46px;
-    border:1px solid rgba(31,95,82,.28);
-    border-radius:13px;
-    background:linear-gradient(180deg,#FFFFFF,#F4FAF7);
-    padding:8px 11px 8px 13px;
-    color:var(--teal-deep);
-    font:900 13px 'Inter',sans-serif;
-    box-shadow:0 7px 18px -16px rgba(31,95,82,.42);
   }
+  .privacy-label{
+    flex:1;
+    min-height:46px;
+    border:0;
+    border-radius:13px;
+    background:var(--teal);
+    color:#fff;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font:900 14px 'Inter',sans-serif;
+    cursor:pointer;
+    box-shadow:0 7px 18px -10px rgba(31,95,82,.6);
+    transition:background .15s ease, transform .15s ease, box-shadow .15s ease;
+  }
+  .privacy-label:hover{ background:var(--teal-deep); transform:translateY(-1px); box-shadow:0 10px 22px -12px rgba(31,95,82,.7); }
+  .privacy-label:active{ transform:translateY(0); }
   .privacy-switch{
     position:relative;
-    width:54px;
-    height:30px;
-    border:1px solid rgba(31,95,82,.18);
+    width:64px;
+    height:38px;
+    border:1px solid rgba(31,95,82,.24);
     border-radius:999px;
-    background:#DCE7E2;
+    background:#fff;
     cursor:pointer;
     flex:0 0 auto;
-    box-shadow:inset 0 1px 2px rgba(0,0,0,.08);
+    box-shadow:0 5px 16px -13px rgba(31,95,82,.6), inset 0 1px 2px rgba(0,0,0,.08);
     transition:background .15s ease, border-color .15s ease, box-shadow .15s ease;
   }
   .privacy-switch::after{
     content:'';
     position:absolute;
-    width:24px;
-    height:24px;
+    width:30px;
+    height:30px;
     top:3px;
-    left:3px;
+    left:4px;
     border-radius:50%;
     background:#fff;
     box-shadow:0 3px 8px rgba(0,0,0,.22);
@@ -196,7 +206,7 @@
     border-color:var(--teal-deep);
     box-shadow:0 5px 13px -8px var(--teal-deep);
   }
-  .privacy-switch.active::after{ transform:translateX(24px); }
+  .privacy-switch.active::after{ transform:translateX(26px); }
   .note-editor.anonymized{
     background:#F8FAF8;
     color:#3F4B45;
@@ -993,6 +1003,7 @@
       min-height:44px;
       border-radius:13px;
     }
+    .privacy-label{ min-height:44px; }
     .record-title{ font-size:0; }
     .record-title::after{
       content:'WOYZ Notes';
@@ -1268,7 +1279,7 @@
       </button>
     </div>
     <div class="privacy-row">
-      <span>Anonymize</span>
+      <button class="privacy-label" id="anonymizeLabel" type="button">Anonymize</button>
       <button class="privacy-switch" id="anonymizeToggle" type="button" role="switch" aria-checked="false" aria-label="Toggle anonymized display"></button>
     </div>
     <div class="visit-toggle" id="visitToggle" aria-label="Visit type">
@@ -1508,6 +1519,7 @@ function initials(name){
 
 const entryList = document.getElementById('entryList');
 const recordSearchInput = document.getElementById('recordSearchInput');
+const anonymizeLabel = document.getElementById('anonymizeLabel');
 const anonymizeToggle = document.getElementById('anonymizeToggle');
 const mainScroll = document.getElementById('mainScroll');
 const topbarPatient = document.getElementById('topbarPatient');
@@ -3352,11 +3364,14 @@ updateVisitToggle();
 updateAnonymizeToggle();
 updateDateNavigation();
 
-anonymizeToggle.addEventListener('click', () => {
+function toggleAnonymize(){
   anonymizeEnabled = !anonymizeEnabled;
   localStorage.setItem(ANONYMIZE_STORAGE, anonymizeEnabled ? 'true' : 'false');
   refreshAnonymizedView();
-});
+}
+
+anonymizeLabel.addEventListener('click', toggleAnonymize);
+anonymizeToggle.addEventListener('click', toggleAnonymize);
 
 recordSearchInput.addEventListener('input', () => {
   recordSearchTerm = recordSearchInput.textContent || '';
