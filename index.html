@@ -152,6 +152,48 @@
   .add-note-btn:hover{ background:var(--teal-deep); transform:translateY(-1px); box-shadow:0 10px 22px -12px rgba(31,95,82,.7); }
   .add-note-btn:active{ transform:translateY(0); }
   .add-note-icon{ font-size:22px; line-height:1; }
+  .privacy-row{
+    margin:12px 4px 0;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:10px;
+    min-height:42px;
+    border:1px solid #D8E1E7;
+    border-radius:12px;
+    background:#fff;
+    padding:7px 10px 7px 12px;
+    color:var(--teal-deep);
+    font:800 12px 'Inter',sans-serif;
+  }
+  .privacy-switch{
+    position:relative;
+    width:48px;
+    height:28px;
+    border:0;
+    border-radius:999px;
+    background:#DDE5E1;
+    cursor:pointer;
+    flex:0 0 auto;
+  }
+  .privacy-switch::after{
+    content:'';
+    position:absolute;
+    width:22px;
+    height:22px;
+    top:3px;
+    left:3px;
+    border-radius:50%;
+    background:#fff;
+    box-shadow:0 2px 6px rgba(0,0,0,.18);
+    transition:transform .15s ease;
+  }
+  .privacy-switch.active{ background:var(--teal); }
+  .privacy-switch.active::after{ transform:translateX(20px); }
+  .note-editor.anonymized{
+    background:#F8FAF8;
+    color:#3F4B45;
+  }
 
   .btn.delete-btn{
     display:none;
@@ -776,6 +818,7 @@
       gap:6px;
     }
     .sidebar .visit-toggle{ margin-top:12px; }
+    .privacy-row{ margin-top:12px; }
     .record-search{ margin-top:12px; }
     .entry{
       gap:9px;
@@ -937,6 +980,11 @@
       padding:0;
       border-bottom:0;
       background:transparent;
+    }
+    .privacy-row{
+      margin:10px 0 0;
+      min-height:44px;
+      border-radius:13px;
     }
     .record-title{ font-size:0; }
     .record-title::after{
@@ -1212,6 +1260,10 @@
         <span>Note</span>
       </button>
     </div>
+    <div class="privacy-row">
+      <span>Anonymize</span>
+      <button class="privacy-switch" id="anonymizeToggle" type="button" role="switch" aria-checked="false" aria-label="Toggle anonymized display"></button>
+    </div>
     <div class="visit-toggle" id="visitToggle" aria-label="Visit type">
       <button class="visit-toggle-btn active" data-visit-type="OP">OP</button>
       <button class="visit-toggle-btn" data-visit-type="IP">IP</button>
@@ -1449,6 +1501,7 @@ function initials(name){
 
 const entryList = document.getElementById('entryList');
 const recordSearchInput = document.getElementById('recordSearchInput');
+const anonymizeToggle = document.getElementById('anonymizeToggle');
 const mainScroll = document.getElementById('mainScroll');
 const topbarPatient = document.getElementById('topbarPatient');
 const topbarName = document.getElementById('topbarName');
@@ -1513,6 +1566,7 @@ const continuationStatus = document.getElementById('continuationStatus');
 const continuationModeBar = document.getElementById('continuationModeBar');
 
 const GEMINI_KEY_STORAGE = 'woyz_gemini_authorization_key';
+const ANONYMIZE_STORAGE = 'woyz_anonymize_display';
 const GEMINI_MODELS = ['gemini-3.6-flash','gemini-flash-latest','gemini-2.5-flash'];
 const PATIENT_FIELDS = {
   patientName:{type:'string',description:'Patient name exactly as spoken at the beginning, otherwise NIL.'},
@@ -1555,6 +1609,7 @@ let latestDateLookupInProgress = false;
 let dateSubscriptionRequestId = 0;
 let saveFeedbackTimer = null;
 let saveFeedbackUntil = 0;
+let anonymizeEnabled = localStorage.getItem(ANONYMIZE_STORAGE) === 'true';
 let continuationState = {
   open:false,
   mode:'continue',
@@ -1647,7 +1702,9 @@ function renderEntries(){
     const manualNote = r.noteType === 'manual' || r.selectedMode === 'Manual note';
     const modeSuffix = r.everSaved && ['Reply letter','Medical certificate'].includes(r.selectedMode) ? ` (${r.selectedMode})` : '';
     const draftEntryName = namedDraft ? `${r.patientData.name}${modeSuffix}` : `${manualNote ? 'Manual note' : 'Visit Note'} draft${modeSuffix}`;
-    const entryName = (r.isDraft || generatedEntry) ? draftEntryName : r.name;
+    const entryName = anonymizeEnabled && (namedDraft || !(r.isDraft || generatedEntry))
+      ? `${displayPatientName(r)}${modeSuffix}`
+      : (r.isDraft || generatedEntry) ? draftEntryName : r.name;
     const entryMeta = (r.isDraft || generatedEntry) && !namedDraft ? r.createdAt : patientMetaLine(r);
     const ownerCode = ownerInitials(noteOwnerUid(r)) || ((r.isDraft || generatedEntry) ? (namedDraft ? initials(r.patientData.name) : 'D') : initials(r.name));
     btn.innerHTML = `
@@ -1695,11 +1752,55 @@ function cleanSex(value){
   return text || 'NIL';
 }
 
-function patientMetaLine(record){
+function anonymizedCode(record){
+  const seed = String(record?.firestoreId || record?.createdAtLabel || record?.createdAt || record?.name || 'note');
+  let hash = 0;
+  for (let i = 0; i < seed.length; i += 1) hash = ((hash * 31) + seed.charCodeAt(i)) >>> 0;
+  return `Patient ${String(hash % 10000).padStart(4,'0')}`;
+}
+
+function escapeRegExp(value){
+  return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function patientIdentity(record){
   const patient = record?.patientData || {};
-  const uhid = patient.uhid || record?.uhid || 'NIL';
-  const sex = cleanSex(patient.sex || record?.sex || 'NIL');
-  const age = cleanAge(patient.age || record?.age || 'NIL');
+  return {
+    name:String(patient.name || record?.name || '').trim(),
+    uhid:String(patient.uhid || record?.uhid || '').trim(),
+    age:cleanAge(patient.age || record?.age || 'NIL'),
+    sex:cleanSex(patient.sex || record?.sex || 'NIL')
+  };
+}
+
+function anonymizeTextForRecord(text, record){
+  if (!anonymizeEnabled) return String(text || '');
+  const identity = patientIdentity(record);
+  const code = anonymizedCode(record);
+  let output = String(text || '');
+  if (identity.name && !/^nil$/i.test(identity.name)){
+    output = output.replace(new RegExp(escapeRegExp(identity.name), 'gi'), code);
+  }
+  if (identity.uhid && !/^nil$/i.test(identity.uhid)){
+    output = output.replace(new RegExp(escapeRegExp(identity.uhid), 'gi'), 'UHID hidden');
+  }
+  output = output
+    .replace(/^Patient Name:\s*([^\n·]*)(.*)$/gim, `Patient Name: ${code}$2`)
+    .replace(/^UHID:\s*([^\n·]*)(.*)$/gim, 'UHID: hidden$2');
+  return output;
+}
+
+function displayPatientName(record){
+  if (anonymizeEnabled) return anonymizedCode(record);
+  const identity = patientIdentity(record);
+  return identity.name || record?.name || 'NIL';
+}
+
+function patientMetaLine(record){
+  const identity = patientIdentity(record);
+  const uhid = anonymizeEnabled ? 'hidden' : (identity.uhid || 'NIL');
+  const sex = identity.sex;
+  const age = identity.age;
   return `UHID ${uhid} · ${sex} · ${age}`;
 }
 
@@ -1778,6 +1879,17 @@ function updateVisitToggle(){
   mobileVisitToggle.querySelectorAll('[data-mobile-visit-type]').forEach(button => {
     button.classList.toggle('active', button.dataset.mobileVisitType === selectedVisitType);
   });
+}
+
+function updateAnonymizeToggle(){
+  anonymizeToggle.classList.toggle('active', anonymizeEnabled);
+  anonymizeToggle.setAttribute('aria-checked', anonymizeEnabled ? 'true' : 'false');
+}
+
+function refreshAnonymizedView(){
+  updateAnonymizeToggle();
+  renderEntries();
+  if (activeIndex !== null && records[activeIndex]) selectEntry(activeIndex);
 }
 
 function setVisitType(type){
@@ -2065,9 +2177,10 @@ function selectEntry(i){
   const isGeneratedRecord = Boolean(r.transcription) || r.kind === 'generated';
   renderEntries();
 
-  topbarName.textContent = r.patientData?.name || r.name;
-  topbarUhid.textContent = 'UHID ' + (r.patientData?.uhid || r.uhid);
-  topbarAge.textContent = (r.patientData?.age || r.age) + ' yrs';
+  const identity = patientIdentity(r);
+  topbarName.textContent = displayPatientName(r);
+  topbarUhid.textContent = 'UHID ' + (anonymizeEnabled ? 'hidden' : (identity.uhid || 'NIL'));
+  topbarAge.textContent = identity.age + ' yrs';
   topbarPatient.classList.add('visible');
   copyBtn.style.display = (!r.isDraft || r.transcription) ? 'flex' : 'none';
   deleteBtn.classList.toggle('visible', Boolean(r.firestoreId && noteOwnerUid(r) === currentUser?.uid));
@@ -2239,6 +2352,8 @@ function renderVoiceWorkspace(){
 
 function renderGeneratedNote(draft){
   const title = draft.selectedMode || 'Visit Note';
+  const displayText = anonymizeTextForRecord(draft.transcription, draft);
+  const canEdit = !anonymizeEnabled;
   mainScroll.innerHTML = `
     <div class="generated-note">
       <section class="generated-note-card">
@@ -2247,7 +2362,7 @@ function renderGeneratedNote(draft){
             <h1 class="generated-note-title">${escapeHtml(title)}</h1>
           </div>
         </div>
-        <div class="note-editor" id="generatedNoteEditor" contenteditable="true" spellcheck="true" role="textbox" aria-multiline="true" aria-label="Editable generated note">${richNoteHtml(draft.transcription)}</div>
+        <div class="note-editor ${anonymizeEnabled ? 'anonymized' : ''}" id="generatedNoteEditor" contenteditable="${canEdit ? 'true' : 'false'}" spellcheck="true" role="textbox" aria-multiline="true" aria-label="Editable generated note">${richNoteHtml(displayText)}</div>
         <button class="mobile-review-inline ${selectedRecordCanContinue() ? 'visible' : ''}" id="mobileInlineReviewBtn" aria-label="Add on to selected note by dictation">Add On</button>
       </section>
     </div>`;
@@ -2255,18 +2370,20 @@ function renderGeneratedNote(draft){
   const mobileInlineReviewBtn = document.getElementById('mobileInlineReviewBtn');
   resizeNoteEditor(editor);
   if (mobileInlineReviewBtn) mobileInlineReviewBtn.addEventListener('click', openContinuationDock);
-  editor.addEventListener('input', () => {
-    draft.transcription = editorPlainText(editor);
-    draft.saved = false;
-    clearTimeout(saveFeedbackTimer);
-    saveFeedbackUntil = 0;
-    saveDraftBtn.querySelector('span').textContent = 'Save';
-    resizeNoteEditor(editor);
-  });
-  editor.addEventListener('paste', event => {
-    event.preventDefault();
-    document.execCommand('insertText', false, event.clipboardData?.getData('text/plain') || '');
-  });
+  if (canEdit){
+    editor.addEventListener('input', () => {
+      draft.transcription = editorPlainText(editor);
+      draft.saved = false;
+      clearTimeout(saveFeedbackTimer);
+      saveFeedbackUntil = 0;
+      saveDraftBtn.querySelector('span').textContent = 'Save';
+      resizeNoteEditor(editor);
+    });
+    editor.addEventListener('paste', event => {
+      event.preventDefault();
+      document.execCommand('insertText', false, event.clipboardData?.getData('text/plain') || '');
+    });
+  }
   recordBtn.classList.remove('is-recording');
   copyBtn.style.display = 'flex';
   updateContinueNoteButton();
@@ -3225,7 +3342,14 @@ mobileVisitToggle.addEventListener('click', event => {
   setVisitType(button.dataset.mobileVisitType);
 });
 updateVisitToggle();
+updateAnonymizeToggle();
 updateDateNavigation();
+
+anonymizeToggle.addEventListener('click', () => {
+  anonymizeEnabled = !anonymizeEnabled;
+  localStorage.setItem(ANONYMIZE_STORAGE, anonymizeEnabled ? 'true' : 'false');
+  refreshAnonymizedView();
+});
 
 recordSearchInput.addEventListener('input', () => {
   recordSearchTerm = recordSearchInput.textContent || '';
@@ -3290,7 +3414,10 @@ copyBtn.addEventListener('click', async () => {
   if (activeIndex === null) return;
   const activeRecord = records[activeIndex];
   const editor = document.getElementById('generatedNoteEditor');
-  const rawText = editorPlainText(editor) || activeRecord.transcription || (activeRecord.isDraft ? '' : noteText(activeRecord));
+  const sourceText = anonymizeEnabled
+    ? (activeRecord.transcription || (activeRecord.isDraft ? '' : noteText(activeRecord)))
+    : (editorPlainText(editor) || activeRecord.transcription || (activeRecord.isDraft ? '' : noteText(activeRecord)));
+  const rawText = anonymizeTextForRecord(sourceText, activeRecord);
   const text = removeNilSectionsForCopy(rawText);
   try{
     await navigator.clipboard.writeText(text);
@@ -3408,7 +3535,7 @@ saveDraftBtn.addEventListener('click', async () => {
   if (activeIndex === null || !records[activeIndex]) return;
   const draft = records[activeIndex];
   const editor = document.getElementById('generatedNoteEditor');
-  if (editor) draft.transcription = editorPlainText(editor);
+  if (editor && !anonymizeEnabled) draft.transcription = editorPlainText(editor);
   draft.patientData = extractPatientFromNote(draft.transcription, draft.patientData);
   draft.saved = true;
   draft.everSaved = true;
