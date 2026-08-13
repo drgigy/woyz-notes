@@ -154,14 +154,14 @@
   .add-note-icon{ font-size:22px; line-height:1; }
   .privacy-row{
     margin:9px 4px 0;
-    display:flex;
+    display:grid;
+    grid-template-columns:1fr 1fr;
     align-items:center;
-    justify-content:space-between;
-    gap:9px;
+    gap:4px;
     height:36px;
   }
   .privacy-label{
-    flex:1;
+    width:100%;
     height:36px;
     border:0;
     border-radius:8px;
@@ -185,7 +185,7 @@
     border-radius:999px;
     background:#fff;
     cursor:pointer;
-    flex:0 0 auto;
+    justify-self:center;
     box-shadow:0 5px 16px -13px rgba(31,95,82,.6), inset 0 1px 2px rgba(0,0,0,.08);
     transition:background .15s ease, border-color .15s ease, box-shadow .15s ease;
   }
@@ -1914,7 +1914,7 @@ function refreshAnonymizedView(){
 function setVisitType(type){
   selectedVisitType = type === 'IP' ? 'IP' : 'OP';
   updateVisitToggle();
-  subscribeToSelectedDate();
+  subscribeToSelectedDate({allowLatestDateFallback:true});
 }
 
 function closeMobileSidebar(){
