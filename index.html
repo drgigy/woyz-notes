@@ -2369,6 +2369,7 @@ async function startRecording(){
     draft.stopped = false;
     draft.status = 'Recording in progress…';
     startVoiceTimer();
+    startWaveformAnimation();
     renderVoiceWorkspace();
   }catch(error){
     draft.status = 'Microphone access is required to record.';
@@ -2482,7 +2483,12 @@ function setupAudioAnalyser(stream){
   analyserNode.fftSize = 256;
   analyserNode.smoothingTimeConstant = .68;
   audioContext.createMediaStreamSource(stream).connect(analyserNode);
-  startWaveformAnimation();
+  setWaveformLevel(0);
+}
+
+function waveformShouldAnimate(){
+  return mediaRecorder?.state === 'recording'
+    && (records[activeIndex]?.recording === true || continuationState.recording === true);
 }
 
 function startWaveformAnimation(){
@@ -2490,7 +2496,11 @@ function startWaveformAnimation(){
   stopWaveformAnimation();
   const samples = new Uint8Array(analyserNode.fftSize);
   const draw = () => {
-    waveformFrame = requestAnimationFrame(draw);
+    if (!waveformShouldAnimate()){
+      waveformFrame = null;
+      setWaveformLevel(0);
+      return;
+    }
     analyserNode.getByteTimeDomainData(samples);
     let energy = 0;
     for (const sample of samples){
@@ -2499,6 +2509,7 @@ function startWaveformAnimation(){
     }
     const rms = Math.sqrt(energy / samples.length);
     setWaveformLevel(rms);
+    waveformFrame = requestAnimationFrame(draw);
   };
   waveformFrame = requestAnimationFrame(draw);
 }
@@ -2633,6 +2644,7 @@ async function startContinuationRecording(){
     continuationState.paused = false;
     setContinuationStatus('Recording in progress...');
     startVoiceTimer();
+    startWaveformAnimation();
     renderContinuationDock();
   }catch(error){
     setContinuationStatus('Microphone access is required.');
