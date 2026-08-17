@@ -424,7 +424,7 @@
     display:flex;
     align-items:center;
     gap:10px;
-    padding:9px 30px 9px 10px;
+    padding:9px 38px 9px 10px;
     border-radius:10px;
     border:1px solid transparent;
     border-bottom-color:rgba(226,229,225,.82);
@@ -440,25 +440,25 @@
   .entry:focus-visible{ outline:2px solid var(--focus); outline-offset:2px; }
 
   .entry-avatar{
-    width:34px;height:34px;border-radius:50%;
+    width:36px;height:36px;border-radius:50%;
     display:flex;align-items:center;justify-content:center;
     background:var(--teal-wash);
     color:var(--teal-deep);
-    font-weight:600;
-    font-size:13px;
+    font-weight:800;
+    font-size:14px;
     flex-shrink:0;
+    font-family:'IBM Plex Mono',monospace;
   }
 
-  .entry-text{ min-width:0; }
-  .entry-serial{
+  .entry-text{ min-width:0; flex:1; }
+  .entry-owner{
     position:absolute;
-    right:9px;
-    top:10px;
-    color:rgba(108,118,108,.72);
-    font:700 10px 'IBM Plex Mono',monospace;
-    line-height:1;
+    right:9px;top:50%;
+    transform:translateY(-50%);
+    color:rgba(31,95,82,.76);
+    font:800 10.5px 'IBM Plex Mono',monospace;
   }
-  .entry.active .entry-serial{ color:rgba(31,95,82,.78); }
+  .entry.active .entry-owner{ color:var(--teal-deep); }
   .entry-name{
     font-size:14px;
     font-weight:600;
@@ -473,6 +473,9 @@
     color:var(--muted);
     margin-top:1px;
     letter-spacing:0.02em;
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
   }
 
   .entry.active{
@@ -849,14 +852,14 @@
     .record-search{ margin-top:12px; }
     .entry{
       gap:9px;
-      padding:8px 28px 8px 8px;
+      padding:8px 34px 8px 8px;
       border-radius:9px;
     }
-    .entry-serial{ right:8px; top:9px; font-size:9.5px; }
+    .entry-owner{ right:8px; font-size:10px; }
     .entry-avatar{
-      width:32px;
-      height:32px;
-      font-size:12px;
+      width:34px;
+      height:34px;
+      font-size:13px;
     }
     .entry-name{ font-size:13.5px; }
     .entry-uhid{ font-size:10.5px; }
@@ -1739,12 +1742,12 @@ function renderEntries(){
     const entryMeta = (r.isDraft || generatedEntry) && !namedDraft ? r.createdAt : patientMetaLine(r);
     const ownerCode = ownerInitials(noteOwnerUid(r)) || ((r.isDraft || generatedEntry) ? (namedDraft ? initials(r.patientData.name) : 'D') : initials(r.name));
     btn.innerHTML = `
-      <span class="entry-serial">${escapeHtml(serialNumber)}</span>
-      <span class="entry-avatar">${escapeHtml(ownerCode)}</span>
+      <span class="entry-avatar">${escapeHtml(serialNumber)}</span>
       <span class="entry-text">
         <div class="entry-name">${escapeHtml(entryName)}</div>
         <div class="entry-uhid">${escapeHtml(entryMeta)}</div>
       </span>
+      <span class="entry-owner">${escapeHtml(ownerCode)}</span>
     `;
     btn.addEventListener('click', () => {
       selectEntry(i);
