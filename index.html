@@ -1787,6 +1787,13 @@ function cleanSex(value){
   return text || 'NIL';
 }
 
+function compactSex(value){
+  const text = cleanSex(value);
+  if (/^female$/i.test(text)) return 'F';
+  if (/^male$/i.test(text)) return 'M';
+  return text;
+}
+
 function anonymizedCode(record){
   const seed = String(record?.firestoreId || record?.createdAtLabel || record?.createdAt || record?.name || 'note');
   let hash = 0;
@@ -1834,8 +1841,8 @@ function displayPatientName(record){
 function patientMetaLine(record){
   const identity = patientIdentity(record);
   const uhid = anonymizeEnabled ? 'hidden' : (identity.uhid || 'NIL');
-  const sex = identity.sex;
-  const age = identity.age;
+  const sex = compactSex(identity.sex);
+  const age = cleanAge(identity.age);
   return `UHID ${uhid} · ${sex} · ${age}`;
 }
 
@@ -3639,7 +3646,7 @@ if ('serviceWorker' in navigator) {
       refreshingForUpdate = true;
       window.location.reload();
     });
-    navigator.serviceWorker.register('./sw.js?v=37', {updateViaCache:'none'}).then(registration => {
+    navigator.serviceWorker.register('./sw.js?v=38', {updateViaCache:'none'}).then(registration => {
       registration.update();
     }).catch(error => {
       console.warn('Service worker registration failed:', error);

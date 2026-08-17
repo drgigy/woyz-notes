@@ -311,6 +311,20 @@ function isNilLike(value){
   return /^(nil|none|no|not applicable|n\/a|na|negative)$/i.test(String(value || '').trim());
 }
 
+function cleanAge(value){
+  const text = String(value || '').trim();
+  if (!text || /^nil$/i.test(text)) return 'NIL';
+  const number = text.match(/\d+(?:\.\d+)?/)?.[0];
+  return number || text.replace(/\b(years?|yrs?|old)\b/gi, '').trim() || 'NIL';
+}
+
+function compactSex(value){
+  const text = String(value || '').trim() || 'NIL';
+  if (/^female$/i.test(text)) return 'F';
+  if (/^male$/i.test(text)) return 'M';
+  return text;
+}
+
 function removeNilSectionsForCopy(text){
   const protectedInlineLabels = new Set(['patient name','age','uhid']);
   return String(text || '')
@@ -400,7 +414,8 @@ function noteMeta(note){
   const patient = note.data.patientData || {};
   const pieces = [noteVisitType(note)];
   if (patient.uhid) pieces.push(`UHID ${patient.uhid}`);
-  if (patient.age) pieces.push(`${patient.age} yrs`);
+  if (patient.sex) pieces.push(compactSex(patient.sex));
+  if (patient.age) pieces.push(cleanAge(patient.age));
   if (note.data.visitDate) pieces.push(note.data.visitDate);
   return pieces.join(' · ') || note.userLabel;
 }
