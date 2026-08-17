@@ -420,10 +420,11 @@
   }
 
   .entry{
+    position:relative;
     display:flex;
     align-items:center;
     gap:10px;
-    padding:9px 10px;
+    padding:9px 30px 9px 10px;
     border-radius:10px;
     border:1px solid transparent;
     border-bottom-color:rgba(226,229,225,.82);
@@ -449,6 +450,15 @@
   }
 
   .entry-text{ min-width:0; }
+  .entry-serial{
+    position:absolute;
+    right:9px;
+    top:10px;
+    color:rgba(108,118,108,.72);
+    font:700 10px 'IBM Plex Mono',monospace;
+    line-height:1;
+  }
+  .entry.active .entry-serial{ color:rgba(31,95,82,.78); }
   .entry-name{
     font-size:14px;
     font-weight:600;
@@ -839,9 +849,10 @@
     .record-search{ margin-top:12px; }
     .entry{
       gap:9px;
-      padding:8px 8px;
+      padding:8px 28px 8px 8px;
       border-radius:9px;
     }
+    .entry-serial{ right:8px; top:9px; font-size:9.5px; }
     .entry-avatar{
       width:32px;
       height:32px;
@@ -1716,6 +1727,7 @@ function renderEntries(){
   visibleRecords.forEach(({record:r, index:i}) => {
     const btn = document.createElement('button');
     btn.className = 'entry' + (i === activeIndex ? ' active' : '');
+    const serialNumber = records.length - i;
     const generatedEntry = r.kind === 'generated' && r.everSaved;
     const namedDraft = (r.isDraft || generatedEntry) && r.everSaved && r.patientData?.name && r.patientData.name !== 'NIL';
     const manualNote = r.noteType === 'manual' || r.selectedMode === 'Manual note';
@@ -1727,6 +1739,7 @@ function renderEntries(){
     const entryMeta = (r.isDraft || generatedEntry) && !namedDraft ? r.createdAt : patientMetaLine(r);
     const ownerCode = ownerInitials(noteOwnerUid(r)) || ((r.isDraft || generatedEntry) ? (namedDraft ? initials(r.patientData.name) : 'D') : initials(r.name));
     btn.innerHTML = `
+      <span class="entry-serial">${escapeHtml(serialNumber)}</span>
       <span class="entry-avatar">${escapeHtml(ownerCode)}</span>
       <span class="entry-text">
         <div class="entry-name">${escapeHtml(entryName)}</div>

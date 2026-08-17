@@ -49,7 +49,7 @@
   .sidebar .visit-toggle{ height:44px; margin:0 4px 16px; justify-content:center; }
   .sidebar .visit-toggle-btn{ height:34px; flex:1; font-size:13px; }
   .entry-list{ flex:1; min-height:0; display:flex; flex-direction:column; gap:8px; overflow:auto; overscroll-behavior:contain; padding-right:2px; }
-  .entry{ width:100%; border:1px solid transparent; background:transparent; border-radius:12px; padding:12px; display:flex; align-items:center; gap:12px; cursor:pointer; text-align:left; color:var(--ink); }
+  .entry{ position:relative; width:100%; border:1px solid transparent; background:transparent; border-radius:12px; padding:12px 30px 12px 12px; display:flex; align-items:center; gap:12px; cursor:pointer; text-align:left; color:var(--ink); }
   .entry:hover{ background:#F6F8F6; }
   .entry.uncopied{ background:var(--red-wash); border-color:#F3B3A9; color:#DB412D; }
   .entry.active{ background:var(--teal-wash); border-color:rgba(31,95,82,.35); color:var(--teal-deep); }
@@ -57,6 +57,9 @@
   .entry.uncopied .entry-avatar{ background:#DE4D37; color:#fff; }
   .entry.active .entry-avatar{ background:var(--teal); color:#fff; }
   .entry-text{ min-width:0; }
+  .entry-serial{ position:absolute; right:9px; top:10px; color:rgba(108,118,108,.72); font:700 10px 'IBM Plex Mono',monospace; line-height:1; }
+  .entry.active .entry-serial{ color:rgba(31,95,82,.78); }
+  .entry.uncopied .entry-serial{ color:rgba(219,65,45,.78); }
   .entry-name{ font-weight:800; font-size:14px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .entry-meta{ color:var(--muted); font:700 11px 'IBM Plex Mono',monospace; margin-top:3px; overflow:hidden; text-overflow:ellipsis; }
   .main{ min-width:0; min-height:0; overflow:hidden; display:flex; flex-direction:column; background:#fff; }
@@ -523,14 +526,16 @@ function renderEntries(){
   const selectedUser = users.find(user => user.uid === selectedUserId);
   const notes = visibleNotes().filter(note => note.userId === selectedUserId);
   notesLabel.textContent = selectedUser ? selectedUser.label : 'Notes';
-  notes.forEach(note => {
+  notes.forEach((note, index) => {
     const button = document.createElement('button');
+    const serialNumber = notes.length - index;
     button.className = [
       'entry',
       isSavedNote(note) && !note.data.adminCopiedAt ? 'uncopied' : '',
       note.id === selectedNoteId ? 'active' : ''
     ].filter(Boolean).join(' ');
     button.innerHTML = `
+      <span class="entry-serial">${escapeHtml(serialNumber)}</span>
       <span class="entry-avatar">${escapeHtml(noteOwnerCode(note, selectedUser?.label))}</span>
       <span class="entry-text">
         <div class="entry-name">${escapeHtml(notePatientName(note))}</div>
