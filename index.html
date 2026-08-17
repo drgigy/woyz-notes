@@ -1739,7 +1739,7 @@ function renderEntries(){
     const entryName = anonymizeEnabled && (namedDraft || !(r.isDraft || generatedEntry))
       ? `${displayPatientName(r)}${modeSuffix}`
       : (r.isDraft || generatedEntry) ? draftEntryName : r.name;
-    const entryMeta = (r.isDraft || generatedEntry) && !namedDraft ? r.createdAt : patientMetaLine(r);
+    const entryMeta = compactPatientMetaText((r.isDraft || generatedEntry) && !namedDraft ? r.createdAt : patientMetaLine(r));
     const ownerCode = ownerInitials(noteOwnerUid(r)) || ((r.isDraft || generatedEntry) ? (namedDraft ? initials(r.patientData.name) : 'D') : initials(r.name));
     btn.innerHTML = `
       <span class="entry-avatar">${escapeHtml(serialNumber)}</span>
@@ -1789,9 +1789,16 @@ function cleanSex(value){
 
 function compactSex(value){
   const text = cleanSex(value);
-  if (/^female$/i.test(text)) return 'F';
-  if (/^male$/i.test(text)) return 'M';
+  if (/^f(emale)?\b/i.test(text)) return 'F';
+  if (/^m(ale)?\b/i.test(text)) return 'M';
   return text;
+}
+
+function compactPatientMetaText(value){
+  return String(value || '')
+    .replace(/\bFemale\b/gi, 'F')
+    .replace(/\bMale\b/gi, 'M')
+    .replace(/\b(\d+(?:\.\d+)?)\s*(?:years?|yrs?|old)\b/gi, '$1');
 }
 
 function anonymizedCode(record){
@@ -3646,7 +3653,7 @@ if ('serviceWorker' in navigator) {
       refreshingForUpdate = true;
       window.location.reload();
     });
-    navigator.serviceWorker.register('./sw.js?v=38', {updateViaCache:'none'}).then(registration => {
+    navigator.serviceWorker.register('./sw.js?v=39', {updateViaCache:'none'}).then(registration => {
       registration.update();
     }).catch(error => {
       console.warn('Service worker registration failed:', error);

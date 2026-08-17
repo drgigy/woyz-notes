@@ -320,8 +320,8 @@ function cleanAge(value){
 
 function compactSex(value){
   const text = String(value || '').trim() || 'NIL';
-  if (/^female$/i.test(text)) return 'F';
-  if (/^male$/i.test(text)) return 'M';
+  if (/^f(emale)?\b/i.test(text)) return 'F';
+  if (/^m(ale)?\b/i.test(text)) return 'M';
   return text;
 }
 
