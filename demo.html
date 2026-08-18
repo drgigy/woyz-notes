@@ -32,7 +32,9 @@
   .app{height:100dvh;display:grid;grid-template-columns:296px minmax(0,1fr);overflow:hidden;background:#fff;}
   .sidebar{min-height:0;display:flex;flex-direction:column;gap:14px;padding:20px 16px;background:#fff;border-right:1px solid var(--border);overflow:hidden;}
   .brand-row{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px;align-items:stretch;margin:-20px -16px 0;padding:14px;background:#FBFCFB;}
-  .brand-pill{height:58px;border:4px solid #F45155;border-radius:999px;background:#17171D;color:#fff;display:flex;align-items:center;justify-content:center;gap:8px;padding:0 10px;font-weight:700;font-size:24px;letter-spacing:1px;box-shadow:0 7px 18px -8px rgba(18,18,24,.5);}
+  .brand-pill{height:58px;border:4px solid #F45155;border-radius:999px;background:#17171D;color:#fff;display:flex;align-items:center;justify-content:center;gap:8px;padding:0 10px;font-weight:700;font-size:24px;letter-spacing:1px;box-shadow:0 7px 18px -8px rgba(18,18,24,.5);cursor:pointer;font-family:inherit;}
+  .brand-pill:hover{transform:translateY(-1px);box-shadow:0 10px 22px -8px rgba(18,18,24,.55);}
+  .brand-pill:active{transform:translateY(0) scale(.99);}
   .brand-dot{width:28px;height:28px;border-radius:50%;background:#F45155;border:7px solid #452126;flex:0 0 auto;}
   .note-btn{height:58px;border:0;border-radius:13px;background:var(--teal);color:#fff;font:700 20px 'Inter',sans-serif;cursor:pointer;box-shadow:0 12px 24px -22px var(--teal-deep);}
   .privacy-row{display:grid;grid-template-columns:minmax(0,1fr) 72px;gap:14px;align-items:center;}
@@ -96,7 +98,7 @@
 <div class="app" id="app">
   <aside class="sidebar">
     <div class="brand-row">
-      <div class="brand-pill"><span class="brand-dot"></span><span>WOYZ</span></div>
+      <button class="brand-pill" id="voiceBtn" type="button" aria-label="Create demo voice note"><span class="brand-dot"></span><span>WOYZ</span></button>
       <button class="note-btn" id="newNoteBtn">+ Note</button>
     </div>
     <div class="privacy-row">
@@ -389,7 +391,7 @@ Sex:`
   };
 }
 
-function createDraft(mode = 'Visit Note'){
+function createDraft(mode = 'Visit Note', source = 'manual'){
   const template = draftTemplate(mode);
   const now = new Date();
   const id = `draft-${Date.now()}`;
@@ -397,7 +399,7 @@ function createDraft(mode = 'Visit Note'){
     id,
     type:activeType,
     owner:'SJ',
-    name:mode === 'Visit Note' ? 'Visit Note draft' : `Visit Note draft (${mode})`,
+    name:mode === 'Visit Note' ? `${source === 'voice' ? 'Voice note' : 'Visit Note'} draft` : `Visit Note draft (${mode})`,
     uhid:'NIL',
     sex:'NIL',
     age:'NIL',
@@ -506,6 +508,7 @@ document.getElementById('dateBtn').addEventListener('click', () => {
   render();
 });
 document.getElementById('newNoteBtn').addEventListener('click', () => createDraft('Visit Note'));
+document.getElementById('voiceBtn').addEventListener('click', () => createDraft('Visit Note', 'voice'));
 document.getElementById('addOnBtn').addEventListener('click', () => alert('Demo add-on: investigations and medications are shown in numbered format.'));
 document.getElementById('certificateBtn').addEventListener('click', () => {
   createDraft('Medical certificate');
@@ -548,7 +551,7 @@ render();
 <script>
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('./sw.js?v=49', {updateViaCache:'none'}).catch(error => {
+    navigator.serviceWorker.register('./sw.js?v=50', {updateViaCache:'none'}).catch(error => {
       console.warn('Service worker registration failed:', error);
     });
   });
