@@ -297,6 +297,7 @@ let selectedDate = '2026-08-18';
 let activeId = null;
 let query = '';
 let anonymizeEnabled = false;
+const GEMINI_KEY_STORAGE = 'woyz_gemini_authorization_key';
 
 const app = document.getElementById('app');
 const entryList = document.getElementById('entryList');
@@ -512,7 +513,15 @@ document.getElementById('certificateBtn').addEventListener('click', () => {
 document.getElementById('replyBtn').addEventListener('click', () => {
   createDraft('Reply letter');
 });
-document.getElementById('settingsBtn').addEventListener('click', () => alert('Demo settings are disabled.'));
+document.getElementById('settingsBtn').addEventListener('click', () => {
+  const hasKey = Boolean(localStorage.getItem(GEMINI_KEY_STORAGE));
+  const key = window.prompt(`${hasKey ? 'Authorization key is already saved.' : 'Add authorization key.'}\nPaste a new key to save it in this browser.`);
+  if (key === null) return;
+  const cleanKey = key.trim();
+  if (!cleanKey) return;
+  localStorage.setItem(GEMINI_KEY_STORAGE, cleanKey);
+  window.alert('Authorization key saved for this browser.');
+});
 document.getElementById('saveBtn').addEventListener('click', event => {
   const original = event.currentTarget.textContent;
   event.currentTarget.textContent = 'Saved';
@@ -539,7 +548,7 @@ render();
 <script>
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('./sw.js?v=48', {updateViaCache:'none'}).catch(error => {
+    navigator.serviceWorker.register('./sw.js?v=49', {updateViaCache:'none'}).catch(error => {
       console.warn('Service worker registration failed:', error);
     });
   });
