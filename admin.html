@@ -325,6 +325,13 @@ function compactSex(value){
   return text;
 }
 
+function compactPatientMetaText(value){
+  return String(value || '')
+    .replace(/\bFemale\b/gi, 'F')
+    .replace(/\bMale\b/gi, 'M')
+    .replace(/\b(\d+(?:\.\d+)?)\s*(?:years?|yrs?|old)\b/gi, '$1');
+}
+
 function removeNilSectionsForCopy(text){
   const protectedInlineLabels = new Set(['patient name','age','uhid']);
   return String(text || '')
@@ -417,7 +424,7 @@ function noteMeta(note){
   if (patient.sex) pieces.push(compactSex(patient.sex));
   if (patient.age) pieces.push(cleanAge(patient.age));
   if (note.data.visitDate) pieces.push(note.data.visitDate);
-  return pieces.join(' · ') || note.userLabel;
+  return compactPatientMetaText(pieces.join(' · ') || note.userLabel);
 }
 
 function noteTime(note){
@@ -856,6 +863,23 @@ mappingGroupsList.addEventListener('click', async event => {
 });
 
 signoutBtn.addEventListener('click', () => signOut(auth));
+</script>
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    let refreshingForUpdate = false;
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (refreshingForUpdate) return;
+      refreshingForUpdate = true;
+      window.location.reload();
+    });
+    navigator.serviceWorker.register('./sw.js?v=42', {updateViaCache:'none'}).then(registration => {
+      registration.update();
+    }).catch(error => {
+      console.warn('Service worker registration failed:', error);
+    });
+  });
+}
 </script>
 </body>
 </html>
