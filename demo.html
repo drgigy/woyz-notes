@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WOYZ Notes Demo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600&family=Inter:wght@400;500;600;700;800;900&family=IBM+Plex+Mono:wght@500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#F4F5F3;
+    --panel:#FFFFFF;
+    --border:#E2E5E1;
+    --ink:#1B231F;
+    --muted:#6E786F;
+    --teal:#1F5F52;
+    --teal-deep:#153F37;
+    --teal-wash:#EAF2EF;
+    --red:#D6472F;
+    --red-wash:#FBEAE6;
+  }
+  *{box-sizing:border-box;}
+  html,body{height:100%;}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:'Inter',system-ui,sans-serif;-webkit-font-smoothing:antialiased;}
+  .app{height:100dvh;display:grid;grid-template-columns:300px minmax(0,1fr);overflow:hidden;background:#fff;}
+  .sidebar{min-height:0;display:flex;flex-direction:column;gap:14px;padding:18px 14px;background:#fff;border-right:1px solid var(--border);}
+  .brand-row{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px;align-items:center;}
+  .brand-pill{height:58px;border:4px solid #F45155;border-radius:999px;background:#17171D;color:#fff;display:flex;align-items:center;justify-content:center;gap:10px;padding:0 15px;font-weight:900;font-size:23px;letter-spacing:1px;box-shadow:0 14px 28px -20px rgba(0,0,0,.55);}
+  .brand-dot{width:30px;height:30px;border-radius:50%;background:#F45155;border:8px solid #452126;flex:0 0 auto;}
+  .note-btn{height:58px;border:0;border-radius:13px;background:var(--teal);color:#fff;font:900 19px 'Inter',sans-serif;cursor:pointer;box-shadow:0 12px 24px -22px var(--teal-deep);}
+  .demo-chip{height:34px;border:1px solid rgba(31,95,82,.2);border-radius:999px;background:var(--teal-wash);color:var(--teal-deep);display:flex;align-items:center;justify-content:center;font:900 12px 'Inter',sans-serif;}
+  .visit-toggle{height:48px;display:flex;align-items:center;gap:5px;padding:5px;border:1px solid #D8E1E7;border-radius:12px;background:#fff;}
+  .visit-toggle button{height:38px;flex:1;border:0;border-radius:9px;background:transparent;color:var(--muted);font:900 14px 'Inter',sans-serif;cursor:pointer;}
+  .visit-toggle button.active{background:var(--teal);color:#fff;}
+  .search{height:45px;border:1.5px solid #D8E1E7;border-radius:12px;padding:0 14px;font:700 14px 'Inter',sans-serif;outline:none;}
+  .search:focus{border-color:#8FB9AC;box-shadow:0 0 0 4px rgba(143,185,172,.18);}
+  .entry-list{flex:1;min-height:0;overflow:auto;display:flex;flex-direction:column;gap:2px;padding-right:3px;}
+  .entry{position:relative;width:100%;border:1px solid transparent;border-bottom-color:rgba(226,229,225,.9);border-radius:11px;background:transparent;padding:10px 38px 10px 10px;display:flex;align-items:center;gap:10px;text-align:left;cursor:pointer;color:var(--ink);font-family:inherit;}
+  .entry:hover{background:#F6F8F6;}
+  .entry.active{background:var(--teal-wash);border-color:rgba(31,95,82,.35);color:var(--teal-deep);}
+  .entry-avatar{width:36px;height:36px;border-radius:50%;background:#E9F2EE;color:var(--teal);display:grid;place-items:center;font:800 14px 'IBM Plex Mono',monospace;flex:0 0 auto;}
+  .entry.active .entry-avatar{background:var(--teal);color:#fff;}
+  .entry-text{min-width:0;flex:1;}
+  .entry-name{font-weight:850;font-size:14.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .entry-meta{margin-top:2px;color:var(--muted);font:700 11px 'IBM Plex Mono',monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .entry-owner{position:absolute;right:9px;top:50%;transform:translateY(-50%);color:rgba(31,95,82,.74);font:900 10.5px 'IBM Plex Mono',monospace;}
+  .main{min-width:0;min-height:0;display:flex;flex-direction:column;background:#fff;}
+  .topbar{min-height:102px;border-bottom:1px solid var(--border);display:grid;grid-template-columns:1fr auto;gap:12px;align-items:center;padding:14px 22px;background:#fff;}
+  .doc-actions{display:flex;gap:10px;align-items:center;overflow:auto;}
+  .mode-btn{height:42px;border:0;border-radius:11px;background:var(--teal);color:#fff;padding:0 18px;font:900 13px 'Inter',sans-serif;white-space:nowrap;}
+  .mode-btn.inert{background:#DDEFE8;color:#7A8D84;border:1px solid #C7DED5;}
+  .date-actions{display:flex;gap:8px;align-items:center;justify-content:flex-end;flex-wrap:wrap;}
+  .day-btn,.save-btn{height:42px;border:1px solid var(--teal-deep);border-radius:11px;background:var(--teal);color:#fff;padding:0 18px;font:900 14px 'Inter',sans-serif;box-shadow:0 6px 14px -10px var(--teal-deep);}
+  .date-step,.date-box,.copy-btn,.delete-btn{height:42px;border:1.5px solid #D8E1E7;border-radius:11px;background:#fff;color:#17212B;padding:0 14px;font:850 14px 'Inter',sans-serif;}
+  .date-step{width:42px;background:#EEF3F7;font-size:24px;line-height:1;}
+  .copy-btn{color:var(--teal-deep);border-color:rgba(31,95,82,.3);}
+  .delete-btn{background:var(--red);border-color:var(--red);color:#fff;}
+  .main-scroll{flex:1;min-height:0;overflow:auto;padding:38px 52px 80px;}
+  .note-title{margin:0 0 24px;font:600 34px 'Fraunces',serif;}
+  .note{max-width:980px;white-space:pre-wrap;font:16px/1.55 'Inter',system-ui,sans-serif;color:#25302B;}
+  .note strong{font-weight:900;color:#1E2521;}
+  .empty{color:var(--muted);font-weight:800;}
+  .mobile-bar{display:none;}
+  @media (max-width:760px){
+    .app{grid-template-columns:1fr;}
+    .sidebar{position:fixed;inset:0 auto 0 0;width:min(330px,88vw);z-index:5;transform:translateX(-105%);transition:transform .18s ease;box-shadow:20px 0 45px -35px rgba(0,0,0,.5);}
+    .app.sidebar-open .sidebar{transform:translateX(0);}
+    .mobile-bar{display:flex;height:56px;align-items:center;justify-content:space-between;padding:0 18px;border-bottom:1px solid var(--border);background:#fff;font-weight:900;letter-spacing:.04em;}
+    .menu-btn{width:38px;height:38px;border:0;background:transparent;display:grid;gap:5px;align-content:center;padding:8px;cursor:pointer;}
+    .menu-btn span{height:2px;background:#666;border-radius:999px;}
+    .topbar{min-height:auto;grid-template-columns:1fr;padding:10px 14px;}
+    .doc-actions{display:none;}
+    .date-actions{justify-content:space-between;}
+    .day-btn{display:none;}
+    .main-scroll{padding:26px 20px 86px;background:#F8F9F7;}
+    .note-title{font-size:25px;text-transform:uppercase;letter-spacing:.08em;color:#7E827C;font-family:'Inter',sans-serif;font-weight:900;}
+    .note{background:#fff;border-radius:16px;padding:20px;font-size:16px;box-shadow:0 12px 30px -28px rgba(0,0,0,.4);}
+  }
+</style>
+</head>
+<body>
+<div class="app" id="app">
+  <aside class="sidebar">
+    <div class="brand-row">
+      <div class="brand-pill"><span class="brand-dot"></span><span>WOYZ</span></div>
+      <button class="note-btn" id="newNoteBtn">+ Note</button>
+    </div>
+    <div class="demo-chip">Demo data only</div>
+    <div class="visit-toggle" id="visitToggle">
+      <button class="active" data-type="OP">OP</button>
+      <button data-type="IP">IP</button>
+    </div>
+    <input class="search" id="searchInput" placeholder="Search name or UHID" autocomplete="off">
+    <div class="entry-list" id="entryList"></div>
+  </aside>
+  <main class="main">
+    <div class="mobile-bar">
+      <button class="menu-btn" id="menuBtn" aria-label="Open list"><span></span><span></span><span></span></button>
+      <div>WOYZ Notes</div>
+      <div style="width:38px"></div>
+    </div>
+    <div class="topbar">
+      <div class="doc-actions">
+        <button class="mode-btn" id="addOnBtn">Add On</button>
+        <button class="mode-btn" id="certificateBtn">Certificate</button>
+        <button class="mode-btn" id="replyBtn">Reply Letter</button>
+        <button class="mode-btn inert">Initial Assessment</button>
+        <button class="mode-btn inert">Discharge Summary</button>
+        <button class="mode-btn inert">Treatment Summary</button>
+        <button class="mode-btn inert">Reports</button>
+      </div>
+      <div class="date-actions">
+        <button class="day-btn" id="dayBtn">Tuesday</button>
+        <button class="date-step" id="prevBtn">&#8249;</button>
+        <button class="date-box" id="dateBtn">18/08/2026</button>
+        <button class="date-step" id="nextBtn">&#8250;</button>
+        <button class="save-btn" id="saveBtn">Save</button>
+        <button class="copy-btn" id="copyBtn">Copy</button>
+        <button class="delete-btn" id="deleteBtn">Delete</button>
+      </div>
+    </div>
+    <section class="main-scroll">
+      <h1 class="note-title" id="noteTitle">Visit Note</h1>
+      <div class="note" id="noteBody"></div>
+    </section>
+  </main>
+</div>
+<script>
+const demoNotes = [
+  {
+    id:'op-10', type:'OP', owner:'GK', name:'Bishop Sebastian', uhid:'NIL', sex:'M', age:'NIL', date:'2026-08-18', title:'Visit Note',
+    text:`Patient Name: Bishop Sebastian
+Age: NIL
+UHID: NIL
+Sex: Male
+
+Presenting Complaint:
+Intermittent headache and giddiness.
+
+History of Present Illness:
+Patient reports episodic headache for 2 weeks. No vomiting or focal neurological deficit reported.
+
+Past Medical or Surgical History:
+NIL
+
+Allergies:
+NIL
+
+Review of Investigations:
+1. MRI Brain done on 12th August 2026: No acute infarct or intracranial bleed.
+2. Blood investigations on 18th August 2026:
+Hemoglobin: 12.8 g/dL
+Total count: 7600 cells/cumm
+Platelet count: 2.4 lakh/cumm
+Creatinine: 0.9 mg/dL
+
+Current Medications:
+1. Tab Amlodipine 5 mg once daily
+2. Tab Rosuvastatin 10 mg at bedtime
+
+Diagnosis:
+Headache under evaluation.
+
+Treatment Plan:
+Continue medications and review with reports.`
+  },
+  {
+    id:'op-9', type:'OP', owner:'SJ', name:'Bindu Sabu', uhid:'NIL', sex:'NIL', age:'NIL', date:'2026-08-18', title:'Visit Note',
+    text:`Patient Name: Bindu Sabu
+Age: NIL
+UHID: NIL
+Sex: NIL
+
+Presenting Complaint:
+Low back pain.
+
+History of Present Illness:
+Low back pain radiating to left lower limb for 1 month.
+
+Review of Investigations:
+1. MRI Lumbosacral Spine done on 10th August 2026: L4-L5 diffuse disc bulge indenting the thecal sac.
+
+Current Medications:
+1. Tab Pregabalin 75 mg at bedtime
+2. Tab Etoricoxib 60 mg once daily after food
+
+Diagnosis:
+Lumbar radiculopathy.
+
+Treatment Plan:
+Physiotherapy and review after 2 weeks.`
+  },
+  {
+    id:'op-8', type:'OP', owner:'SJ', name:'Thankamma K A', uhid:'17166542', sex:'F', age:'73', date:'2026-08-18', title:'Visit Note',
+    text:`Patient Name: Thankamma K A
+Age: 73
+UHID: 17166542
+Sex: Female
+
+Presenting Complaint:
+Memory difficulty.
+
+History of Present Illness:
+Progressive forgetfulness for 1 year. Needs supervision for medicines.
+
+Examination Findings:
+Higher mental function assessment suggests impaired recent memory.
+
+Current Medications:
+1. Tab Donepezil 5 mg at night
+
+Diagnosis:
+Cognitive impairment.
+
+Treatment Plan:
+Caregiver counselling and follow-up.`
+  },
+  {
+    id:'ip-5', type:'IP', owner:'GK', name:'Rajeswari K A', uhid:'26822958', sex:'F', age:'65', date:'2026-08-18', title:'Visit Note',
+    text:`Patient Name: Rajeswari K A
+Age: 65
+UHID: 26822958
+Sex: Female
+
+Presenting Complaint:
+Acute onset right-sided weakness.
+
+History of Present Illness:
+Admitted with right hemiparesis noticed on waking up. No seizure reported.
+
+Review of Investigations:
+1. CT Brain done on 18th August 2026: No intracranial hemorrhage.
+2. Blood investigations on 18th August 2026:
+Hemoglobin: 13.1 g/dL
+RBS: 146 mg/dL
+Creatinine: 1.0 mg/dL
+
+Current Medications:
+1. Tab Aspirin 150 mg once daily
+2. Tab Atorvastatin 40 mg at bedtime
+
+Diagnosis:
+Acute ischemic stroke.
+
+Treatment Plan:
+Stroke unit care and monitoring.`
+  },
+  {
+    id:'ip-4', type:'IP', owner:'SJ', name:'Edwin Sebastian', uhid:'26822894', sex:'M', age:'31', date:'2026-08-18', title:'Review Note',
+    text:`Patient Name: Edwin Sebastian
+Age: 31
+UHID: 26822894
+Sex: Male
+
+Presenting Complaint:
+Breakthrough seizure.
+
+History of Present Illness:
+Known epilepsy. One generalized tonic-clonic seizure yesterday.
+
+Current Medications:
+1. Tab Levetiracetam 500 mg twice daily
+
+Review Note:
+Review of Investigations:
+1. EEG done on 17th August 2026: Generalized epileptiform discharges.
+
+Current Medications:
+1. Tab Levetiracetam increased to 750 mg twice daily`
+  }
+];
+
+let activeType = 'OP';
+let selectedDate = '2026-08-18';
+let activeId = null;
+let query = '';
+
+const app = document.getElementById('app');
+const entryList = document.getElementById('entryList');
+const visitToggle = document.getElementById('visitToggle');
+const searchInput = document.getElementById('searchInput');
+const noteTitle = document.getElementById('noteTitle');
+const noteBody = document.getElementById('noteBody');
+const dayBtn = document.getElementById('dayBtn');
+const dateBtn = document.getElementById('dateBtn');
+
+function escapeHtml(value){
+  return String(value ?? '').replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[char]));
+}
+
+function richNoteHtml(text){
+  return escapeHtml(text)
+    .split('\n')
+    .map(line => line.replace(/^([^:\n]{2,90}:)(\s*)/, '<strong>$1</strong>$2'))
+    .join('<br>');
+}
+
+function filteredNotes(){
+  const q = query.trim().toLowerCase();
+  return demoNotes
+    .filter(note => note.type === activeType && note.date === selectedDate)
+    .filter(note => !q || [note.name,note.uhid,note.sex,note.age,note.owner].join(' ').toLowerCase().includes(q));
+}
+
+function meta(note){
+  return `UHID ${note.uhid || 'NIL'} · ${note.sex || 'NIL'} · ${note.age || 'NIL'}`;
+}
+
+function renderList(){
+  const notes = filteredNotes();
+  entryList.innerHTML = '';
+  if (!notes.length){
+    entryList.innerHTML = '<div class="empty">No demo records.</div>';
+    activeId = null;
+    renderNote();
+    return;
+  }
+  if (!activeId || !notes.some(note => note.id === activeId)) activeId = notes[0].id;
+  notes.forEach((note, index) => {
+    const button = document.createElement('button');
+    button.className = `entry ${note.id === activeId ? 'active' : ''}`;
+    button.innerHTML = `
+      <span class="entry-avatar">${notes.length - index}</span>
+      <span class="entry-text">
+        <span class="entry-name">${escapeHtml(note.name)}</span>
+        <span class="entry-meta">${escapeHtml(meta(note))}</span>
+      </span>
+      <span class="entry-owner">${escapeHtml(note.owner)}</span>
+    `;
+    button.addEventListener('click', () => {
+      activeId = note.id;
+      app.classList.remove('sidebar-open');
+      render();
+    });
+    entryList.appendChild(button);
+  });
+}
+
+function renderNote(){
+  const note = filteredNotes().find(item => item.id === activeId);
+  if (!note){
+    noteTitle.textContent = 'Visit Note';
+    noteBody.innerHTML = '<div class="empty">Select a demo patient.</div>';
+    return;
+  }
+  noteTitle.textContent = note.title;
+  noteBody.innerHTML = richNoteHtml(note.text);
+}
+
+function updateDate(){
+  const date = new Date(`${selectedDate}T00:00:00`);
+  dayBtn.textContent = date.toLocaleDateString('en-US',{weekday:'long'});
+  dateBtn.textContent = date.toLocaleDateString('en-GB');
+}
+
+function render(){
+  visitToggle.querySelectorAll('button').forEach(button => button.classList.toggle('active', button.dataset.type === activeType));
+  updateDate();
+  renderList();
+  renderNote();
+}
+
+visitToggle.addEventListener('click', event => {
+  const button = event.target.closest('[data-type]');
+  if (!button) return;
+  activeType = button.dataset.type;
+  activeId = null;
+  render();
+});
+
+searchInput.addEventListener('input', () => {
+  query = searchInput.value;
+  activeId = null;
+  render();
+});
+
+document.getElementById('menuBtn').addEventListener('click', () => app.classList.add('sidebar-open'));
+document.getElementById('prevBtn').addEventListener('click', () => alert('Demo date is fixed.'));
+document.getElementById('nextBtn').addEventListener('click', () => alert('Demo date is fixed.'));
+document.getElementById('newNoteBtn').addEventListener('click', () => alert('Demo only. No data is saved.'));
+document.getElementById('addOnBtn').addEventListener('click', () => alert('Demo add-on: investigations and medications are shown in numbered format.'));
+document.getElementById('certificateBtn').addEventListener('click', () => {
+  noteTitle.textContent = 'Medical Certificate';
+  noteBody.innerHTML = richNoteHtml(`Patient Name: Demo Patient
+Age: 42
+UHID: DEMO-001
+Date: 18/08/2026
+Sex: Female
+
+Medical Certificate:
+This is to certify that Demo Patient attended neurology consultation today.`);
+});
+document.getElementById('replyBtn').addEventListener('click', () => {
+  noteTitle.textContent = 'Reply Letter';
+  noteBody.innerHTML = richNoteHtml(`Patient Name: Demo Patient
+Age: 42
+UHID: DEMO-001
+
+To,
+
+Thank you for referring this patient for neurological evaluation.
+
+Impression:
+Clinical details are documented in the attached visit note.
+
+Thank you`);
+});
+document.getElementById('saveBtn').addEventListener('click', event => {
+  const original = event.currentTarget.textContent;
+  event.currentTarget.textContent = 'Saved';
+  setTimeout(() => event.currentTarget.textContent = original, 900);
+});
+document.getElementById('copyBtn').addEventListener('click', async event => {
+  const text = noteBody.innerText || '';
+  try{ await navigator.clipboard.writeText(text); }catch(error){}
+  const original = event.currentTarget.textContent;
+  event.currentTarget.textContent = 'Copied';
+  setTimeout(() => event.currentTarget.textContent = original, 900);
+});
+document.getElementById('deleteBtn').addEventListener('click', () => alert('Demo only. No data is deleted.'));
+
+render();
+</script>
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js?v=45', {updateViaCache:'none'}).catch(error => {
+      console.warn('Service worker registration failed:', error);
+    });
+  });
+}
+</script>
+</body>
+</html>
