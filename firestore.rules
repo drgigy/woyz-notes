@@ -44,7 +44,7 @@ service cloud.firestore {
 
       match /notes/{noteId} {
         allow read: if signedInAs(userId) || isAdmin() || isMappedTo(userId);
-        allow delete: if signedInAs(userId);
+        allow delete: if !isAdmin() && (signedInAs(userId) || isMappedTo(userId));
 
         allow create: if signedInAs(userId)
           && request.resource.data.visitDate is string

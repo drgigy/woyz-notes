@@ -1893,7 +1893,8 @@ function noteDocRef(record){
 }
 
 function canDeleteRecord(record){
-  return Boolean(record?.firestoreId && currentUser && noteOwnerUid(record) === currentUser.uid);
+  const ownerUid = noteOwnerUid(record);
+  return Boolean(record?.firestoreId && currentUser && sharedOwnerIds.includes(ownerUid));
 }
 
 function ownerDisplayName(ownerUid){
@@ -3677,7 +3678,7 @@ deleteBtn.addEventListener('click', async () => {
     await deleteDoc(noteDocRef(draft));
   }catch(error){
     console.error('Delete failed:', error);
-    window.alert('Unable to delete this note. Only the doctor who created the note can delete it.');
+    window.alert('Unable to delete this note. Please check that this doctor is mapped to the note owner.');
   }
 });
 </script>
@@ -3690,7 +3691,7 @@ if ('serviceWorker' in navigator) {
       refreshingForUpdate = true;
       window.location.reload();
     });
-    navigator.serviceWorker.register('./sw.js?v=46', {updateViaCache:'none'}).then(registration => {
+    navigator.serviceWorker.register('./sw.js?v=47', {updateViaCache:'none'}).then(registration => {
       registration.update();
     }).catch(error => {
       console.warn('Service worker registration failed:', error);
