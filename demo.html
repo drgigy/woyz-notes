@@ -45,14 +45,15 @@
   .entry-meta{margin-top:2px;color:var(--muted);font:700 11px 'IBM Plex Mono',monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
   .entry-owner{position:absolute;right:9px;top:50%;transform:translateY(-50%);color:rgba(31,95,82,.74);font:900 10.5px 'IBM Plex Mono',monospace;}
   .main{min-width:0;min-height:0;display:flex;flex-direction:column;background:#fff;}
-  .topbar{min-height:102px;border-bottom:1px solid var(--border);display:grid;grid-template-columns:1fr auto;gap:12px;align-items:center;padding:14px 22px;background:#fff;}
-  .doc-actions{display:flex;gap:10px;align-items:center;overflow:auto;}
-  .mode-btn{height:42px;border:0;border-radius:11px;background:var(--teal);color:#fff;padding:0 18px;font:900 13px 'Inter',sans-serif;white-space:nowrap;}
+  .topbar{min-height:88px;border-bottom:1px solid var(--border);display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:center;padding:10px 16px;background:#fff;}
+  .doc-actions{display:flex;gap:8px;align-items:center;overflow:auto;min-width:0;scrollbar-width:none;}
+  .doc-actions::-webkit-scrollbar{display:none;}
+  .mode-btn{height:38px;border:0;border-radius:10px;background:var(--teal);color:#fff;padding:0 14px;font:900 12px 'Inter',sans-serif;white-space:nowrap;}
   .mode-btn.inert{background:#DDEFE8;color:#7A8D84;border:1px solid #C7DED5;}
   .date-actions{display:flex;gap:8px;align-items:center;justify-content:flex-end;flex-wrap:wrap;}
-  .day-btn,.save-btn{height:42px;border:1px solid var(--teal-deep);border-radius:11px;background:var(--teal);color:#fff;padding:0 18px;font:900 14px 'Inter',sans-serif;box-shadow:0 6px 14px -10px var(--teal-deep);}
-  .date-step,.date-box,.copy-btn,.delete-btn{height:42px;border:1.5px solid #D8E1E7;border-radius:11px;background:#fff;color:#17212B;padding:0 14px;font:850 14px 'Inter',sans-serif;}
-  .date-step{width:42px;background:#EEF3F7;font-size:24px;line-height:1;}
+  .day-btn,.save-btn{height:38px;border:1px solid var(--teal-deep);border-radius:10px;background:var(--teal);color:#fff;padding:0 15px;font:900 13px 'Inter',sans-serif;box-shadow:0 6px 14px -10px var(--teal-deep);}
+  .date-step,.date-box,.copy-btn,.delete-btn{height:38px;border:1.5px solid #D8E1E7;border-radius:10px;background:#fff;color:#17212B;padding:0 12px;font:850 13px 'Inter',sans-serif;}
+  .date-step{width:38px;background:#EEF3F7;font-size:22px;line-height:1;}
   .copy-btn{color:var(--teal-deep);border-color:rgba(31,95,82,.3);}
   .delete-btn{background:var(--red);border-color:var(--red);color:#fff;}
   .main-scroll{flex:1;min-height:0;overflow:auto;padding:38px 52px 80px;}
@@ -126,7 +127,7 @@
   </main>
 </div>
 <script>
-const demoNotes = [
+let demoNotes = [
   {
     id:'op-10', type:'OP', owner:'GK', name:'Bishop Sebastian', uhid:'NIL', sex:'M', age:'NIL', date:'2026-08-18', title:'Visit Note',
     text:`Patient Name: Bishop Sebastian
@@ -417,14 +418,21 @@ document.getElementById('copyBtn').addEventListener('click', async event => {
   event.currentTarget.textContent = 'Copied';
   setTimeout(() => event.currentTarget.textContent = original, 900);
 });
-document.getElementById('deleteBtn').addEventListener('click', () => alert('Demo only. No data is deleted.'));
+document.getElementById('deleteBtn').addEventListener('click', () => {
+  const note = demoNotes.find(item => item.id === activeId);
+  if (!note) return;
+  if (!window.confirm(`Delete ${note.name}?`)) return;
+  demoNotes = demoNotes.filter(item => item.id !== activeId);
+  activeId = null;
+  render();
+});
 
 render();
 </script>
 <script>
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('./sw.js?v=45', {updateViaCache:'none'}).catch(error => {
+    navigator.serviceWorker.register('./sw.js?v=46', {updateViaCache:'none'}).catch(error => {
       console.warn('Service worker registration failed:', error);
     });
   });
