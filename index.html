@@ -3004,8 +3004,8 @@ async function sendContinuationAudioToGemini(audioBlob, apiKey, onRetry){
     apiKey,
     audioBlob,
     audioData,
-    systemPrompt:'You are a clinical dictation assistant. Convert this additional dictation into concise professional clinical English to append to an existing note. Correct spelling and grammar only. Do not add, remove, infer, summarize, or change clinical information. Preserve medicines, doses, investigations, numeric values, units, dates, advice, and chronology exactly as dictated. If investigation reports are dictated, output them under the exact heading "Review of Investigations:" and format each investigation as a numbered item, with every numbered item starting on a new line. If blood investigations are dictated, group all blood tests from the same date under one numbered item such as "Blood investigations on 12th January 2026:"; below that item, list each blood value on its own unnumbered line. If blood reports are dictated from multiple dates, create one numbered "Blood investigations on [date]:" item for each date. Add standard conventional units for common blood values even when units are not dictated, while preserving dictated values exactly. If no investigations are dictated, do not add an investigation heading; return only the simple continuation paragraph or dictated headings. Do not repeat patient identifiers unless the doctor dictates them as clinical content. Return only the requested JSON object.',
-    taskPrompt:'Transcribe this continuation dictation as append-only note text. Keep dictated headings if present. Do not create a full new visit note. Only create a "Review of Investigations:" section when investigation reports are dictated; then number the investigations one by one. For blood investigations, use one numbered item per blood-report date and list the individual blood values below it without numbering, adding standard units when absent.',
+    systemPrompt:'You are a clinical dictation assistant. Convert this additional dictation into concise professional clinical English to append to an existing note. Correct spelling and grammar only. Do not add, remove, infer, summarize, or change clinical information. Preserve medicines, doses, investigations, numeric values, units, dates, advice, and chronology exactly as dictated. If investigation reports are dictated, output them under the exact heading "Review of Investigations:" and format each investigation as a numbered item, with every numbered item starting on a new line. If blood investigations are dictated, group all blood tests from the same date under one numbered item such as "Blood investigations on 12th January 2026:"; below that item, list each blood value on its own unnumbered line. If blood reports are dictated from multiple dates, create one numbered "Blood investigations on [date]:" item for each date. Add standard conventional units for common blood values even when units are not dictated, while preserving dictated values exactly. If current medicines or medication history are dictated, output them under the exact heading "Current Medications:" and format each medicine as a numbered item, with every numbered medicine starting on a new line. Preserve drug name, dose, route, frequency, duration, and instructions exactly as dictated. If no investigations or medicines are dictated, do not add those headings; return only the simple continuation paragraph or dictated headings. Do not repeat patient identifiers unless the doctor dictates them as clinical content. Return only the requested JSON object.',
+    taskPrompt:'Transcribe this continuation dictation as append-only note text. Keep dictated headings if present. Do not create a full new visit note. Only create a "Review of Investigations:" section when investigation reports are dictated; then number the investigations one by one. For blood investigations, use one numbered item per blood-report date and list the individual blood values below it without numbering, adding standard units when absent. Only create a "Current Medications:" section when medications are dictated; then number each medication one by one, with each medicine on a new line.',
     responseSchema:continuationResponseSchema(),
     onRetry
   });
@@ -3019,11 +3019,16 @@ async function sendContinuationAudioToGemini(audioBlob, apiKey, onRetry){
 }
 
 function formatContinuationText(text){
-  return String(text || '')
+  const normalized = String(text || '')
     .replace(/(Review of Investigations:\s*)/i, 'Review of Investigations:\n')
+    .replace(/((?:Current )?Medications?:\s*)/i, 'Current Medications:\n')
     .replace(/\s+(\d+[.)]\s+)/g, '\n$1')
     .replace(/\n{3,}/g, '\n\n')
     .trim();
+  return normalized.replace(
+    /(Review of Investigations|Current Medications):\n([\s\S]*?)(?=\n\n[A-Z][A-Za-z /-]{2,80}:|\s*$)/gi,
+    (match, label, value) => `${label}:\n${formatSectionValue(label, value)}`
+  ).trim();
 }
 
 function wireContinuationDock(){
@@ -3653,7 +3658,7 @@ if ('serviceWorker' in navigator) {
       refreshingForUpdate = true;
       window.location.reload();
     });
-    navigator.serviceWorker.register('./sw.js?v=42', {updateViaCache:'none'}).then(registration => {
+    navigator.serviceWorker.register('./sw.js?v=43', {updateViaCache:'none'}).then(registration => {
       registration.update();
     }).catch(error => {
       console.warn('Service worker registration failed:', error);
