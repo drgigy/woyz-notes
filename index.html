@@ -2945,8 +2945,7 @@ function appendContinuationText(addition){
   const editor = document.getElementById('generatedNoteEditor');
   const existing = editor ? editorPlainText(editor) : record.transcription;
   const baseText = String(existing || '').trimEnd();
-  const reviewHeading = /^Review Note:\s*$/im.test(baseText) ? '' : 'Review Note:\n';
-  record.transcription = `${baseText}\n\n${reviewHeading}${text}`.trim();
+  record.transcription = `${baseText}\n\nReview Note:\n${text}`.trim();
   record.saved = false;
   clearTimeout(saveFeedbackTimer);
   saveFeedbackUntil = 0;
@@ -3658,7 +3657,7 @@ if ('serviceWorker' in navigator) {
       refreshingForUpdate = true;
       window.location.reload();
     });
-    navigator.serviceWorker.register('./sw.js?v=43', {updateViaCache:'none'}).then(registration => {
+    navigator.serviceWorker.register('./sw.js?v=44', {updateViaCache:'none'}).then(registration => {
       registration.update();
     }).catch(error => {
       console.warn('Service worker registration failed:', error);
