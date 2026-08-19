@@ -3263,7 +3263,8 @@ function formatSectionValue(label, value){
 
 function formatInstructionList(text){
   const medicineStart = '(?:Tab\\.?|Tablet|Cap\\.?|Capsule|Inj\\.?|Injection|Syp\\.?|Syrup|Drops?|Patch|Cream|Ointment|Nebulization|Inhaler)';
-  const normalized = String(text || '')
+  const source = stripExistingListNumbers(text);
+  const normalized = source
     .replace(new RegExp(`[,;]\\s+(?=${medicineStart}(?:\\s|$))`, 'gi'), '\n')
     .replace(/[,;]\s+(?=[A-Za-z])/g, '\n')
     .replace(/\band\s+(?=(?:Tab\.?|Tablet|Cap\.?|Capsule|Inj\.?|Injection|ice pack|limb elevation|weight-bearing|review|avoid|continue|start|stop|apply|use|take)\b)/gi, '\n')
@@ -3282,7 +3283,8 @@ function formatInstructionList(text){
 
 function formatInvestigationList(text){
   const investigationStart = '(?:MRI|CT|USG|EEG|EMG|NCV|NCS|X[- ]?ray|Blood investigations?|Blood reports?|Hemoglobin|Hb|ESR|CRP|Total count|Platelet count|Creatinine|Urea|Sodium|Potassium|SGOT|SGPT|Bilirubin)';
-  const normalized = String(text || '')
+  const source = stripExistingListNumbers(text);
+  const normalized = source
     .replace(new RegExp(`;\\s+(?=${investigationStart}\\b)`, 'gi'), '\n')
     .replace(new RegExp(`\\.\\s+(?=${investigationStart}\\b)`, 'gi'), '\n')
     .replace(/\n+/g, '\n')
@@ -3357,7 +3359,8 @@ function addStandardBloodUnit(line){
 
 function formatMedicationList(text){
   const medicineStart = '(?:Tab\\.?|Tablet|Cap\\.?|Capsule|Inj\\.?|Injection|Syp\\.?|Syrup|Drops?|Patch|Cream|Ointment|Nebulization|Inhaler)';
-  const normalized = String(text || '')
+  const source = stripExistingListNumbers(text);
+  const normalized = source
     .replace(new RegExp(`[,;]\\s+(?=${medicineStart}(?:\\s|$))`, 'gi'), '\n')
     .replace(new RegExp(`\\.\\s+(?=${medicineStart}(?:\\s|$))`, 'gi'), '\n')
     .replace(/\n+/g, '\n')
@@ -3368,6 +3371,14 @@ function formatMedicationList(text){
     .filter(Boolean);
   if (items.length <= 1) return text;
   return items.map((item, index) => `${index + 1}. ${item}`).join('\n');
+}
+
+function stripExistingListNumbers(text){
+  return normalizeNumberedLines(String(text || ''))
+    .split('\n')
+    .map(line => line.trim().replace(/^[-•]\s*/, '').replace(/^\d+[.)]\s*/, ''))
+    .filter(line => line && !/^\d+$/.test(line))
+    .join('\n');
 }
 
 function normalizeNumberedLines(text){
@@ -3811,7 +3822,7 @@ if ('serviceWorker' in navigator) {
       refreshingForUpdate = true;
       window.location.reload();
     });
-    navigator.serviceWorker.register('./sw.js?v=53', {updateViaCache:'none'}).then(registration => {
+    navigator.serviceWorker.register('./sw.js?v=54', {updateViaCache:'none'}).then(registration => {
       registration.update();
     }).catch(error => {
       console.warn('Service worker registration failed:', error);
