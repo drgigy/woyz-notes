@@ -3050,12 +3050,13 @@ function formatContinuationText(text){
   const normalized = String(text || '')
     .replace(/\s*(Review of Investigations:\s*)/i, '\n\nReview of Investigations:\n')
     .replace(/\s*((?:Current )?Medications?:\s*)/i, '\n\nCurrent Medications:\n')
+    .replace(/\s*([A-Z][A-Za-z /-]*(?:Advice|Instructions?|Medications?|Investigations?|Treatment|Plan):\s*)/g, '\n\n$1\n')
     .replace(/([.!?])\s+([A-Z][A-Za-z /-]{2,80}:)/g, '$1\n\n$2')
     .replace(/\s+(\d+[.)]\s+)/g, '\n$1')
     .replace(/\n{3,}/g, '\n\n')
     .trim();
   return normalized.replace(
-    /(Review of Investigations|Current Medications):\n([\s\S]*?)(?=\n\n[A-Z][A-Za-z /-]{2,80}:|\s*$)/gi,
+    /([A-Z][A-Za-z /-]*(?:Advice|Instructions?|Medications?|Investigations?|Treatment|Plan)):\s*\n([\s\S]*?)(?=\n\n[A-Z][A-Za-z /-]{2,80}:|\s*$)/g,
     (match, label, value) => `${label}:\n${formatSectionValue(label, value)}`
   ).trim();
 }
@@ -3246,14 +3247,33 @@ function formatGeneratedOutput(data, mode, patient){
 }
 
 function formatSectionValue(label, value){
-  if (label !== 'Current Medications' && label !== 'Review of Investigations') return value || 'NIL';
   const text = normalizeNumberedLines(String(value || '').trim());
   if (!text || isNilLike(text)) return 'NIL';
-  if (label === 'Current Medications') return formatMedicationList(text);
-  if (label === 'Review of Investigations') return formatInvestigationList(text);
+  if (/Medications?/i.test(label)) return formatMedicationList(text);
+  if (/Investigations?/i.test(label)) return formatInvestigationList(text);
+  if (/(Advice|Instructions?|Treatment|Plan)/i.test(label)) return formatInstructionList(text);
   if (/^\s*\d+[.)]\s+/m.test(text)) return text;
   const items = text
     .split(/\n|;(?=\s*[A-Za-z0-9])/)
+    .map(item => item.trim().replace(/^[-•]\s*/, '').replace(/^\d+[.)]\s*/, ''))
+    .filter(Boolean);
+  if (items.length <= 1) return text;
+  return items.map((item, index) => `${index + 1}. ${item}`).join('\n');
+}
+
+function formatInstructionList(text){
+  const medicineStart = '(?:Tab\\.?|Tablet|Cap\\.?|Capsule|Inj\\.?|Injection|Syp\\.?|Syrup|Drops?|Patch|Cream|Ointment|Nebulization|Inhaler)';
+  const normalized = String(text || '')
+    .replace(new RegExp(`[,;]\\s+(?=${medicineStart}(?:\\s|$))`, 'gi'), '\n')
+    .replace(/[,;]\s+(?=[A-Za-z])/g, '\n')
+    .replace(/\band\s+(?=(?:Tab\.?|Tablet|Cap\.?|Capsule|Inj\.?|Injection|ice pack|limb elevation|weight-bearing|review|avoid|continue|start|stop|apply|use|take)\b)/gi, '\n')
+    .replace(/\b(Tab|Cap|Inj|Syp)\.\s+/gi, '$1§ ')
+    .replace(/\.\s+(?=[A-Z][a-z])/g, '\n')
+    .replace(/§/g, '.')
+    .replace(/\n+/g, '\n')
+    .trim();
+  const items = normalized
+    .split('\n')
     .map(item => item.trim().replace(/^[-•]\s*/, '').replace(/^\d+[.)]\s*/, ''))
     .filter(Boolean);
   if (items.length <= 1) return text;
@@ -3791,7 +3811,7 @@ if ('serviceWorker' in navigator) {
       refreshingForUpdate = true;
       window.location.reload();
     });
-    navigator.serviceWorker.register('./sw.js?v=52', {updateViaCache:'none'}).then(registration => {
+    navigator.serviceWorker.register('./sw.js?v=53', {updateViaCache:'none'}).then(registration => {
       registration.update();
     }).catch(error => {
       console.warn('Service worker registration failed:', error);
