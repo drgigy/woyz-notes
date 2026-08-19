@@ -2430,7 +2430,7 @@ function renderVoiceWorkspace(){
 
 function renderGeneratedNote(draft){
   const title = draft.selectedMode || 'Visit Note';
-  const displayText = anonymizeTextForRecord(draft.transcription, draft);
+  const displayText = anonymizeTextForRecord(formatStoredReviewNotes(draft.transcription), draft);
   const canEdit = !anonymizeEnabled;
   mainScroll.innerHTML = `
     <div class="generated-note">
@@ -3048,8 +3048,9 @@ async function sendContinuationAudioToGemini(audioBlob, apiKey, onRetry){
 
 function formatContinuationText(text){
   const normalized = String(text || '')
-    .replace(/(Review of Investigations:\s*)/i, 'Review of Investigations:\n')
-    .replace(/((?:Current )?Medications?:\s*)/i, 'Current Medications:\n')
+    .replace(/\s*(Review of Investigations:\s*)/i, '\n\nReview of Investigations:\n')
+    .replace(/\s*((?:Current )?Medications?:\s*)/i, '\n\nCurrent Medications:\n')
+    .replace(/([.!?])\s+([A-Z][A-Za-z /-]{2,80}:)/g, '$1\n\n$2')
     .replace(/\s+(\d+[.)]\s+)/g, '\n$1')
     .replace(/\n{3,}/g, '\n\n')
     .trim();
@@ -3057,6 +3058,13 @@ function formatContinuationText(text){
     /(Review of Investigations|Current Medications):\n([\s\S]*?)(?=\n\n[A-Z][A-Za-z /-]{2,80}:|\s*$)/gi,
     (match, label, value) => `${label}:\n${formatSectionValue(label, value)}`
   ).trim();
+}
+
+function formatStoredReviewNotes(text){
+  return String(text || '').replace(
+    /Review Note:\n([\s\S]*?)(?=\n\n(?:Patient Name|Presenting Complaint|History of Present Illness|Past Medical or Surgical History|Allergies|Family History|Personal History|Examination Findings|Review of Investigations|Current Medications|Diagnosis|Treatment Plan):|$)/g,
+    (match, body) => `Review Note:\n${formatContinuationText(body)}`
+  );
 }
 
 function wireContinuationDock(){
@@ -3241,9 +3249,101 @@ function formatSectionValue(label, value){
   if (label !== 'Current Medications' && label !== 'Review of Investigations') return value || 'NIL';
   const text = normalizeNumberedLines(String(value || '').trim());
   if (!text || isNilLike(text)) return 'NIL';
+  if (label === 'Current Medications') return formatMedicationList(text);
+  if (label === 'Review of Investigations') return formatInvestigationList(text);
   if (/^\s*\d+[.)]\s+/m.test(text)) return text;
   const items = text
     .split(/\n|;(?=\s*[A-Za-z0-9])/)
+    .map(item => item.trim().replace(/^[-•]\s*/, '').replace(/^\d+[.)]\s*/, ''))
+    .filter(Boolean);
+  if (items.length <= 1) return text;
+  return items.map((item, index) => `${index + 1}. ${item}`).join('\n');
+}
+
+function formatInvestigationList(text){
+  const investigationStart = '(?:MRI|CT|USG|EEG|EMG|NCV|NCS|X[- ]?ray|Blood investigations?|Blood reports?|Hemoglobin|Hb|ESR|CRP|Total count|Platelet count|Creatinine|Urea|Sodium|Potassium|SGOT|SGPT|Bilirubin)';
+  const normalized = String(text || '')
+    .replace(new RegExp(`;\\s+(?=${investigationStart}\\b)`, 'gi'), '\n')
+    .replace(new RegExp(`\\.\\s+(?=${investigationStart}\\b)`, 'gi'), '\n')
+    .replace(/\n+/g, '\n')
+    .trim();
+  let items = normalized
+    .split('\n')
+    .map(item => item.trim().replace(/^[-•]\s*/, '').replace(/^\d+[.)]\s*/, ''))
+    .filter(Boolean);
+  const rawItems = [...items];
+  items = items
+    .map(item => formatBloodInvestigationItem(item))
+    .flatMap(item => splitEmbeddedInvestigationReports(item));
+  if (items.length === 1 && items[0] !== rawItems[0]) return `1. ${items[0]}`;
+  if (items.length <= 1 && /[,;]\s*(?:Hemoglobin|Hb|ESR|CRP|Total count|Platelet count|Creatinine|Urea|Sodium|Potassium|SGOT|SGPT|Bilirubin)\b/i.test(normalized)){
+    const bloodLines = normalized
+      .split(/[,;]/)
+      .map(item => addStandardBloodUnit(item.trim()))
+      .filter(Boolean);
+    if (bloodLines.length > 1) return `1. Blood investigations:\n${bloodLines.join('\n')}`;
+  }
+  if (items.length <= 1) return text;
+  return items.map((item, index) => `${index + 1}. ${item}`).join('\n');
+}
+
+function splitEmbeddedInvestigationReports(item){
+  const lines = String(item || '').split('\n');
+  const firstExtraReportIndex = lines.findIndex((line, index) => index > 0 && /^(?:MRI|CT|USG|EEG|EMG|NCV|NCS|X[- ]?ray)\b/i.test(line.trim()));
+  if (firstExtraReportIndex <= 0) return [item];
+  return [
+    lines.slice(0, firstExtraReportIndex).join('\n'),
+    ...lines.slice(firstExtraReportIndex).map(line => line.trim()).filter(Boolean)
+  ];
+}
+
+function formatBloodInvestigationItem(item){
+  return String(item || '').replace(/^(Blood investigations?|Blood reports?)([^:]*):\s*([\s\S]+)/i, (match, label, dateText, values) => {
+    const reportParts = values
+      .replace(/\.\s+(?=(?:MRI|CT|USG|EEG|EMG|NCV|NCS|X[- ]?ray)\b)/gi, '\n')
+      .split('\n')
+      .map(part => part.trim())
+      .filter(Boolean);
+    const bloodValues = reportParts.shift() || '';
+    const bloodLines = bloodValues
+      .split(/[,;]/)
+      .map(line => addStandardBloodUnit(line.trim()))
+      .filter(Boolean);
+    if (bloodLines.length <= 1) return match;
+    const trailingReports = reportParts.length ? `\n${reportParts.join('\n')}` : '';
+    return `${label}${dateText}:\n${bloodLines.join('\n')}${trailingReports}`;
+  });
+}
+
+function addStandardBloodUnit(line){
+  const cleaned = String(line || '').replace(/\s*[.]$/, '').trim();
+  if (!cleaned || /(?:g\/dL|mg\/dL|mmol\/L|mEq\/L|cells\/cumm|lakh\/cumm|U\/L|mm\/hr|mg\/L|%|µIU\/mL|mcIU\/mL)/i.test(cleaned)) return cleaned;
+  const unitRules = [
+    [/^(Hemoglobin|Hb)\s*:\s*([\d.]+)\s*$/i, '$1: $2 g/dL'],
+    [/^(Total count|TC)\s*:\s*([\d.]+)\s*$/i, '$1: $2 cells/cumm'],
+    [/^(Platelet count|Platelets?)\s*:\s*([\d.]+(?:\s*lakh)?)\s*$/i, '$1: $2/cumm'],
+    [/^(Creatinine|Urea|RBS|FBS|PPBS)\s*:\s*([\d.]+)\s*$/i, '$1: $2 mg/dL'],
+    [/^(HbA1c)\s*:\s*([\d.]+)\s*$/i, '$1: $2%'],
+    [/^(Sodium|Potassium)\s*:\s*([\d.]+)\s*$/i, '$1: $2 mmol/L'],
+    [/^(SGOT|SGPT|ALT|AST)\s*:\s*([\d.]+)\s*$/i, '$1: $2 U/L'],
+    [/^(ESR)\s*:\s*([\d.]+)\s*$/i, '$1: $2 mm/hr'],
+    [/^(CRP)\s*:\s*([\d.]+)\s*$/i, '$1: $2 mg/L']
+  ];
+  for (const [pattern, replacement] of unitRules){
+    if (pattern.test(cleaned)) return cleaned.replace(pattern, replacement);
+  }
+  return cleaned;
+}
+
+function formatMedicationList(text){
+  const medicineStart = '(?:Tab\\.?|Tablet|Cap\\.?|Capsule|Inj\\.?|Injection|Syp\\.?|Syrup|Drops?|Patch|Cream|Ointment|Nebulization|Inhaler)';
+  const normalized = String(text || '')
+    .replace(new RegExp(`[,;]\\s+(?=${medicineStart}(?:\\s|$))`, 'gi'), '\n')
+    .replace(new RegExp(`\\.\\s+(?=${medicineStart}(?:\\s|$))`, 'gi'), '\n')
+    .replace(/\n+/g, '\n')
+    .trim();
+  const items = normalized
+    .split('\n')
     .map(item => item.trim().replace(/^[-•]\s*/, '').replace(/^\d+[.)]\s*/, ''))
     .filter(Boolean);
   if (items.length <= 1) return text;
@@ -3502,7 +3602,7 @@ copyBtn.addEventListener('click', async () => {
   const sourceText = anonymizeEnabled
     ? (activeRecord.transcription || (activeRecord.isDraft ? '' : noteText(activeRecord)))
     : (editorPlainText(editor) || activeRecord.transcription || (activeRecord.isDraft ? '' : noteText(activeRecord)));
-  const rawText = anonymizeTextForRecord(sourceText, activeRecord);
+  const rawText = anonymizeTextForRecord(formatStoredReviewNotes(sourceText), activeRecord);
   const text = removeNilSectionsForCopy(rawText);
   try{
     await navigator.clipboard.writeText(text);
@@ -3691,7 +3791,7 @@ if ('serviceWorker' in navigator) {
       refreshingForUpdate = true;
       window.location.reload();
     });
-    navigator.serviceWorker.register('./sw.js?v=51', {updateViaCache:'none'}).then(registration => {
+    navigator.serviceWorker.register('./sw.js?v=52', {updateViaCache:'none'}).then(registration => {
       registration.update();
     }).catch(error => {
       console.warn('Service worker registration failed:', error);
