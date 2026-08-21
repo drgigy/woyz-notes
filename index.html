@@ -1662,6 +1662,7 @@ let ownerProfiles = {};
 let recordSearchTerm = '';
 let pendingSelectId = null;
 let pendingNewVoiceDockId = null;
+let draftCreationPromise = null;
 let latestDateLookupInProgress = false;
 let dateSubscriptionRequestId = 0;
 let saveFeedbackTimer = null;
@@ -3409,69 +3410,114 @@ function selectExistingDraftSnapshot(snapshot){
   subscribeToSelectedDate();
 }
 
+function selectExistingDraftRecord(record){
+  if (!record?.firestoreId) return false;
+  pendingSelectId = record.firestoreId;
+  pendingNewVoiceDockId = record.voiceDraft === true ? record.firestoreId : null;
+  selectedVisitType = noteVisitType(record);
+  updateVisitToggle();
+  if (record.visitDate){
+    const [year,month,day] = record.visitDate.split('-').map(Number);
+    selectedVisitDate = new Date(year,month-1,day);
+    updateDateNavigation();
+  }
+  subscribeToSelectedDate();
+  return true;
+}
+
+function selectExistingLocalDraft(){
+  const ownDrafts = records.filter(record => record.isDraft && noteOwnerUid(record) === currentUser?.uid);
+  const draft = ownDrafts.find(noteMatchesSelectedVisitType) || ownDrafts[0];
+  return selectExistingDraftRecord(draft);
+}
+
+async function existingDraftSnapshotForCurrentUser(){
+  const snapshot = await getDocs(query(userNotesCollection(),where('isDraft','==',true)));
+  if (snapshot.empty) return null;
+  return snapshot.docs.find(docSnap => noteVisitType(noteFromSnapshot(docSnap,currentUser.uid)) === selectedVisitType) || snapshot.docs[0];
+}
+
+async function withDraftCreationLock(task){
+  if (draftCreationPromise) return draftCreationPromise;
+  draftCreationPromise = (async () => {
+    try{
+      return await task();
+    }finally{
+      draftCreationPromise = null;
+    }
+  })();
+  return draftCreationPromise;
+}
+
 async function createVoiceDraft(mode = null){
   if (!currentUser) return;
-  const selectedMode = mode || null;
-  const existingDrafts = await getDocs(query(userNotesCollection(),where('isDraft','==',true)));
-  if (!existingDrafts.empty){
-    selectExistingDraftSnapshot(existingDrafts.docs[0]);
-    return;
-  }
-  stopVoiceTimer();
-  stopMediaTracks();
-  const now = new Date();
-  const createdAt = now.toLocaleDateString('en-GB', {day:'2-digit', month:'short', year:'numeric'}) + ', ' + now.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
-  const newDraft = await addDoc(userNotesCollection(),{
-    heading: voiceDraftHeadingForMode(selectedMode),
-    createdAt:serverTimestamp(),
-    createdAtLabel:createdAt,
-    visitDate:dateInputValue(selectedVisitDate),
-    visitType:selectedVisitType,
-    isDraft: true,
-    everSaved:false,
-    saved:false,
-    kind:'generated',
-    voiceDraft:true,
-    recording: false,
-    hasStarted: false,
-    selectedMode,
-    status: 'Ready to record',
-    transcription:newVoiceTemplateForMode(selectedMode),
-    patientData:{name:'NIL',age:'NIL',uhid:'NIL',sex:'NIL'}
+  return withDraftCreationLock(async () => {
+    const selectedMode = mode || null;
+    if (selectExistingLocalDraft()) return;
+    const existingDraft = await existingDraftSnapshotForCurrentUser();
+    if (existingDraft){
+      selectExistingDraftSnapshot(existingDraft);
+      return;
+    }
+    stopVoiceTimer();
+    stopMediaTracks();
+    const now = new Date();
+    const createdAt = now.toLocaleDateString('en-GB', {day:'2-digit', month:'short', year:'numeric'}) + ', ' + now.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+    const newDraft = await addDoc(userNotesCollection(),{
+      heading: voiceDraftHeadingForMode(selectedMode),
+      createdAt:serverTimestamp(),
+      createdAtLabel:createdAt,
+      visitDate:dateInputValue(selectedVisitDate),
+      visitType:selectedVisitType,
+      isDraft: true,
+      everSaved:false,
+      saved:false,
+      kind:'generated',
+      voiceDraft:true,
+      recording: false,
+      hasStarted: false,
+      selectedMode,
+      status: 'Ready to record',
+      transcription:newVoiceTemplateForMode(selectedMode),
+      patientData:{name:'NIL',age:'NIL',uhid:'NIL',sex:'NIL'}
+    });
+    pendingSelectId = newDraft.id;
+    pendingNewVoiceDockId = newDraft.id;
+    remainingSeconds = 300;
   });
-  pendingSelectId = newDraft.id;
-  pendingNewVoiceDockId = newDraft.id;
-  remainingSeconds = 300;
 }
 
 async function createManualDraft(){
   if (!currentUser) return;
-  const existingDrafts = await getDocs(query(userNotesCollection(),where('isDraft','==',true)));
-  if (!existingDrafts.empty){
-    selectExistingDraftSnapshot(existingDrafts.docs[0]);
-    return;
-  }
-  stopVoiceTimer();
-  stopMediaTracks();
-  const now = new Date();
-  const createdAt = now.toLocaleDateString('en-GB', {day:'2-digit', month:'short', year:'numeric'}) + ', ' + now.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
-  const newDraft = await addDoc(userNotesCollection(),{
-    heading: 'Manual note draft',
-    createdAt:serverTimestamp(),
-    createdAtLabel:createdAt,
-    visitDate:dateInputValue(selectedVisitDate),
-    visitType:selectedVisitType,
-    isDraft:true,
-    everSaved:false,
-    saved:false,
-    kind:'generated',
-    noteType:'manual',
-    selectedMode:'Manual note',
-    status:'Type your note',
-    transcription:MANUAL_NOTE_TEMPLATE,
-    patientData:{name:'NIL',age:'NIL',uhid:'NIL',sex:'NIL'}
+  return withDraftCreationLock(async () => {
+    if (selectExistingLocalDraft()) return;
+    const existingDraft = await existingDraftSnapshotForCurrentUser();
+    if (existingDraft){
+      selectExistingDraftSnapshot(existingDraft);
+      return;
+    }
+    stopVoiceTimer();
+    stopMediaTracks();
+    const now = new Date();
+    const createdAt = now.toLocaleDateString('en-GB', {day:'2-digit', month:'short', year:'numeric'}) + ', ' + now.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+    const newDraft = await addDoc(userNotesCollection(),{
+      heading: 'Manual note draft',
+      createdAt:serverTimestamp(),
+      createdAtLabel:createdAt,
+      visitDate:dateInputValue(selectedVisitDate),
+      visitType:selectedVisitType,
+      isDraft:true,
+      everSaved:false,
+      saved:false,
+      kind:'generated',
+      noteType:'manual',
+      selectedMode:'Manual note',
+      status:'Type your note',
+      transcription:MANUAL_NOTE_TEMPLATE,
+      patientData:{name:'NIL',age:'NIL',uhid:'NIL',sex:'NIL'}
+    });
+    pendingSelectId = newDraft.id;
   });
-  pendingSelectId = newDraft.id;
 }
 
 function openAuthModal(){
