@@ -577,6 +577,12 @@
   }
   .btn.discharge-btn.visible{ display:flex; }
   .discharge-btn:hover{ background:#FFE9BE; border-color:#D49B35; }
+  .btn.discharge-btn.discharged{
+    background:var(--teal-wash);
+    color:var(--teal-deep);
+    border-color:rgba(31,95,82,.28);
+  }
+  .btn.discharge-btn.discharged:hover{ background:#D7ECE4; border-color:rgba(31,95,82,.38); }
   .topbar-doc-actions{
     order:1;
     flex:1 1 100%;
@@ -1927,9 +1933,19 @@ function canDeleteRecord(record){
   return Boolean(record?.firestoreId && currentUser && sharedOwnerIds.includes(ownerUid));
 }
 
-function canDischargeRecord(record){
+function canToggleDischargeRecord(record){
   const ownerUid = noteOwnerUid(record);
-  return Boolean(record?.firestoreId && currentUser && sharedOwnerIds.includes(ownerUid) && noteVisitType(record) === 'IP' && !record.dischargeDate);
+  return Boolean(record?.firestoreId && currentUser && sharedOwnerIds.includes(ownerUid) && noteVisitType(record) === 'IP');
+}
+
+function updateDischargeButton(record){
+  const canToggle = canToggleDischargeRecord(record);
+  const isDischarged = Boolean(record?.dischargeDate);
+  dischargeBtn.classList.toggle('visible', canToggle);
+  dischargeBtn.classList.toggle('discharged', canToggle && isDischarged);
+  dischargeBtn.textContent = isDischarged ? 'Discharged' : 'Discharge';
+  dischargeBtn.setAttribute('aria-label', isDischarged ? 'Revert IP discharge' : 'Discharge IP patient');
+  dischargeBtn.title = isDischarged ? 'Revert IP discharge' : 'Discharge IP patient';
 }
 
 function ownerDisplayName(ownerUid){
@@ -2315,7 +2331,7 @@ function selectEntry(i){
   copyBtn.style.display = (!r.isDraft || r.transcription) ? 'flex' : 'none';
   printBtn.classList.toggle('visible', Boolean(!r.isDraft || r.transcription));
   deleteBtn.classList.toggle('visible', canDeleteRecord(r));
-  dischargeBtn.classList.toggle('visible', canDischargeRecord(r));
+  updateDischargeButton(r);
   saveDraftBtn.classList.toggle('visible', Boolean(r.isDraft || isGeneratedRecord));
   saveDraftBtn.querySelector('span').textContent = saveButtonLabel();
   copyBtn.classList.remove('copied');
@@ -3840,27 +3856,33 @@ printBtn.addEventListener('click', () => {
 dischargeBtn.addEventListener('click', async () => {
   if (activeIndex === null || !records[activeIndex]) return;
   const record = records[activeIndex];
-  if (!canDischargeRecord(record)) return;
+  if (!canToggleDischargeRecord(record)) return;
   const selectedDateString = dateInputValue(selectedVisitDate);
   const patientName = displayPatientName(record) || 'this IP patient';
-  if (!window.confirm(`Discharge ${patientName}? This IP patient will not carry forward after ${selectedDateString}.`)) return;
-  record.dischargeDate = selectedDateString;
-  record.dischargedBy = currentUser.uid;
-  dischargeBtn.classList.remove('visible');
+  const wasDischarged = Boolean(record.dischargeDate);
+  const message = wasDischarged
+    ? `Revert discharge for ${patientName}? This IP patient will carry forward again.`
+    : `Discharge ${patientName}? This IP patient will not carry forward after ${selectedDateString}.`;
+  if (!window.confirm(message)) return;
+  const previousDischargeDate = record.dischargeDate || null;
+  const previousDischargedBy = record.dischargedBy || null;
+  record.dischargeDate = wasDischarged ? null : selectedDateString;
+  record.dischargedBy = wasDischarged ? null : currentUser.uid;
+  updateDischargeButton(record);
   try{
-    await persistRecord(record,{
-      dischargeDate:selectedDateString,
-      dischargedBy:currentUser.uid,
-      dischargedAt:serverTimestamp(),
-      updatedAt:serverTimestamp()
-    });
+    const changes = wasDischarged
+      ? {dischargeDate:null, dischargedBy:null, dischargedAt:null, updatedAt:serverTimestamp()}
+      : {dischargeDate:selectedDateString, dischargedBy:currentUser.uid, dischargedAt:serverTimestamp(), updatedAt:serverTimestamp()};
+    await persistRecord(record,changes);
     renderEntries();
   }catch(error){
     console.error('Discharge failed:', error);
-    record.dischargeDate = null;
-    record.dischargedBy = null;
-    dischargeBtn.classList.toggle('visible', canDischargeRecord(record));
-    window.alert('Unable to discharge this IP patient. Please check that this doctor is mapped to the note owner.');
+    record.dischargeDate = previousDischargeDate;
+    record.dischargedBy = previousDischargedBy;
+    updateDischargeButton(record);
+    window.alert(wasDischarged
+      ? 'Unable to revert this discharge. Please check that this doctor is mapped to the note owner.'
+      : 'Unable to discharge this IP patient. Please check that this doctor is mapped to the note owner.');
   }
 });
 
@@ -3985,7 +4007,7 @@ saveDraftBtn.addEventListener('click', async () => {
   draft.adminCopiedAt = null;
   draft.adminCopiedBy = null;
   deleteBtn.classList.toggle('visible', canDeleteRecord(draft));
-  dischargeBtn.classList.toggle('visible', canDischargeRecord(draft));
+  updateDischargeButton(draft);
   renderEntries();
   await persistRecord(draft,{
     kind:'generated',
@@ -4047,7 +4069,7 @@ if ('serviceWorker' in navigator) {
       refreshingForUpdate = true;
       window.location.reload();
     });
-    navigator.serviceWorker.register('./sw.js?v=60', {updateViaCache:'none'}).then(registration => {
+    navigator.serviceWorker.register('./sw.js?v=61', {updateViaCache:'none'}).then(registration => {
       registration.update();
     }).catch(error => {
       console.warn('Service worker registration failed:', error);
