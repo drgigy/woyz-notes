@@ -3132,15 +3132,19 @@ function formatContinuationText(text){
     .replace(/\n{3,}/g, '\n\n')
     .trim();
   return normalized.replace(
-    /([A-Z][A-Za-z /-]*(?:Advice|Instructions?|Medications?|Investigations?|Treatment|Plan)):\s*\n([\s\S]*?)(?=\n\n[A-Z][A-Za-z /-]{2,80}:|\s*$)/g,
+    /([A-Z][A-Za-z /-]*(?:Advice|Instructions?|Medications?|Investigations?|Treatment|Plan)):\s*\n([\s\S]*?)(?=\n\n[A-Z][A-Za-z /-]*(?:Advice|Instructions?|Medications?|Investigations?|Treatment|Plan):|$)/g,
     (match, label, value) => `${label}:\n${formatSectionValue(label, value)}`
   ).trim();
 }
 
 function formatStoredReviewNotes(text){
-  return String(text || '').replace(
+  const note = String(text || '').replace(
     /Review Note:\n([\s\S]*?)(?=\n\n(?:Patient Name|Presenting Complaint|History of Present Illness|Past Medical or Surgical History|Allergies|Family History|Personal History|Examination Findings|Review of Investigations|Current Medications|Diagnosis|Treatment Plan):|$)/g,
     (match, body) => `Review Note:\n${formatContinuationText(body)}`
+  );
+  return note.replace(
+    /((?:Review of Investigations|Current Medications|Treatment Plan):)\s*\n([\s\S]*?)(?=\n\n(?:Patient Name|Age|UHID|Sex|Presenting Complaint|History of Present Illness|Past Medical or Surgical History|Allergies|Family History|Personal History|Examination Findings|Review of Investigations|Current Medications|Diagnosis|Treatment Plan|Review Note):|$)/g,
+    (match, label, value) => `${label}\n${formatSectionValue(label, value)}`
   );
 }
 
@@ -4069,7 +4073,7 @@ if ('serviceWorker' in navigator) {
       refreshingForUpdate = true;
       window.location.reload();
     });
-    navigator.serviceWorker.register('./sw.js?v=61', {updateViaCache:'none'}).then(registration => {
+    navigator.serviceWorker.register('./sw.js?v=62', {updateViaCache:'none'}).then(registration => {
       registration.update();
     }).catch(error => {
       console.warn('Service worker registration failed:', error);
