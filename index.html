@@ -3050,13 +3050,21 @@ function appendContinuationText(addition){
   const editor = document.getElementById('generatedNoteEditor');
   const existing = editor ? editorPlainText(editor) : record.transcription;
   const baseText = String(existing || '').trimEnd();
-  record.transcription = `${baseText}\n\nReview Note:\n${text}`.trim();
+  const reviewHeading = noteVisitType(record) === 'IP' ? `Review Note (${reviewTimestampLabel()}):` : 'Review Note:';
+  record.transcription = `${baseText}\n\n${reviewHeading}\n${text}`.trim();
   record.saved = false;
   clearTimeout(saveFeedbackTimer);
   saveFeedbackUntil = 0;
   saveDraftBtn.querySelector('span').textContent = 'Save';
   renderGeneratedNote(record);
   focusEditorEnd(document.getElementById('generatedNoteEditor'));
+}
+
+function reviewTimestampLabel(){
+  const now = new Date();
+  const date = now.toLocaleDateString('en-GB', {day:'2-digit', month:'2-digit', year:'numeric'});
+  const time = now.toLocaleTimeString('en-IN', {hour:'2-digit', minute:'2-digit', hour12:true});
+  return `${date}, ${time}`;
 }
 
 function handleRecordButtonClick(){
@@ -3139,11 +3147,11 @@ function formatContinuationText(text){
 
 function formatStoredReviewNotes(text){
   const note = String(text || '').replace(
-    /Review Note:\n([\s\S]*?)(?=\n\n(?:Patient Name|Presenting Complaint|History of Present Illness|Past Medical or Surgical History|Allergies|Family History|Personal History|Examination Findings|Review of Investigations|Current Medications|Diagnosis|Treatment Plan):|$)/g,
-    (match, body) => `Review Note:\n${formatContinuationText(body)}`
+    /(Review Note(?:\s*\([^)]*\))?:)\n([\s\S]*?)(?=\n\n(?:Patient Name|Presenting Complaint|History of Present Illness|Past Medical or Surgical History|Allergies|Family History|Personal History|Examination Findings|Review of Investigations|Current Medications|Diagnosis|Treatment Plan|Review Note(?:\s*\([^)]*\))?):|$)/g,
+    (match, heading, body) => `${heading}\n${formatContinuationText(body)}`
   );
   return note.replace(
-    /((?:Review of Investigations|Current Medications|Treatment Plan):)\s*\n([\s\S]*?)(?=\n\n(?:Patient Name|Age|UHID|Sex|Presenting Complaint|History of Present Illness|Past Medical or Surgical History|Allergies|Family History|Personal History|Examination Findings|Review of Investigations|Current Medications|Diagnosis|Treatment Plan|Review Note):|$)/g,
+    /((?:Review of Investigations|Current Medications|Treatment Plan):)\s*\n([\s\S]*?)(?=\n\n(?:Patient Name|Age|UHID|Sex|Presenting Complaint|History of Present Illness|Past Medical or Surgical History|Allergies|Family History|Personal History|Examination Findings|Review of Investigations|Current Medications|Diagnosis|Treatment Plan|Review Note(?:\s*\([^)]*\))?):|$)/g,
     (match, label, value) => `${label}\n${formatSectionValue(label, value)}`
   );
 }
@@ -4073,7 +4081,7 @@ if ('serviceWorker' in navigator) {
       refreshingForUpdate = true;
       window.location.reload();
     });
-    navigator.serviceWorker.register('./sw.js?v=62', {updateViaCache:'none'}).then(registration => {
+    navigator.serviceWorker.register('./sw.js?v=63', {updateViaCache:'none'}).then(registration => {
       registration.update();
     }).catch(error => {
       console.warn('Service worker registration failed:', error);
