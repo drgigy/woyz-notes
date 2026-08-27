@@ -3727,7 +3727,7 @@ printBtn.addEventListener('click', () => {
 <meta charset="utf-8">
 <title>WOYZ Notes Print</title>
 <style>
-  @page{ margin:14mm 12mm; }
+  @page{ margin:8mm; }
   *{ box-sizing:border-box; }
   body{
     margin:0;
@@ -3736,7 +3736,13 @@ printBtn.addEventListener('click', () => {
     font-size:12pt;
     line-height:1.35;
   }
-  .note{ width:100%; max-width:none; white-space:pre-wrap; }
+  .note{
+    width:100%;
+    max-width:none;
+    min-height:100vh;
+    padding:8mm 9mm;
+    white-space:pre-wrap;
+  }
   h1{
     margin:0 0 10px;
     font-size:18pt;
@@ -3934,7 +3940,7 @@ if ('serviceWorker' in navigator) {
       refreshingForUpdate = true;
       window.location.reload();
     });
-    navigator.serviceWorker.register('./sw.js?v=57', {updateViaCache:'none'}).then(registration => {
+    navigator.serviceWorker.register('./sw.js?v=58', {updateViaCache:'none'}).then(registration => {
       registration.update();
     }).catch(error => {
       console.warn('Service worker registration failed:', error);
