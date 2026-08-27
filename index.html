@@ -559,6 +559,13 @@
   }
   .btn-copy:hover{ background:var(--teal-wash); }
   .btn-copy.copied{ background:var(--teal); color:#fff; border-color:var(--teal); }
+  .print-btn{
+    display:none;
+    border-color:rgba(31,95,82,0.3);
+    color:var(--teal-deep);
+  }
+  .print-btn.visible{ display:flex; }
+  .print-btn:hover{ background:var(--teal-wash); }
   .topbar-doc-actions{
     order:1;
     flex:1 1 100%;
@@ -607,9 +614,10 @@
   .date-nav{ order:2; margin-left:auto; }
   .save-draft-btn{ order:3; }
   .btn-copy{ order:4; }
-  .delete-btn{ order:5; }
+  .print-btn{ order:5; }
+  .delete-btn{ order:6; }
   /* ---------- SETTINGS ---------- */
-  .settings-wrap{ order:6; position:relative; flex-shrink:0; }
+  .settings-wrap{ order:7; position:relative; flex-shrink:0; }
 
   .settings-btn{
     width:38px;height:38px;
@@ -770,8 +778,9 @@
     .date-nav{ order:2; margin-left:auto; gap:5px; }
     .save-draft-btn{ order:3; }
     .btn-copy{ order:4; }
-    .delete-btn{ order:5; }
-    .settings-wrap{ order:6; }
+    .print-btn{ order:5; }
+    .delete-btn{ order:6; }
+    .settings-wrap{ order:7; }
     .topbar-mode-btn{
       flex:1 1 0;
       min-width:0;
@@ -919,7 +928,8 @@
     }
     .date-input{ width:128px; }
     .btn.save-draft-btn,
-    .btn.delete-btn{
+    .btn.delete-btn,
+    .print-btn{
       min-width:74px;
       justify-content:center;
     }
@@ -960,8 +970,9 @@
     }
     .save-draft-btn{ order:3; }
     .btn-copy{ order:4; }
-    .delete-btn{ order:5; }
-    .settings-wrap{ order:6; margin-left:auto; }
+    .print-btn{ order:5; }
+    .delete-btn{ order:6; }
+    .settings-wrap{ order:7; margin-left:auto; }
     .date-today{ min-width:84px; }
     .date-input{ width:122px; }
     .generated-note-card{ padding:24px 24px 76px; }
@@ -1372,6 +1383,7 @@
         <span>Save</span>
       </button>
       <button class="btn btn-copy" id="copyBtn" style="display:none;">Copy</button>
+      <button class="btn print-btn" id="printBtn" aria-label="Print visit note" title="Print visit note">Print</button>
       <button class="btn delete-btn" id="deleteBtn" aria-label="Delete selected note" title="Delete selected note">Delete</button>
       <div class="settings-wrap">
         <button class="settings-btn" id="settingsBtn" aria-label="Settings" aria-haspopup="true" aria-expanded="false">
@@ -1565,6 +1577,7 @@ const topbarName = document.getElementById('topbarName');
 const topbarUhid = document.getElementById('topbarUhid');
 const topbarAge = document.getElementById('topbarAge');
 const copyBtn = document.getElementById('copyBtn');
+const printBtn = document.getElementById('printBtn');
 const deleteBtn = document.getElementById('deleteBtn');
 const saveDraftBtn = document.getElementById('saveDraftBtn');
 const signoutBtn = document.getElementById('signoutBtn');
@@ -2096,6 +2109,7 @@ function showEmptyDate(message = 'No notes saved for this date.'){
   updateContinueNoteButton();
   topbarPatient.classList.remove('visible');
   copyBtn.style.display = 'none';
+  printBtn.classList.remove('visible');
   saveDraftBtn.classList.remove('visible');
   deleteBtn.classList.remove('visible');
   mainScroll.innerHTML = `<div class="empty-state"><div class="empty-title">No notes</div><div class="empty-sub">${escapeHtml(message)}</div></div>`;
@@ -2262,6 +2276,7 @@ function selectEntry(i){
   topbarAge.textContent = identity.age + ' yrs';
   topbarPatient.classList.add('visible');
   copyBtn.style.display = (!r.isDraft || r.transcription) ? 'flex' : 'none';
+  printBtn.classList.toggle('visible', Boolean(!r.isDraft || r.transcription));
   deleteBtn.classList.toggle('visible', canDeleteRecord(r));
   saveDraftBtn.classList.toggle('visible', Boolean(r.isDraft || isGeneratedRecord));
   saveDraftBtn.querySelector('span').textContent = saveButtonLabel();
@@ -3692,6 +3707,57 @@ copyBtn.addEventListener('click', async () => {
   }, 1600);
 });
 
+printBtn.addEventListener('click', () => {
+  if (activeIndex === null) return;
+  const activeRecord = records[activeIndex];
+  const editor = document.getElementById('generatedNoteEditor');
+  const sourceText = anonymizeEnabled
+    ? (activeRecord.transcription || (activeRecord.isDraft ? '' : noteText(activeRecord)))
+    : (editorPlainText(editor) || activeRecord.transcription || (activeRecord.isDraft ? '' : noteText(activeRecord)));
+  const note = anonymizeTextForRecord(formatStoredReviewNotes(sourceText), activeRecord);
+  if (!note) return;
+  const printWindow = window.open('', '_blank');
+  if (!printWindow){
+    window.print();
+    return;
+  }
+  printWindow.document.write(`<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>WOYZ Notes Print</title>
+<style>
+  @page{ margin:8mm 7mm; }
+  *{ box-sizing:border-box; }
+  body{
+    margin:0;
+    color:#111;
+    font-family:Arial, Helvetica, sans-serif;
+    font-size:12pt;
+    line-height:1.35;
+  }
+  .note{ width:100%; max-width:none; white-space:pre-wrap; }
+  h1{
+    margin:0 0 10px;
+    font-size:18pt;
+    line-height:1.15;
+  }
+  strong{ font-weight:700; }
+  @media print{
+    body{ print-color-adjust:exact; -webkit-print-color-adjust:exact; }
+  }
+</style>
+</head>
+<body><main class="note">${richNoteHtml(note)}</main></body>
+</html>`);
+  printWindow.document.close();
+  printWindow.focus();
+  setTimeout(() => {
+    printWindow.print();
+    printWindow.close();
+  }, 150);
+});
+
 function closeSettings(){
   settingsMenu.classList.remove('open');
   settingsBtn.classList.remove('open');
@@ -3868,7 +3934,7 @@ if ('serviceWorker' in navigator) {
       refreshingForUpdate = true;
       window.location.reload();
     });
-    navigator.serviceWorker.register('./sw.js?v=54', {updateViaCache:'none'}).then(registration => {
+    navigator.serviceWorker.register('./sw.js?v=55', {updateViaCache:'none'}).then(registration => {
       registration.update();
     }).catch(error => {
       console.warn('Service worker registration failed:', error);
