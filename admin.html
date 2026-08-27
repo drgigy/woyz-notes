@@ -79,6 +79,8 @@
   .copy-btn{ border-color:rgba(31,95,82,0.3); color:var(--teal-deep); }
   .copy-btn:hover{ background:var(--teal-wash); }
   .copy-btn.copied{ background:var(--teal); color:#fff; border-color:var(--teal); }
+  .print-btn{ border-color:rgba(31,95,82,0.3); color:var(--teal-deep); }
+  .print-btn:hover{ background:var(--teal-wash); }
   .admin-settings{ position:relative; flex-shrink:0; }
   .settings-menu{ position:absolute; top:calc(100% + 8px); right:0; width:154px; background:#fff; border:1px solid var(--border); border-radius:12px; box-shadow:0 18px 38px -24px rgba(20,35,29,.45); padding:6px; display:none; z-index:20; }
   .settings-menu.open{ display:block; }
@@ -167,6 +169,7 @@
       </div>
       <button class="btn copy-btn" id="saveNoteBtn" style="display:none;">Save</button>
       <button class="btn copy-btn" id="copyBtn" style="display:none;">Copy note</button>
+      <button class="btn print-btn" id="printBtn" style="display:none;" aria-label="Print visit note" title="Print visit note">Print</button>
       <div class="admin-settings">
         <button class="btn" id="adminSettingsBtn" aria-expanded="false">Settings</button>
         <div class="settings-menu" id="adminSettingsMenu">
@@ -232,6 +235,7 @@ const adminVisitDateInput = document.getElementById('adminVisitDateInput');
 const adminTodayBtn = document.getElementById('adminTodayBtn');
 const saveNoteBtn = document.getElementById('saveNoteBtn');
 const copyBtn = document.getElementById('copyBtn');
+const printBtn = document.getElementById('printBtn');
 const adminSettingsBtn = document.getElementById('adminSettingsBtn');
 const adminSettingsMenu = document.getElementById('adminSettingsMenu');
 const mappingBtn = document.getElementById('mappingBtn');
@@ -519,6 +523,7 @@ async function syncUserMappings(){
 
 function showEmpty(title, message){
   copyBtn.style.display = 'none';
+  printBtn.style.display = 'none';
   saveNoteBtn.style.display = 'none';
   mainScroll.innerHTML = `<div class="empty-state"><div class="empty-title">${escapeHtml(title)}</div><div>${escapeHtml(message)}</div></div>`;
 }
@@ -594,6 +599,7 @@ function renderSelectedNote(){
   const title = note.data.selectedMode || note.data.heading || 'Saved note';
   const text = note.data.transcription || '';
   copyBtn.style.display = text ? 'inline-flex' : 'none';
+  printBtn.style.display = text ? 'inline-flex' : 'none';
   saveNoteBtn.style.display = 'inline-flex';
   saveNoteBtn.textContent = 'Save';
   saveNoteBtn.classList.remove('copied');
@@ -771,6 +777,59 @@ copyBtn.addEventListener('click', async () => {
   }, 1500);
 });
 
+printBtn.addEventListener('click', () => {
+  const note = allNotes.find(item => item.id === selectedNoteId && item.userId === selectedUserId);
+  const editor = document.getElementById('adminNoteEditor');
+  const text = editorPlainText(editor) || note?.data?.transcription || '';
+  if (!text) return;
+  const printWindow = window.open('', '_blank');
+  if (!printWindow){
+    window.print();
+    return;
+  }
+  printWindow.document.write(`<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>WOYZ Notes Print</title>
+<style>
+  @page{ margin:8mm; }
+  *{ box-sizing:border-box; }
+  body{
+    margin:0;
+    color:#111;
+    font-family:Arial, Helvetica, sans-serif;
+    font-size:12pt;
+    line-height:1.35;
+  }
+  .note{
+    width:100%;
+    max-width:none;
+    min-height:100vh;
+    padding:8mm 9mm;
+    white-space:pre-wrap;
+  }
+  h1{
+    margin:0 0 10px;
+    font-size:18pt;
+    line-height:1.15;
+  }
+  strong{ font-weight:700; }
+  @media print{
+    body{ print-color-adjust:exact; -webkit-print-color-adjust:exact; }
+  }
+</style>
+</head>
+<body><main class="note">${richNoteHtml(text)}</main></body>
+</html>`);
+  printWindow.document.close();
+  printWindow.focus();
+  setTimeout(() => {
+    printWindow.print();
+    printWindow.close();
+  }, 150);
+});
+
 saveNoteBtn.addEventListener('click', async () => {
   const note = allNotes.find(item => item.id === selectedNoteId && item.userId === selectedUserId);
   const editor = document.getElementById('adminNoteEditor');
@@ -873,7 +932,7 @@ if ('serviceWorker' in navigator) {
       refreshingForUpdate = true;
       window.location.reload();
     });
-    navigator.serviceWorker.register('./sw.js?v=51', {updateViaCache:'none'}).then(registration => {
+    navigator.serviceWorker.register('./sw.js?v=58', {updateViaCache:'none'}).then(registration => {
       registration.update();
     }).catch(error => {
       console.warn('Service worker registration failed:', error);
