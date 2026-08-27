@@ -1664,7 +1664,7 @@ const CERTIFICATE_SCHEMA = {type:'object',properties:{...PATIENT_FIELDS,date:{ty
 const AMBIENT_FIELDS = ['presentingComplaint','historyOfPresentIllness','pastMedicalHistory','allergies','familyHistory','personalHistory','examinationFindings','reviewOfInvestigations','currentMedication','provisionalDiagnosis','treatmentPlan'];
 const AMBIENT_SCHEMA = {type:'object',properties:{...PATIENT_FIELDS,patientSex:{type:'string'},...Object.fromEntries(AMBIENT_FIELDS.map(field=>[field,{type:'string'}]))},required:['patientName','patientAge','patientUhid','patientSex',...AMBIENT_FIELDS]};
 const GEMINI_PROMPTS = {
-  ambient:`You are a clinical note assistant helping a doctor create a concise OPD medical note from ambient consultation audio. The recording may be a natural doctor-patient-attendant conversation, a formal dictation, or a mixture of both. Listen to and process the entire recording, not only sentences that sound like dictated note text. The doctor states the patient name, age, and UHID at the beginning; extract those identifiers exactly and treat the remaining recording as the consultation. Convert clearly spoken clinically relevant conversation into the correct note sections, including symptoms, duration, progression, negatives, past history, examination, medicines, investigation results, diagnosis, and advice when they are actually present in the audio. Correct spelling and grammar while keeping the original meaning. Do not add, infer, assume, recommend, or hallucinate clinical information. Do not remove, ignore, or over-compress clinically relevant details that are clearly present. If something is unclear, omit it. Use NIL when a whole field is unsupported. Translate Malayalam clinical content into professional clinical English and transliterate names into English. Preserve chronology, medicines, doses, investigations, findings, diagnoses, and advice exactly as spoken. Review of investigations is a fidelity-critical section: preserve every dictated or conversationally stated investigation name, modality, side, level, date/time reference, numeric value, unit, impression, and normal/abnormal qualifier exactly; never add, remove, summarize, shorten, combine, normalize, reinterpret, or make investigations more concise. Format Review of investigations as a numbered list whenever investigations are present, with each numbered investigation starting on a new line. If blood investigations are dictated or discussed, group all blood tests from the same date under one numbered item such as "Blood investigations on 12th January 2026:"; below that item, list each blood value on its own unnumbered line. If blood reports are present from multiple dates, create one numbered "Blood investigations on [date]:" item for each date. Add standard conventional units for common blood values even when units are not dictated, while preserving dictated values exactly. Format Current medications as a numbered list, with each numbered medicine starting on a new line, preserving drug name, dose, route, frequency, and duration exactly as stated. Current medicines belong in currentMedication. Newly advised or changed medicines, investigations, referrals, and follow-up belong in treatmentPlan. Return only the requested JSON object without markdown.`,
+  ambient:`You are a clinical note assistant helping a doctor create a concise OPD medical note from ambient consultation audio. The recording may be a natural doctor-patient-attendant conversation, a formal dictation, or a mixture of both. Listen to and process the entire recording, not only sentences that sound like dictated note text. The doctor states the patient name, age, and UHID at the beginning; extract those identifiers exactly and treat the remaining recording as the consultation. Convert clearly spoken clinically relevant conversation into the correct note sections, including symptoms, duration, progression, negatives, past history, examination, medicines, investigation results, diagnosis, and advice when they are actually present in the audio. Correct spelling and grammar while keeping the original meaning. Do not add, infer, assume, recommend, or hallucinate clinical information. Do not remove, ignore, or over-compress clinically relevant details that are clearly present. If something is unclear, omit it. Use NIL when a whole field is unsupported. Translate Malayalam clinical content into professional clinical English and transliterate names into English. Preserve chronology, medicines, doses, investigations, findings, diagnoses, and advice exactly as spoken. Review of investigations is a fidelity-critical section: preserve every dictated or conversationally stated investigation name, modality, side, level, date/time reference, numeric value, unit, impression, and normal/abnormal qualifier exactly; never add, remove, summarize, shorten, combine, normalize, reinterpret, or make investigations more concise. Format Review of investigations as a numbered list whenever investigations are present, with each numbered investigation/report starting on a new line. If an investigation has multiple findings or sentences, put each finding on its own line below that numbered investigation without numbering the findings. If blood investigations are dictated or discussed, group all blood tests from the same date under one numbered item such as "Blood investigations on 12th January 2026:"; below that item, list each blood value on its own unnumbered line. Never number individual blood values. If blood reports are present from multiple dates, create one numbered "Blood investigations on [date]:" item for each date. Add standard conventional units for common blood values even when units are not dictated, while preserving dictated values exactly. Format Current medications as a numbered list, with each numbered medicine starting on a new line, preserving drug name, dose, route, frequency, and duration exactly as stated. Current medicines belong in currentMedication. Newly advised or changed medicines, investigations, referrals, and follow-up belong in treatmentPlan. Return only the requested JSON object without markdown.`,
   'Review dictation':`You are an expert medical transcription assistant. The doctor states the patient name, age, and UHID at the beginning; extract these identifiers into their JSON fields and do not repeat that opening identification in the text unless clinically necessary. Convert the remaining Malayalam, English, or Kerala Manglish dictation into clear professional clinical English suitable for a review note. Preserve all clinical facts, chronology, medicines, doses, investigations, examination findings, assessment, advice, and follow-up exactly as dictated. Translate Malayalam clinical content and transliterate names into English. Correct grammar and punctuation, but never invent, infer, recommend, add, or remove information. Do not add section headings unless explicitly requested. Return only the requested JSON object.`,
   'Reply letter':`You are a clinical reply letter drafting assistant. The doctor states the patient name, age, and UHID at the beginning; extract these identifiers into their JSON fields and exclude the opening identification from the letter unless it belongs naturally in the clinical content. Create a clean reply letter from only the dictated audio. Correct spelling and grammar and make sentences complete. Do not add, infer, assume, hallucinate, recommend, or remove any clinical information. Use a polite professional letter style and keep the original meaning exactly. The text must begin exactly with "To," followed by the dictated recipient name, credentials, department, hospital, or address, each on its own line when dictated. Leave one blank line before the main paragraphs. Do not use a salutation or a Reply Letter heading. End with "Thank you" one blank line below the final paragraph. Do not include sender credentials, signature, or footer. If a detail is not dictated, omit it; do not write placeholders or "Not dictated". Return only the requested JSON object.`,
   'Medical certificate':`You are an expert medical certificate drafting assistant. The doctor states the patient name, age, and UHID at the beginning; extract them exactly into their JSON fields. Create a clean medical certificate from only the dictated audio. Correct spelling and grammar and make sentences complete. Do not add, infer, assume, hallucinate, recommend, or remove any clinical or administrative information. Use a simple certificate style. Use today's date only when no date is dictated. The certificateBody must begin with "This is to certify that" and contain one or more clear paragraphs. Include patient details only if dictated or provided in the JSON patient fields. If dates, rest period, diagnosis, fitness, restrictions, or purpose are dictated, include them exactly. If a detail is not dictated, omit it; do not write placeholders or "Not dictated". Do not include "To whomsoever it may concern", "Thank you", doctor credentials, or a signature in certificateBody. Return only the requested JSON object.`
@@ -3092,8 +3092,8 @@ async function sendContinuationAudioToGemini(audioBlob, apiKey, onRetry){
     apiKey,
     audioBlob,
     audioData,
-    systemPrompt:'You are a clinical dictation assistant. Convert this additional dictation into concise professional clinical English to append to an existing note. Correct spelling and grammar only. Do not add, remove, infer, summarize, or change clinical information. Preserve medicines, doses, investigations, numeric values, units, dates, advice, and chronology exactly as dictated. If investigation reports are dictated, output them under the exact heading "Review of Investigations:" and format each investigation as a numbered item, with every numbered item starting on a new line. If blood investigations are dictated, group all blood tests from the same date under one numbered item such as "Blood investigations on 12th January 2026:"; below that item, list each blood value on its own unnumbered line. If blood reports are dictated from multiple dates, create one numbered "Blood investigations on [date]:" item for each date. Add standard conventional units for common blood values even when units are not dictated, while preserving dictated values exactly. If current medicines or medication history are dictated, output them under the exact heading "Current Medications:" and format each medicine as a numbered item, with every numbered medicine starting on a new line. Preserve drug name, dose, route, frequency, duration, and instructions exactly as dictated. If no investigations or medicines are dictated, do not add those headings; return only the simple continuation paragraph or dictated headings. Do not repeat patient identifiers unless the doctor dictates them as clinical content. Return only the requested JSON object.',
-    taskPrompt:'Transcribe this continuation dictation as append-only note text. Keep dictated headings if present. Do not create a full new visit note. Only create a "Review of Investigations:" section when investigation reports are dictated; then number the investigations one by one. For blood investigations, use one numbered item per blood-report date and list the individual blood values below it without numbering, adding standard units when absent. Only create a "Current Medications:" section when medications are dictated; then number each medication one by one, with each medicine on a new line.',
+    systemPrompt:'You are a clinical dictation assistant. Convert this additional dictation into concise professional clinical English to append to an existing note. Correct spelling and grammar only. Do not add, remove, infer, summarize, or change clinical information. Preserve medicines, doses, investigations, numeric values, units, dates, advice, and chronology exactly as dictated. If investigation reports are dictated, output them under the exact heading "Review of Investigations:" and format each investigation/report as a numbered item, with every numbered item starting on a new line. If an investigation report has multiple findings or sentences, put each finding on its own line below the numbered investigation without numbering those finding lines. If blood investigations are dictated, group all blood tests from the same date under one numbered item such as "Blood investigations on 12th January 2026:"; below that item, list each blood value on its own unnumbered line. Never number individual blood values. If blood reports are dictated from multiple dates, create one numbered "Blood investigations on [date]:" item for each date. Add standard conventional units for common blood values even when units are not dictated, while preserving dictated values exactly. If current medicines or medication history are dictated, output them under the exact heading "Current Medications:" and format each medicine as a numbered item, with every numbered medicine starting on a new line. Preserve drug name, dose, route, frequency, duration, and instructions exactly as dictated. If no investigations or medicines are dictated, do not add those headings; return only the simple continuation paragraph or dictated headings. Do not repeat patient identifiers unless the doctor dictates them as clinical content. Return only the requested JSON object.',
+    taskPrompt:'Transcribe this continuation dictation as append-only note text. Keep dictated headings if present. Do not create a full new visit note. Only create a "Review of Investigations:" section when investigation reports are dictated; then number the investigation reports one by one. For multi-sentence investigation findings, place each finding on a separate unnumbered line below that investigation. For blood investigations, use one numbered item per blood-report date and list the individual blood values below it without numbering, adding standard units when absent. Only create a "Current Medications:" section when medications are dictated; then number each medication one by one, with each medicine on a new line.',
     responseSchema:continuationResponseSchema(),
     onRetry
   });
@@ -3161,7 +3161,7 @@ async function sendAudioToGemini(audioBlob, apiKey, selectedMode, onRetry){
   const systemPrompt = GEMINI_PROMPTS[mode];
   const responseSchema = mode === 'ambient' ? AMBIENT_SCHEMA : mode === 'Medical certificate' ? CERTIFICATE_SCHEMA : TEXT_SCHEMA;
   const taskPrompts = {
-    ambient:'Review the complete doctor-patient-attendant recording and produce a mutually consistent structured visit note from all clearly audible clinical conversation, not only from formal dictated note phrases. Extract clinically relevant facts that are actually present in the ambient conversation and place them under the correct sections. Never infer missing details, never hallucinate, and never add or remove clinical facts. Use NIL for unsupported fields. In Review of Investigations, preserve investigation content fully and verbatim in meaning; never add, remove, shorten, summarize, or make it concise. Use numbered lists for Review of Investigations and Current Medications, with each numbered item starting on a new line. For blood investigations, use one numbered item per blood-report date and list the individual blood values below it without numbering, adding standard units when absent.',
+    ambient:'Review the complete doctor-patient-attendant recording and produce a mutually consistent structured visit note from all clearly audible clinical conversation, not only from formal dictated note phrases. Extract clinically relevant facts that are actually present in the ambient conversation and place them under the correct sections. Never infer missing details, never hallucinate, and never add or remove clinical facts. Use NIL for unsupported fields. In Review of Investigations, preserve investigation content fully and verbatim in meaning; never add, remove, shorten, summarize, or make it concise. Use numbered lists for Review of Investigations and Current Medications, with each numbered investigation or medicine starting on a new line. For investigation reports with multiple findings, place each finding on a separate unnumbered line below the numbered investigation. For blood investigations, use one numbered item per blood-report date and list the individual blood values below it without numbering, adding standard units when absent.',
     'Review dictation':'Transcribe the recording faithfully. Correct only grammar, spelling, and punctuation. Do not add, remove, or infer clinical content.',
     'Reply letter':'Draft a polite professional reply letter using only clearly dictated facts. Begin the letter text with "To," and end with "Thank you". Omit undictated details and do not add, remove, or infer clinical content.',
     'Medical certificate':'Convert only the clearly dictated facts into a simple medical-certificate JSON. certificateBody must begin with "This is to certify that". Omit undictated details and do not add, remove, or infer facts.'
@@ -3342,41 +3342,64 @@ function formatInstructionList(text){
 }
 
 function formatInvestigationList(text){
-  const investigationStart = '(?:MRI|CT|USG|EEG|EMG|NCV|NCS|X[- ]?ray|Blood investigations?|Blood reports?|Hemoglobin|Hb|ESR|CRP|Total count|Platelet count|Creatinine|Urea|Sodium|Potassium|SGOT|SGPT|Bilirubin)';
+  const investigationStart = '(?:MRI|CT|USG|EEG|EMG|NCV|NCS|X[- ]?ray|Blood investigations?|Blood reports?|Hemoglobin|Hb|ESR|CRP|Total count|TC|Platelet count|Platelets?|Creatinine|Urea|Sodium|Potassium|Chloride|SGOT|SGPT|ALT|AST|Bilirubin|Total cholesterol|Triglycerides|HDL|LDL|ANA|p-ANCA|c-ANCA|Homocysteine)';
   const source = stripExistingListNumbers(text);
   const normalized = source
     .replace(new RegExp(`;\\s+(?=${investigationStart}\\b)`, 'gi'), '\n')
     .replace(new RegExp(`\\.\\s+(?=${investigationStart}\\b)`, 'gi'), '\n')
     .replace(/\n+/g, '\n')
     .trim();
-  let items = normalized
+  const lines = normalized
     .split('\n')
-    .map(item => item.trim().replace(/^[-•]\s*/, '').replace(/^\d+[.)]\s*/, ''))
+    .map(item => item.trim().replace(/^[-•]\s*/, ''))
     .filter(Boolean);
-  const rawItems = [...items];
-  items = items
-    .map(item => formatBloodInvestigationItem(item))
-    .flatMap(item => splitEmbeddedInvestigationReports(item));
-  if (items.length === 1 && items[0] !== rawItems[0]) return `1. ${items[0]}`;
-  if (items.length <= 1 && /[,;]\s*(?:Hemoglobin|Hb|ESR|CRP|Total count|Platelet count|Creatinine|Urea|Sodium|Potassium|SGOT|SGPT|Bilirubin)\b/i.test(normalized)){
+  if (lines.length <= 1 && /[,;]\s*(?:Hemoglobin|Hb|ESR|CRP|Total count|TC|Platelet count|Platelets?|Creatinine|Urea|Sodium|Potassium|Chloride|SGOT|SGPT|ALT|AST|Bilirubin|Total cholesterol|Triglycerides|HDL|LDL|ANA|p-ANCA|c-ANCA|Homocysteine)\b/i.test(normalized)){
     const bloodLines = normalized
       .split(/[,;]/)
       .map(item => addStandardBloodUnit(item.trim()))
       .filter(Boolean);
     if (bloodLines.length > 1) return `1. Blood investigations:\n${bloodLines.join('\n')}`;
   }
-  if (items.length <= 1) return text;
-  return items.map((item, index) => `${index + 1}. ${item}`).join('\n');
+  const blocks = [];
+  let currentBlock = null;
+  const flush = () => {
+    if (currentBlock?.length) blocks.push(currentBlock);
+    currentBlock = null;
+  };
+  lines.flatMap(line => formatBloodInvestigationItem(line).split('\n')).map(line => line.trim()).filter(Boolean).forEach(line => {
+    const cleaned = line.replace(/^\d+[.)]\s*/, '');
+    if (isBloodValueLine(cleaned) && currentBlock?.[0] && /^Blood (?:investigations?|reports?)/i.test(currentBlock[0])){
+      currentBlock.push(addStandardBloodUnit(cleaned));
+      return;
+    }
+    if (isBloodValueLine(cleaned)){
+      flush();
+      currentBlock = ['Blood investigations:', addStandardBloodUnit(cleaned)];
+      return;
+    }
+    if (isInvestigationHeaderLine(cleaned)){
+      flush();
+      currentBlock = [cleaned];
+      return;
+    }
+    if (!currentBlock) currentBlock = [cleaned];
+    else currentBlock.push(cleaned);
+  });
+  flush();
+  if (blocks.length === 1){
+    const block = blocks[0];
+    if (isInvestigationHeaderLine(block[0])) return `1. ${block[0]}${block.length > 1 ? `\n${block.slice(1).join('\n')}` : ''}`;
+    return block.join('\n') || text;
+  }
+  return blocks.map((block, index) => `${index + 1}. ${block[0]}${block.length > 1 ? `\n${block.slice(1).join('\n')}` : ''}`).join('\n');
 }
 
-function splitEmbeddedInvestigationReports(item){
-  const lines = String(item || '').split('\n');
-  const firstExtraReportIndex = lines.findIndex((line, index) => index > 0 && /^(?:MRI|CT|USG|EEG|EMG|NCV|NCS|X[- ]?ray)\b/i.test(line.trim()));
-  if (firstExtraReportIndex <= 0) return [item];
-  return [
-    lines.slice(0, firstExtraReportIndex).join('\n'),
-    ...lines.slice(firstExtraReportIndex).map(line => line.trim()).filter(Boolean)
-  ];
+function isInvestigationHeaderLine(line){
+  return /^(?:MRI|CT|USG|EEG|EMG|NCV|NCS|X[- ]?ray|Blood investigations?|Blood reports?)\b/i.test(String(line || '').trim());
+}
+
+function isBloodValueLine(line){
+  return /^(?:Hemoglobin|Hb|ESR|CRP|Total count|TC|Platelet count|Platelets?|Creatinine|Urea|Sodium|Potassium|Chloride|SGOT|SGPT|ALT|AST|Bilirubin|Total bilirubin|Direct bilirubin|Indirect bilirubin|Total cholesterol|Triglycerides|HDL|LDL|ANA|p-ANCA|c-ANCA|Homocysteine)\b/i.test(String(line || '').trim());
 }
 
 function formatBloodInvestigationItem(item){
@@ -3406,10 +3429,12 @@ function addStandardBloodUnit(line){
     [/^(Platelet count|Platelets?)\s*:\s*([\d.]+(?:\s*lakh)?)\s*$/i, '$1: $2/cumm'],
     [/^(Creatinine|Urea|RBS|FBS|PPBS)\s*:\s*([\d.]+)\s*$/i, '$1: $2 mg/dL'],
     [/^(HbA1c)\s*:\s*([\d.]+)\s*$/i, '$1: $2%'],
-    [/^(Sodium|Potassium)\s*:\s*([\d.]+)\s*$/i, '$1: $2 mmol/L'],
+    [/^(Sodium|Potassium|Chloride)\s*:\s*([\d.]+)\s*$/i, '$1: $2 mmol/L'],
     [/^(SGOT|SGPT|ALT|AST)\s*:\s*([\d.]+)\s*$/i, '$1: $2 U/L'],
     [/^(ESR)\s*:\s*([\d.]+)\s*$/i, '$1: $2 mm/hr'],
-    [/^(CRP)\s*:\s*([\d.]+)\s*$/i, '$1: $2 mg/L']
+    [/^(CRP)\s*:\s*([\d.]+)\s*$/i, '$1: $2 mg/L'],
+    [/^(Total cholesterol|Triglycerides|HDL|LDL)\s*:\s*([\d.]+)\s*$/i, '$1: $2 mg/dL'],
+    [/^(Homocysteine)\s*:\s*([\d.]+)\s*$/i, '$1: $2 µmol/L']
   ];
   for (const [pattern, replacement] of unitRules){
     if (pattern.test(cleaned)) return cleaned.replace(pattern, replacement);
@@ -4022,7 +4047,7 @@ if ('serviceWorker' in navigator) {
       refreshingForUpdate = true;
       window.location.reload();
     });
-    navigator.serviceWorker.register('./sw.js?v=59', {updateViaCache:'none'}).then(registration => {
+    navigator.serviceWorker.register('./sw.js?v=60', {updateViaCache:'none'}).then(registration => {
       registration.update();
     }).catch(error => {
       console.warn('Service worker registration failed:', error);
