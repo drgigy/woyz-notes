@@ -566,6 +566,17 @@
   }
   .print-btn.visible{ display:flex; }
   .print-btn:hover{ background:var(--teal-wash); }
+  .btn.discharge-btn{
+    display:none;
+    min-height:38px;
+    background:#FFF6E6;
+    color:#8A5200;
+    border-color:#E5B45F;
+    padding:0 18px;
+    font-weight:800;
+  }
+  .btn.discharge-btn.visible{ display:flex; }
+  .discharge-btn:hover{ background:#FFE9BE; border-color:#D49B35; }
   .topbar-doc-actions{
     order:1;
     flex:1 1 100%;
@@ -777,10 +788,11 @@
     }
     .date-nav{ order:2; margin-left:auto; gap:5px; }
     .save-draft-btn{ order:3; }
-    .btn-copy{ order:4; }
-    .print-btn{ order:5; }
-    .delete-btn{ order:6; }
-    .settings-wrap{ order:7; }
+    .discharge-btn{ order:4; }
+    .btn-copy{ order:5; }
+    .print-btn{ order:6; }
+    .delete-btn{ order:7; }
+    .settings-wrap{ order:8; }
     .topbar-mode-btn{
       flex:1 1 0;
       min-width:0;
@@ -928,6 +940,7 @@
     }
     .date-input{ width:128px; }
     .btn.save-draft-btn,
+    .btn.discharge-btn,
     .btn.delete-btn,
     .print-btn{
       min-width:74px;
@@ -969,10 +982,11 @@
       justify-content:flex-start;
     }
     .save-draft-btn{ order:3; }
-    .btn-copy{ order:4; }
-    .print-btn{ order:5; }
-    .delete-btn{ order:6; }
-    .settings-wrap{ order:7; margin-left:auto; }
+    .discharge-btn{ order:4; }
+    .btn-copy{ order:5; }
+    .print-btn{ order:6; }
+    .delete-btn{ order:7; }
+    .settings-wrap{ order:8; margin-left:auto; }
     .date-today{ min-width:84px; }
     .date-input{ width:122px; }
     .generated-note-card{ padding:24px 24px 76px; }
@@ -1382,6 +1396,7 @@
       <button class="btn save-draft-btn" id="saveDraftBtn" aria-label="Save note">
         <span>Save</span>
       </button>
+      <button class="btn discharge-btn" id="dischargeBtn" aria-label="Discharge IP patient" title="Discharge IP patient">Discharge</button>
       <button class="btn btn-copy" id="copyBtn" style="display:none;">Copy</button>
       <button class="btn print-btn" id="printBtn" aria-label="Print visit note" title="Print visit note">Print</button>
       <button class="btn delete-btn" id="deleteBtn" aria-label="Delete selected note" title="Delete selected note">Delete</button>
@@ -1579,6 +1594,7 @@ const topbarAge = document.getElementById('topbarAge');
 const copyBtn = document.getElementById('copyBtn');
 const printBtn = document.getElementById('printBtn');
 const deleteBtn = document.getElementById('deleteBtn');
+const dischargeBtn = document.getElementById('dischargeBtn');
 const saveDraftBtn = document.getElementById('saveDraftBtn');
 const signoutBtn = document.getElementById('signoutBtn');
 const settingsBtn = document.getElementById('settingsBtn');
@@ -1911,6 +1927,11 @@ function canDeleteRecord(record){
   return Boolean(record?.firestoreId && currentUser && sharedOwnerIds.includes(ownerUid));
 }
 
+function canDischargeRecord(record){
+  const ownerUid = noteOwnerUid(record);
+  return Boolean(record?.firestoreId && currentUser && sharedOwnerIds.includes(ownerUid) && noteVisitType(record) === 'IP' && !record.dischargeDate);
+}
+
 function ownerDisplayName(ownerUid){
   if (!ownerUid || ownerUid === currentUser?.uid) return '';
   return displayCredentialName(ownerProfiles[ownerUid]?.credentialName) || ownerProfiles[ownerUid]?.credentialName || 'Shared user';
@@ -1940,7 +1961,11 @@ function noteFromSnapshot(snapshot, ownerUid = currentUser?.uid){
     transcription:data.transcription || '',
     patientData:data.patientData || {name:'NIL',age:'NIL',uhid:'NIL',sex:'NIL'},
     voiceDraft:data.voiceDraft === true,
-    visitType:data.visitType === 'IP' || data.visitType === 'OP' ? data.visitType : null
+    visitType:data.visitType === 'IP' || data.visitType === 'OP' ? data.visitType : null,
+    admissionDate:data.admissionDate || data.visitDate || null,
+    dischargeDate:data.dischargeDate || null,
+    dischargedBy:data.dischargedBy || null,
+    dischargedAtValue:data.dischargedAt || null
   };
 }
 
@@ -1950,6 +1975,15 @@ function noteVisitType(note){
 
 function noteMatchesSelectedVisitType(note){
   return noteVisitType(note) === selectedVisitType;
+}
+
+function noteMatchesSelectedScope(note, selectedDate = dateInputValue(selectedVisitDate)){
+  if (!noteMatchesSelectedVisitType(note)) return false;
+  if (selectedVisitType !== 'IP') return note.visitDate === selectedDate;
+  const admissionDate = note.admissionDate || note.visitDate || selectedDate;
+  const dischargeDate = note.dischargeDate || null;
+  if (admissionDate > selectedDate) return false;
+  return !dischargeDate || dischargeDate >= selectedDate;
 }
 
 async function latestVisitDateForSelectedType(){
@@ -2008,7 +2042,7 @@ function subscribeToSelectedDate({allowLatestDateFallback = false} = {}){
   let receivedOwners = 0;
   const applyRecords = async () => {
     const previousId = activeIndex !== null ? `${noteOwnerUid(records[activeIndex])}:${records[activeIndex]?.firestoreId}` : null;
-    records = Array.from(ownerRecords.values()).flat().filter(noteMatchesSelectedVisitType).sort((a,b) => {
+    records = Array.from(ownerRecords.values()).flat().filter(note => noteMatchesSelectedScope(note, selectedDate)).sort((a,b) => {
       const aTime = a.createdAtValue?.toMillis?.() || 0;
       const bTime = b.createdAtValue?.toMillis?.() || 0;
       return bTime - aTime;
@@ -2040,11 +2074,13 @@ function subscribeToSelectedDate({allowLatestDateFallback = false} = {}){
       }finally{
         latestDateLookupInProgress = false;
       }
-      showEmptyDate(`No ${selectedVisitType} notes saved for this date.`);
-    }else if (receivedOwners >= owners.length) showEmptyDate(`No ${selectedVisitType} notes saved for this date.`);
+      showEmptyDate(selectedVisitType === 'IP' ? 'No active IP notes for this date.' : `No ${selectedVisitType} notes saved for this date.`);
+    }else if (receivedOwners >= owners.length) showEmptyDate(selectedVisitType === 'IP' ? 'No active IP notes for this date.' : `No ${selectedVisitType} notes saved for this date.`);
   };
   owners.forEach(ownerUid => {
-    const notesQuery = query(collection(db,'users',ownerUid,'notes'),where('visitDate','==',selectedDate));
+    const notesQuery = selectedVisitType === 'IP'
+      ? query(collection(db,'users',ownerUid,'notes'),where('visitType','==','IP'))
+      : query(collection(db,'users',ownerUid,'notes'),where('visitDate','==',selectedDate));
     const unsubscribe = onSnapshot(notesQuery,async snapshot => {
       receivedOwners += ownerRecords.has(ownerUid) ? 0 : 1;
       ownerRecords.set(ownerUid, snapshot.docs.map(docSnap => noteFromSnapshot(docSnap, ownerUid)));
@@ -2112,6 +2148,7 @@ function showEmptyDate(message = 'No notes saved for this date.'){
   printBtn.classList.remove('visible');
   saveDraftBtn.classList.remove('visible');
   deleteBtn.classList.remove('visible');
+  dischargeBtn.classList.remove('visible');
   mainScroll.innerHTML = `<div class="empty-state"><div class="empty-title">No notes</div><div class="empty-sub">${escapeHtml(message)}</div></div>`;
 }
 
@@ -2278,6 +2315,7 @@ function selectEntry(i){
   copyBtn.style.display = (!r.isDraft || r.transcription) ? 'flex' : 'none';
   printBtn.classList.toggle('visible', Boolean(!r.isDraft || r.transcription));
   deleteBtn.classList.toggle('visible', canDeleteRecord(r));
+  dischargeBtn.classList.toggle('visible', canDischargeRecord(r));
   saveDraftBtn.classList.toggle('visible', Boolean(r.isDraft || isGeneratedRecord));
   saveDraftBtn.querySelector('span').textContent = saveButtonLabel();
   copyBtn.classList.remove('copied');
@@ -2967,13 +3005,19 @@ async function finishNewVoiceDraft(audioBlob, apiKey, onRetry){
   draft.kind = 'generated';
   draft.saved = false;
   draft.status = 'Note ready';
+  const draftVisitType = draft.visitType || selectedVisitType;
+  const selectedDateString = dateInputValue(selectedVisitDate);
+  const admissionDate = draftVisitType === 'IP' ? (draft.admissionDate || draft.visitDate || selectedDateString) : null;
+  draft.visitType = draftVisitType;
+  if (admissionDate) draft.admissionDate = admissionDate;
   await persistRecord(draft,{
     kind:'generated',
     voiceDraft:false,
     transcription:draft.transcription,
     patientData:draft.patientData,
     selectedMode:draft.selectedMode,
-    visitType:draft.visitType || selectedVisitType,
+    visitType:draftVisitType,
+    ...(draftVisitType === 'IP' ? {admissionDate} : {admissionDate:null}),
     status:'Note ready',
     updatedAt:serverTimestamp()
   });
@@ -3478,12 +3522,14 @@ async function createVoiceDraft(mode = null){
     stopMediaTracks();
     const now = new Date();
     const createdAt = now.toLocaleDateString('en-GB', {day:'2-digit', month:'short', year:'numeric'}) + ', ' + now.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+    const selectedDateString = dateInputValue(selectedVisitDate);
     const newDraft = await addDoc(userNotesCollection(),{
       heading: voiceDraftHeadingForMode(selectedMode),
       createdAt:serverTimestamp(),
       createdAtLabel:createdAt,
-      visitDate:dateInputValue(selectedVisitDate),
+      visitDate:selectedDateString,
       visitType:selectedVisitType,
+      admissionDate:selectedVisitType === 'IP' ? selectedDateString : null,
       isDraft: true,
       everSaved:false,
       saved:false,
@@ -3515,12 +3561,14 @@ async function createManualDraft(){
     stopMediaTracks();
     const now = new Date();
     const createdAt = now.toLocaleDateString('en-GB', {day:'2-digit', month:'short', year:'numeric'}) + ', ' + now.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+    const selectedDateString = dateInputValue(selectedVisitDate);
     const newDraft = await addDoc(userNotesCollection(),{
       heading: 'Manual note draft',
       createdAt:serverTimestamp(),
       createdAtLabel:createdAt,
-      visitDate:dateInputValue(selectedVisitDate),
+      visitDate:selectedDateString,
       visitType:selectedVisitType,
+      admissionDate:selectedVisitType === 'IP' ? selectedDateString : null,
       isDraft:true,
       everSaved:false,
       saved:false,
@@ -3764,6 +3812,33 @@ printBtn.addEventListener('click', () => {
   }, 150);
 });
 
+dischargeBtn.addEventListener('click', async () => {
+  if (activeIndex === null || !records[activeIndex]) return;
+  const record = records[activeIndex];
+  if (!canDischargeRecord(record)) return;
+  const selectedDateString = dateInputValue(selectedVisitDate);
+  const patientName = displayPatientName(record) || 'this IP patient';
+  if (!window.confirm(`Discharge ${patientName}? This IP patient will not carry forward after ${selectedDateString}.`)) return;
+  record.dischargeDate = selectedDateString;
+  record.dischargedBy = currentUser.uid;
+  dischargeBtn.classList.remove('visible');
+  try{
+    await persistRecord(record,{
+      dischargeDate:selectedDateString,
+      dischargedBy:currentUser.uid,
+      dischargedAt:serverTimestamp(),
+      updatedAt:serverTimestamp()
+    });
+    renderEntries();
+  }catch(error){
+    console.error('Discharge failed:', error);
+    record.dischargeDate = null;
+    record.dischargedBy = null;
+    dischargeBtn.classList.toggle('visible', canDischargeRecord(record));
+    window.alert('Unable to discharge this IP patient. Please check that this doctor is mapped to the note owner.');
+  }
+});
+
 function closeSettings(){
   settingsMenu.classList.remove('open');
   settingsBtn.classList.remove('open');
@@ -3877,9 +3952,15 @@ saveDraftBtn.addEventListener('click', async () => {
   draft.kind = 'generated';
   draft.voiceDraft = false;
   draft.visitType = draft.visitType || selectedVisitType;
+  const selectedDateString = dateInputValue(selectedVisitDate);
+  const persistedVisitDate = draft.visitType === 'IP' ? (draft.visitDate || draft.admissionDate || selectedDateString) : selectedDateString;
+  const admissionDate = draft.visitType === 'IP' ? (draft.admissionDate || draft.visitDate || selectedDateString) : null;
+  draft.visitDate = persistedVisitDate;
+  draft.admissionDate = admissionDate;
   draft.adminCopiedAt = null;
   draft.adminCopiedBy = null;
   deleteBtn.classList.toggle('visible', canDeleteRecord(draft));
+  dischargeBtn.classList.toggle('visible', canDischargeRecord(draft));
   renderEntries();
   await persistRecord(draft,{
     kind:'generated',
@@ -3890,8 +3971,9 @@ saveDraftBtn.addEventListener('click', async () => {
     transcription:draft.transcription,
     patientData:draft.patientData,
     selectedMode:draft.selectedMode,
-    visitDate:dateInputValue(selectedVisitDate),
+    visitDate:persistedVisitDate,
     visitType:draft.visitType,
+    ...(draft.visitType === 'IP' ? {admissionDate} : {admissionDate:null}),
     adminCopiedAt:null,
     adminCopiedBy:null,
     userSavedAt:serverTimestamp(),
@@ -3940,7 +4022,7 @@ if ('serviceWorker' in navigator) {
       refreshingForUpdate = true;
       window.location.reload();
     });
-    navigator.serviceWorker.register('./sw.js?v=58', {updateViaCache:'none'}).then(registration => {
+    navigator.serviceWorker.register('./sw.js?v=59', {updateViaCache:'none'}).then(registration => {
       registration.update();
     }).catch(error => {
       console.warn('Service worker registration failed:', error);
