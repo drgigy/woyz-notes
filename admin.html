@@ -81,6 +81,18 @@
   .copy-btn.copied{ background:var(--teal); color:#fff; border-color:var(--teal); }
   .print-btn{ border-color:rgba(31,95,82,0.3); color:var(--teal-deep); }
   .print-btn:hover{ background:var(--teal-wash); }
+  .discharge-btn{
+    border-color:#E5B45F;
+    background:#FFF6E6;
+    color:#8A5200;
+  }
+  .discharge-btn:hover{ background:#FFE9BE; border-color:#D49B35; }
+  .discharge-btn.discharged{
+    background:var(--teal-wash);
+    color:var(--teal-deep);
+    border-color:rgba(31,95,82,.28);
+  }
+  .discharge-btn.discharged:hover{ background:#D7ECE4; border-color:rgba(31,95,82,.38); }
   .admin-settings{ position:relative; flex-shrink:0; }
   .settings-menu{ position:absolute; top:calc(100% + 8px); right:0; width:154px; background:#fff; border:1px solid var(--border); border-radius:12px; box-shadow:0 18px 38px -24px rgba(20,35,29,.45); padding:6px; display:none; z-index:20; }
   .settings-menu.open{ display:block; }
@@ -168,6 +180,7 @@
         <button class="date-today" id="adminTodayBtn" title="Jump to today"></button>
       </div>
       <button class="btn copy-btn" id="saveNoteBtn" style="display:none;">Save</button>
+      <button class="btn discharge-btn" id="dischargeBtn" style="display:none;">Discharge</button>
       <button class="btn copy-btn" id="copyBtn" style="display:none;">Copy note</button>
       <button class="btn print-btn" id="printBtn" style="display:none;" aria-label="Print visit note" title="Print visit note">Print</button>
       <div class="admin-settings">
@@ -234,6 +247,7 @@ const adminNextDateBtn = document.getElementById('adminNextDateBtn');
 const adminVisitDateInput = document.getElementById('adminVisitDateInput');
 const adminTodayBtn = document.getElementById('adminTodayBtn');
 const saveNoteBtn = document.getElementById('saveNoteBtn');
+const dischargeBtn = document.getElementById('dischargeBtn');
 const copyBtn = document.getElementById('copyBtn');
 const printBtn = document.getElementById('printBtn');
 const adminSettingsBtn = document.getElementById('adminSettingsBtn');
@@ -373,6 +387,29 @@ function noteVisitType(note){
   return note.data?.visitType === 'IP' ? 'IP' : 'OP';
 }
 
+function noteMatchesSelectedScope(note, selectedDate = dateInputValue(selectedVisitDate)){
+  if (noteVisitType(note) !== selectedVisitType) return false;
+  if (selectedVisitType !== 'IP') return note.data?.visitDate === selectedDate;
+  const admissionDate = note.data?.admissionDate || note.data?.visitDate || selectedDate;
+  const dischargeDate = note.data?.dischargeDate || null;
+  if (admissionDate > selectedDate) return false;
+  return !dischargeDate || dischargeDate >= selectedDate;
+}
+
+function canToggleDischargeNote(note){
+  return Boolean(note?.path && noteVisitType(note) === 'IP');
+}
+
+function updateDischargeButton(note){
+  const canToggle = canToggleDischargeNote(note);
+  const isDischarged = Boolean(note?.data?.dischargeDate);
+  dischargeBtn.style.display = canToggle ? 'inline-flex' : 'none';
+  dischargeBtn.classList.toggle('discharged', canToggle && isDischarged);
+  dischargeBtn.textContent = isDischarged ? 'Discharged' : 'Discharge';
+  dischargeBtn.setAttribute('aria-label', isDischarged ? 'Revert IP discharge' : 'Discharge IP patient');
+  dischargeBtn.title = isDischarged ? 'Revert IP discharge' : 'Discharge IP patient';
+}
+
 function dateInputValue(date){
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -412,7 +449,7 @@ function moveAdminDate(days){
 
 function visibleNotes(){
   const selectedDate = dateInputValue(selectedVisitDate);
-  return allNotes.filter(note => noteVisitType(note) === selectedVisitType && note.data?.visitDate === selectedDate);
+  return allNotes.filter(note => noteMatchesSelectedScope(note, selectedDate));
 }
 
 function updateVisitToggle(){
@@ -525,6 +562,7 @@ function showEmpty(title, message){
   copyBtn.style.display = 'none';
   printBtn.style.display = 'none';
   saveNoteBtn.style.display = 'none';
+  dischargeBtn.style.display = 'none';
   mainScroll.innerHTML = `<div class="empty-state"><div class="empty-title">${escapeHtml(title)}</div><div>${escapeHtml(message)}</div></div>`;
 }
 
@@ -601,6 +639,7 @@ function renderSelectedNote(){
   copyBtn.style.display = text ? 'inline-flex' : 'none';
   printBtn.style.display = text ? 'inline-flex' : 'none';
   saveNoteBtn.style.display = 'inline-flex';
+  updateDischargeButton(note);
   saveNoteBtn.textContent = 'Save';
   saveNoteBtn.classList.remove('copied');
   copyBtn.classList.remove('copied');
@@ -777,6 +816,36 @@ copyBtn.addEventListener('click', async () => {
   }, 1500);
 });
 
+dischargeBtn.addEventListener('click', async () => {
+  const note = allNotes.find(item => item.id === selectedNoteId && item.userId === selectedUserId);
+  if (!canToggleDischargeNote(note)) return;
+  const selectedDateString = dateInputValue(selectedVisitDate);
+  const patientName = notePatientName(note);
+  const wasDischarged = Boolean(note.data?.dischargeDate);
+  const message = wasDischarged
+    ? `Revert discharge for ${patientName}? This IP patient will carry forward again.`
+    : `Discharge ${patientName}? This IP patient will not carry forward after ${selectedDateString}.`;
+  if (!confirm(message)) return;
+  const previousDischargeDate = note.data?.dischargeDate || null;
+  const previousDischargedBy = note.data?.dischargedBy || null;
+  note.data.dischargeDate = wasDischarged ? null : selectedDateString;
+  note.data.dischargedBy = wasDischarged ? null : ADMIN_UID;
+  updateDischargeButton(note);
+  try{
+    const changes = wasDischarged
+      ? {dischargeDate:null, dischargedBy:null, dischargedAt:null, updatedAt:serverTimestamp()}
+      : {dischargeDate:selectedDateString, dischargedBy:ADMIN_UID, dischargedAt:serverTimestamp(), updatedAt:serverTimestamp()};
+    await updateDoc(doc(db,note.path),changes);
+    render();
+  }catch(error){
+    console.error(error);
+    note.data.dischargeDate = previousDischargeDate;
+    note.data.dischargedBy = previousDischargedBy;
+    updateDischargeButton(note);
+    alert(wasDischarged ? 'Unable to revert this discharge.' : 'Unable to discharge this IP patient.');
+  }
+});
+
 printBtn.addEventListener('click', () => {
   const note = allNotes.find(item => item.id === selectedNoteId && item.userId === selectedUserId);
   const editor = document.getElementById('adminNoteEditor');
@@ -932,7 +1001,7 @@ if ('serviceWorker' in navigator) {
       refreshingForUpdate = true;
       window.location.reload();
     });
-    navigator.serviceWorker.register('./sw.js?v=58', {updateViaCache:'none'}).then(registration => {
+    navigator.serviceWorker.register('./sw.js?v=64', {updateViaCache:'none'}).then(registration => {
       registration.update();
     }).catch(error => {
       console.warn('Service worker registration failed:', error);
