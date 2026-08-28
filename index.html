@@ -1520,8 +1520,8 @@
         <button class="topbar-mode-btn inactive" type="button" disabled>Reports</button>
       </div>
       <div class="privacy-row">
-        <button class="privacy-label" id="anonymizeLabel" type="button">Anonymize</button>
         <button class="privacy-switch" id="anonymizeToggle" type="button" role="switch" aria-checked="false" aria-label="Toggle anonymized display"></button>
+        <button class="privacy-label" id="anonymizeLabel" type="button">Anonymize</button>
       </div>
       <div class="date-nav" id="dateNav" aria-label="Visit date navigation">
         <button class="date-today" id="todayBtn" title="Jump to today"></button>
@@ -4524,7 +4524,7 @@ if ('serviceWorker' in navigator) {
       refreshingForUpdate = true;
       window.location.reload();
     });
-    navigator.serviceWorker.register('./sw.js?v=71', {updateViaCache:'none'}).then(registration => {
+    navigator.serviceWorker.register('./sw.js?v=72', {updateViaCache:'none'}).then(registration => {
       registration.update();
     }).catch(error => {
       console.warn('Service worker registration failed:', error);
