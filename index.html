@@ -402,6 +402,28 @@
   }
   .record-search-input:empty::before{ content:attr(data-placeholder); color:#8A938C; font-weight:600; }
   .record-search-input:focus{ border-color:var(--focus); box-shadow:0 0 0 3px rgba(143,185,172,.2); }
+  .search-scope-toggle{
+    height:34px;
+    display:flex;
+    align-items:center;
+    gap:4px;
+    margin:10px 4px 0;
+    padding:4px;
+    border:1px solid #D8E1E7;
+    border-radius:10px;
+    background:#fff;
+  }
+  .search-scope-btn{
+    flex:1;
+    height:26px;
+    border:0;
+    border-radius:7px;
+    background:transparent;
+    color:var(--muted);
+    font:800 11px 'Inter',sans-serif;
+    cursor:pointer;
+  }
+  .search-scope-btn.active{ background:var(--teal); color:#fff; }
 
   .sidebar-section-label{
     display:none;
@@ -699,6 +721,67 @@
     max-width:760px;
     padding:44px 32px 80px;
   }
+  .timeline-wrap{
+    width:100%;
+    max-width:980px;
+    padding:44px 34px 80px;
+  }
+  .timeline-header{
+    display:flex;
+    align-items:flex-start;
+    justify-content:space-between;
+    gap:18px;
+    margin-bottom:22px;
+  }
+  .timeline-kicker{
+    color:var(--muted);
+    font:800 12px 'Inter',sans-serif;
+    text-transform:uppercase;
+    letter-spacing:.09em;
+    margin-bottom:8px;
+  }
+  .timeline-title{
+    margin:0;
+    color:var(--ink);
+    font:650 34px/1.1 'Fraunces',serif;
+  }
+  .timeline-meta{
+    margin-top:8px;
+    color:var(--muted);
+    font:700 13px 'IBM Plex Mono',monospace;
+  }
+  .timeline-add-btn{
+    min-height:42px;
+    padding:0 18px;
+    border:1px solid var(--teal-deep);
+    border-radius:10px;
+    background:var(--teal);
+    color:#fff;
+    font:800 13px 'Inter',sans-serif;
+    cursor:pointer;
+    box-shadow:0 8px 18px -14px var(--teal-deep);
+    white-space:nowrap;
+  }
+  .timeline-count{
+    color:var(--muted);
+    font:800 13px 'Inter',sans-serif;
+    margin-bottom:10px;
+  }
+  .timeline-entry{
+    border-top:1px solid var(--border);
+    padding:22px 0;
+  }
+  .timeline-entry-title{
+    margin:0 0 14px;
+    color:var(--ink);
+    font:800 19px/1.25 'Inter',sans-serif;
+  }
+  .timeline-note{
+    color:var(--ink);
+    font:500 17px/1.55 'Inter',sans-serif;
+    white-space:pre-wrap;
+  }
+  .timeline-note strong{ font-weight:800; }
 
   .note-eyebrow{
     font-size:12px;
@@ -1255,6 +1338,12 @@
     }
     .mobile-review-inline.visible{ display:inline-flex; align-items:center; justify-content:center; }
     .note-wrap{ padding:28px 28px 110px; }
+    .timeline-wrap{ padding:28px 20px 110px; }
+    .timeline-header{ flex-direction:column; gap:12px; }
+    .timeline-title{ font-size:28px; }
+    .timeline-add-btn{ width:100%; }
+    .timeline-entry-title{ font-size:16px; }
+    .timeline-note{ font-size:15px; line-height:1.5; }
     .voice-wrap{ padding:20px 14px 110px; }
     .voice-panel{ min-height:calc(100dvh - 210px); padding:20px; }
     .voice-stage{ min-height:280px; }
@@ -1361,6 +1450,10 @@
     </div>
     <div class="record-search">
       <div class="record-search-input" id="recordSearchInput" contenteditable="true" role="searchbox" aria-label="Search records by name or UHID" data-placeholder="Search name or UHID"></div>
+    </div>
+    <div class="search-scope-toggle" id="searchScopeToggle" aria-label="Search scope">
+      <button class="search-scope-btn active" data-search-scope="today" type="button">Today</button>
+      <button class="search-scope-btn" data-search-scope="all" type="button">All</button>
     </div>
 
     <div class="sidebar-section-label">Records</div>
@@ -1590,6 +1683,7 @@ function initials(name){
 
 const entryList = document.getElementById('entryList');
 const recordSearchInput = document.getElementById('recordSearchInput');
+const searchScopeToggle = document.getElementById('searchScopeToggle');
 const anonymizeLabel = document.getElementById('anonymizeLabel');
 const anonymizeToggle = document.getElementById('anonymizeToggle');
 const mainScroll = document.getElementById('mainScroll');
@@ -1690,11 +1784,16 @@ let selectedVisitDate = new Date();
 let selectedVisitType = 'OP';
 let currentUser = null;
 let notesUnsubscribes = [];
+let allNotesUnsubscribes = [];
 let userProfileUnsubscribe = null;
 let groupsUnsubscribe = null;
 let sharedOwnerIds = [];
 let ownerProfiles = {};
 let recordSearchTerm = '';
+let searchScope = 'today';
+let allRecords = [];
+let allOwnerRecords = new Map();
+let selectedTimelineKey = null;
 let pendingSelectId = null;
 let pendingNewVoiceDockId = null;
 let draftCreationPromise = null;
@@ -1779,6 +1878,14 @@ To,
 Thank you`;
 
 function renderEntries(){
+  if (searchScope === 'all'){
+    renderAllPatientEntries();
+    return;
+  }
+  renderTodayEntries();
+}
+
+function renderTodayEntries(){
   entryList.innerHTML = '';
   const visibleRecords = records
     .map((record, index) => ({record, index}))
@@ -1819,6 +1926,88 @@ function renderEntries(){
 
 renderEntries();
 
+function patientSearchKey(record){
+  const identity = patientIdentity(record);
+  const uhid = normalizePatientToken(identity.uhid);
+  if (uhid && uhid !== 'nil') return `uhid:${uhid}`;
+  const name = normalizePatientToken(identity.name || record?.name);
+  const sex = normalizePatientToken(identity.sex);
+  const age = normalizePatientToken(identity.age);
+  return `name:${name}|sex:${sex}|age:${age}`;
+}
+
+function normalizePatientToken(value){
+  return String(value || '').trim().toLowerCase().replace(/\s+/g, ' ');
+}
+
+function sortRecordsNewestFirst(items){
+  return [...items].sort((a,b) => {
+    const aTime = a.createdAtValue?.toMillis?.() || 0;
+    const bTime = b.createdAtValue?.toMillis?.() || 0;
+    if (bTime !== aTime) return bTime - aTime;
+    return String(b.visitDate || '').localeCompare(String(a.visitDate || ''));
+  });
+}
+
+function timelineRecordsForKey(key){
+  if (!key) return [];
+  return sortRecordsNewestFirst(allRecords.filter(record => patientSearchKey(record) === key && !record.isDraft));
+}
+
+function groupedPatientSearchResults(){
+  const queryText = recordSearchTerm.trim().toLowerCase();
+  const groups = new Map();
+  allRecords.filter(record => !record.isDraft).forEach(record => {
+    const key = patientSearchKey(record);
+    if (!key) return;
+    if (queryText && !recordMatchesSearch(record)) return;
+    const existing = groups.get(key) || {key, records:[]};
+    existing.records.push(record);
+    groups.set(key, existing);
+  });
+  return Array.from(groups.values()).map(group => {
+    group.records = sortRecordsNewestFirst(group.records);
+    group.latest = group.records[0];
+    return group;
+  }).sort((a,b) => {
+    const aTime = a.latest?.createdAtValue?.toMillis?.() || 0;
+    const bTime = b.latest?.createdAtValue?.toMillis?.() || 0;
+    return bTime - aTime;
+  });
+}
+
+function renderAllPatientEntries(){
+  entryList.innerHTML = '';
+  const groups = groupedPatientSearchResults();
+  if (!groups.length){
+    entryList.innerHTML = `<div class="empty-sub" style="padding:10px 8px;">${recordSearchTerm ? 'No matching patients.' : 'Type a name or UHID to search all patients.'}</div>`;
+    return;
+  }
+  groups.forEach((group, index) => {
+    const latest = group.latest;
+    const identity = patientIdentity(latest);
+    const btn = document.createElement('button');
+    btn.className = 'entry' + (group.key === selectedTimelineKey ? ' active' : '');
+    const ownerCode = ownerInitials(noteOwnerUid(latest)) || initials(identity.name);
+    const serialNumber = groups.length - index;
+    btn.innerHTML = `
+      <span class="entry-avatar">${escapeHtml(serialNumber)}</span>
+      <span class="entry-text">
+        <div class="entry-name">${escapeHtml(displayPatientName(latest))}</div>
+        <div class="entry-uhid">${escapeHtml(`${patientMetaLine(latest)} · ${group.records.length} note${group.records.length === 1 ? '' : 's'}`)}</div>
+      </span>
+      <span class="entry-owner">${escapeHtml(ownerCode)}</span>
+    `;
+    btn.addEventListener('click', () => {
+      selectedTimelineKey = group.key;
+      renderEntries();
+      renderPatientTimeline(group.key);
+      closeMobileSidebar();
+    });
+    entryList.appendChild(btn);
+  });
+}
+
 function recordMatchesSearch(record){
   const queryText = recordSearchTerm.trim().toLowerCase();
   if (!queryText) return true;
@@ -1833,6 +2022,114 @@ function recordMatchesSearch(record){
     cleanAge(patient.age || record?.age)
   ].map(value => String(value || '').toLowerCase()).join(' ');
   return haystack.includes(queryText);
+}
+
+function timelineTitleForRecord(record){
+  const mode = record?.selectedMode || record?.heading || 'Visit Note';
+  const dateText = formatVisitDateLabel(record?.visitDate || dateInputValue(selectedVisitDate));
+  const timeText = record?.createdAt ? String(record.createdAt).split(',').slice(1).join(',').trim() : '';
+  return `${mode} - ${dateText}${timeText ? `, ${timeText}` : ''}`;
+}
+
+function formatVisitDateLabel(value){
+  const [year,month,day] = String(value || '').split('-').map(Number);
+  if (!year || !month || !day) return value || 'Undated';
+  return new Date(year, month - 1, day).toLocaleDateString('en-GB', {day:'2-digit', month:'short', year:'numeric'});
+}
+
+function renderPatientTimeline(key){
+  const timelineRecords = timelineRecordsForKey(key);
+  if (!timelineRecords.length){
+    showEmptyDate('No previous notes found for this patient.');
+    return;
+  }
+  activeIndex = null;
+  updateContinueNoteButton();
+  const latest = timelineRecords[0];
+  const identity = patientIdentity(latest);
+  topbarName.textContent = displayPatientName(latest);
+  topbarUhid.textContent = 'UHID ' + (anonymizeEnabled ? 'hidden' : (identity.uhid || 'NIL'));
+  topbarAge.textContent = identity.age + ' yrs';
+  topbarPatient.classList.add('visible');
+  copyBtn.style.display = 'none';
+  printBtn.classList.remove('visible');
+  saveDraftBtn.classList.remove('visible');
+  deleteBtn.classList.remove('visible');
+  dischargeBtn.classList.remove('visible');
+  const renderedNotes = timelineRecords.map(record => {
+    const displayText = anonymizeTextForRecord(formatStoredReviewNotes(record.transcription || ''), record);
+    return `
+      <article class="timeline-entry">
+        <h2 class="timeline-entry-title">${escapeHtml(timelineTitleForRecord(record))}</h2>
+        <div class="timeline-note">${richNoteHtml(displayText)}</div>
+      </article>
+    `;
+  }).join('');
+  mainScroll.innerHTML = `
+    <div class="timeline-wrap">
+      <div class="timeline-header">
+        <div>
+          <div class="timeline-kicker">Previous records</div>
+          <h1 class="timeline-title">${escapeHtml(displayPatientName(latest))}</h1>
+          <div class="timeline-meta">${escapeHtml(patientMetaLine(latest))}</div>
+        </div>
+        <button class="timeline-add-btn" id="addTimelinePatientTodayBtn" type="button">Add to Today</button>
+      </div>
+      <div class="timeline-count">${timelineRecords.length} note${timelineRecords.length === 1 ? '' : 's'} · All entries</div>
+      ${renderedNotes}
+    </div>`;
+  document.getElementById('addTimelinePatientTodayBtn')?.addEventListener('click', () => addTimelinePatientToToday(latest));
+}
+
+async function addTimelinePatientToToday(sourceRecord){
+  if (!currentUser || !sourceRecord) return;
+  if (selectExistingLocalDraft()) {
+    setSearchScope('today');
+    return;
+  }
+  const existingDraft = await existingDraftSnapshotForCurrentUser();
+  if (existingDraft){
+    selectExistingDraftSnapshot(existingDraft);
+    setSearchScope('today');
+    return;
+  }
+  const identity = patientIdentity(sourceRecord);
+  const today = new Date();
+  selectedVisitDate = today;
+  const selectedDateString = dateInputValue(selectedVisitDate);
+  const createdAt = today.toLocaleDateString('en-GB', {day:'2-digit', month:'short', year:'numeric'}) + ', ' + today.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+  const patientData = {
+    name:identity.name || 'NIL',
+    age:identity.age || 'NIL',
+    uhid:identity.uhid || 'NIL',
+    sex:identity.sex || 'NIL'
+  };
+  const transcription = `Patient Name: ${patientData.name}\nAge: ${patientData.age}\nUHID: ${patientData.uhid}\nSex: ${patientData.sex}\n\nReview Note (${reviewTimestampLabel()}):\n`;
+  const newDraft = await addDoc(userNotesCollection(),{
+    heading:'Visit Note draft',
+    createdAt:serverTimestamp(),
+    createdAtLabel:createdAt,
+    visitDate:selectedDateString,
+    visitType:selectedVisitType,
+    admissionDate:selectedVisitType === 'IP' ? selectedDateString : null,
+    isDraft:true,
+    everSaved:false,
+    saved:false,
+    kind:'generated',
+    voiceDraft:false,
+    selectedMode:'Visit Note',
+    status:'Type your note',
+    transcription,
+    patientData,
+    sourcePatientKey:patientSearchKey(sourceRecord),
+    sourceNoteId:sourceRecord.firestoreId || null,
+    sourceOwnerUid:noteOwnerUid(sourceRecord)
+  });
+  pendingSelectId = newDraft.id;
+  selectedTimelineKey = null;
+  setSearchScope('today');
+  updateDateNavigation();
+  subscribeToSelectedDate();
 }
 
 function cleanAge(value){
@@ -2023,6 +2320,34 @@ function updateVisitToggle(){
   });
 }
 
+function updateSearchScopeToggle(){
+  searchScopeToggle.querySelectorAll('[data-search-scope]').forEach(button => {
+    button.classList.toggle('active', button.dataset.searchScope === searchScope);
+  });
+}
+
+function setSearchScope(scope){
+  searchScope = scope === 'all' ? 'all' : 'today';
+  selectedTimelineKey = null;
+  updateSearchScopeToggle();
+  renderEntries();
+  if (searchScope === 'today'){
+    if (activeIndex !== null && records[activeIndex]) selectEntry(activeIndex);
+    else if (records.length) selectEntry(0);
+    else showEmptyDate(selectedVisitType === 'IP' ? 'No active IP notes for this date.' : `No ${selectedVisitType} notes saved for this date.`);
+    return;
+  }
+  activeIndex = null;
+  topbarPatient.classList.remove('visible');
+  copyBtn.style.display = 'none';
+  printBtn.classList.remove('visible');
+  saveDraftBtn.classList.remove('visible');
+  deleteBtn.classList.remove('visible');
+  dischargeBtn.classList.remove('visible');
+  updateContinueNoteButton();
+  mainScroll.innerHTML = '<div class="empty-state"><div class="empty-title">Search all patients</div><div class="empty-sub">Type a name or UHID, then select a patient to view previous records.</div></div>';
+}
+
 function updateAnonymizeToggle(){
   anonymizeToggle.classList.toggle('active', anonymizeEnabled);
   anonymizeToggle.setAttribute('aria-checked', anonymizeEnabled ? 'true' : 'false');
@@ -2031,12 +2356,18 @@ function updateAnonymizeToggle(){
 function refreshAnonymizedView(){
   updateAnonymizeToggle();
   renderEntries();
-  if (activeIndex !== null && records[activeIndex]) selectEntry(activeIndex);
+  if (searchScope === 'all' && selectedTimelineKey) renderPatientTimeline(selectedTimelineKey);
+  else if (activeIndex !== null && records[activeIndex]) selectEntry(activeIndex);
 }
 
 function setVisitType(type){
   selectedVisitType = type === 'IP' ? 'IP' : 'OP';
   updateVisitToggle();
+  if (searchScope === 'all'){
+    searchScope = 'today';
+    selectedTimelineKey = null;
+    updateSearchScopeToggle();
+  }
   subscribeToSelectedDate();
 }
 
@@ -2064,6 +2395,7 @@ function subscribeToSelectedDate({allowLatestDateFallback = false} = {}){
       return bTime - aTime;
     });
     renderEntries();
+    if (searchScope === 'all') return;
     const targetId = pendingSelectId || previousId;
     const targetIndex = targetId ? records.findIndex(record => `${noteOwnerUid(record)}:${record.firestoreId}` === targetId || record.firestoreId === targetId) : -1;
     pendingSelectId = null;
@@ -2116,6 +2448,35 @@ function clearNotesSubscriptions(){
   notesUnsubscribes = [];
 }
 
+function clearAllNotesSubscriptions(){
+  allNotesUnsubscribes.forEach(unsubscribe => unsubscribe());
+  allNotesUnsubscribes = [];
+  allOwnerRecords = new Map();
+  allRecords = [];
+}
+
+function subscribeToAllRecords(){
+  if (!currentUser) return;
+  clearAllNotesSubscriptions();
+  const owners = sharedOwnerIds.length ? sharedOwnerIds : [currentUser.uid];
+  owners.forEach(ownerUid => {
+    const unsubscribe = onSnapshot(collection(db,'users',ownerUid,'notes'), snapshot => {
+      allOwnerRecords.set(ownerUid, snapshot.docs.map(docSnap => noteFromSnapshot(docSnap, ownerUid)));
+      allRecords = Array.from(allOwnerRecords.values()).flat();
+      if (searchScope === 'all'){
+        renderEntries();
+        if (selectedTimelineKey) renderPatientTimeline(selectedTimelineKey);
+      }
+    }, error => {
+      console.error('Unable to load all notes:', error);
+      allOwnerRecords.set(ownerUid, []);
+      allRecords = Array.from(allOwnerRecords.values()).flat();
+      if (searchScope === 'all') renderEntries();
+    });
+    allNotesUnsubscribes.push(unsubscribe);
+  });
+}
+
 function ownerIdsChanged(nextIds){
   const current = [...sharedOwnerIds].sort().join('|');
   const next = [...nextIds].sort().join('|');
@@ -2138,6 +2499,7 @@ async function applySharedOwners(ownerIds){
   }));
   ownerProfiles = {...ownerProfiles, ...Object.fromEntries(profileEntries)};
   subscribeToSelectedDate({allowLatestDateFallback:true});
+  subscribeToAllRecords();
 }
 
 function subscribeToGroups(){
@@ -2230,6 +2592,9 @@ onAuthStateChanged(auth,user => {
   userProfileUnsubscribe = null;
   if (user){
     clearRecordSearch();
+    searchScope = 'today';
+    selectedTimelineKey = null;
+    updateSearchScopeToggle();
     loginScreen.classList.add('hidden');
     appShell.classList.add('authenticated');
     userEmail.textContent = '';
@@ -2251,12 +2616,16 @@ onAuthStateChanged(auth,user => {
   }else{
     clearRecordSearch();
     clearNotesSubscriptions();
+    clearAllNotesSubscriptions();
     if (userProfileUnsubscribe) userProfileUnsubscribe();
     if (groupsUnsubscribe) groupsUnsubscribe();
     userProfileUnsubscribe = null;
     groupsUnsubscribe = null;
     sharedOwnerIds = [];
     ownerProfiles = {};
+    searchScope = 'today';
+    selectedTimelineKey = null;
+    updateSearchScopeToggle();
     records = [];
     renderEntries();
     updateContinueNoteButton();
@@ -3564,6 +3933,12 @@ async function withDraftCreationLock(task){
 async function createVoiceDraft(mode = null){
   if (!currentUser) return;
   return withDraftCreationLock(async () => {
+    if (searchScope === 'all'){
+      searchScope = 'today';
+      selectedTimelineKey = null;
+      updateSearchScopeToggle();
+      subscribeToSelectedDate();
+    }
     const selectedMode = mode || null;
     if (selectExistingLocalDraft()) return;
     const existingDraft = await existingDraftSnapshotForCurrentUser();
@@ -3604,6 +3979,12 @@ async function createVoiceDraft(mode = null){
 async function createManualDraft(){
   if (!currentUser) return;
   return withDraftCreationLock(async () => {
+    if (searchScope === 'all'){
+      searchScope = 'today';
+      selectedTimelineKey = null;
+      updateSearchScopeToggle();
+      subscribeToSelectedDate();
+    }
     if (selectExistingLocalDraft()) return;
     const existingDraft = await existingDraftSnapshotForCurrentUser();
     if (existingDraft){
@@ -3689,6 +4070,11 @@ function moveVisitDate(days){
   const next = new Date(selectedVisitDate);
   next.setDate(next.getDate() + days);
   selectedVisitDate = next;
+  if (searchScope === 'all'){
+    searchScope = 'today';
+    selectedTimelineKey = null;
+    updateSearchScopeToggle();
+  }
   updateDateNavigation();
   subscribeToSelectedDate();
 }
@@ -3697,12 +4083,22 @@ previousDateBtn.addEventListener('click', () => moveVisitDate(-1));
 nextDateBtn.addEventListener('click', () => moveVisitDate(1));
 todayBtn.addEventListener('click', () => {
   selectedVisitDate = new Date();
+  if (searchScope === 'all'){
+    searchScope = 'today';
+    selectedTimelineKey = null;
+    updateSearchScopeToggle();
+  }
   updateDateNavigation();
   subscribeToSelectedDate();
 });
 visitDateInput.addEventListener('change', () => {
   const [year,month,day] = visitDateInput.value.split('-').map(Number);
   if (year && month && day) selectedVisitDate = new Date(year,month-1,day);
+  if (searchScope === 'all'){
+    searchScope = 'today';
+    selectedTimelineKey = null;
+    updateSearchScopeToggle();
+  }
   updateDateNavigation();
   subscribeToSelectedDate();
 });
@@ -3718,6 +4114,7 @@ mobileVisitToggle.addEventListener('click', event => {
 });
 updateVisitToggle();
 updateAnonymizeToggle();
+updateSearchScopeToggle();
 updateDateNavigation();
 
 function toggleAnonymize(){
@@ -3732,6 +4129,9 @@ anonymizeToggle.addEventListener('click', toggleAnonymize);
 recordSearchInput.addEventListener('input', () => {
   recordSearchTerm = recordSearchInput.textContent || '';
   renderEntries();
+  if (searchScope === 'all' && !selectedTimelineKey){
+    mainScroll.innerHTML = '<div class="empty-state"><div class="empty-title">Search all patients</div><div class="empty-sub">Select a patient to view previous records.</div></div>';
+  }
 });
 recordSearchInput.addEventListener('keydown', event => {
   if (event.key === 'Enter'){
@@ -3740,6 +4140,7 @@ recordSearchInput.addEventListener('keydown', event => {
   }
   if (event.key === 'Escape'){
     clearRecordSearch();
+    selectedTimelineKey = null;
     renderEntries();
     recordSearchInput.blur();
   }
@@ -3747,6 +4148,11 @@ recordSearchInput.addEventListener('keydown', event => {
 recordSearchInput.addEventListener('paste', event => {
   event.preventDefault();
   document.execCommand('insertText', false, event.clipboardData?.getData('text/plain') || '');
+});
+searchScopeToggle.addEventListener('click', event => {
+  const button = event.target.closest('[data-search-scope]');
+  if (!button) return;
+  setSearchScope(button.dataset.searchScope);
 });
 mobileMenuBtn.addEventListener('click', openMobileSidebar);
 topbarPatient.addEventListener('click', openMobileSidebar);
@@ -4081,7 +4487,7 @@ if ('serviceWorker' in navigator) {
       refreshingForUpdate = true;
       window.location.reload();
     });
-    navigator.serviceWorker.register('./sw.js?v=65', {updateViaCache:'none'}).then(registration => {
+    navigator.serviceWorker.register('./sw.js?v=66', {updateViaCache:'none'}).then(registration => {
       registration.update();
     }).catch(error => {
       console.warn('Service worker registration failed:', error);
