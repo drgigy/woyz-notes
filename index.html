@@ -383,19 +383,26 @@
   .auth-input{ width:100%; border:1.5px solid var(--border); border-radius:10px; padding:12px 13px; font:14px 'IBM Plex Mono',monospace; outline:none; }
   .auth-input:focus{ border-color:var(--focus); box-shadow:0 0 0 3px rgba(143,185,172,.2); }
   .auth-actions{ display:flex; justify-content:flex-end; gap:10px; margin-top:20px; }
+  .search-row{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    margin:10px 4px 0;
+  }
   .record-search{
-    margin:14px 4px 0;
+    flex:1;
+    min-width:0;
     position:relative;
   }
   .record-search-input{
     width:100%;
-    height:40px;
+    height:34px;
     border:1.5px solid #D8E1E7;
-    border-radius:12px;
+    border-radius:10px;
     background:#fff;
     color:var(--ink);
-    padding:10px 12px;
-    font:700 13px 'Inter',sans-serif;
+    padding:8px 10px;
+    font:700 12px 'Inter',sans-serif;
     outline:none;
     overflow:hidden;
     white-space:nowrap;
@@ -407,7 +414,9 @@
     display:flex;
     align-items:center;
     gap:4px;
-    margin:10px 4px 0;
+    width:130px;
+    flex:0 0 130px;
+    margin:0;
     padding:4px;
     border:1px solid #D8E1E7;
     border-radius:10px;
@@ -438,7 +447,7 @@
     flex-direction:column;
     gap:0;
     margin:0 -4px;
-    padding:10px 4px 0;
+    padding:8px 4px 0;
   }
 
   .entry{
@@ -983,7 +992,9 @@
     }
     .sidebar .visit-toggle{ margin-top:12px; }
     .privacy-row{ margin-top:12px; }
-    .record-search{ margin-top:12px; }
+    .search-row{ margin-top:10px; gap:6px; }
+    .search-scope-toggle{ width:112px; flex-basis:112px; }
+    .search-scope-btn{ font-size:10.5px; }
     .entry{
       gap:9px;
       padding:8px 34px 8px 8px;
@@ -1448,12 +1459,14 @@
       <button class="mobile-doc-action" data-mobile-voice-mode="Medical certificate">Certificate</button>
       <button class="mobile-doc-action" data-mobile-voice-mode="Reply letter">Reply Letter</button>
     </div>
-    <div class="record-search">
-      <div class="record-search-input" id="recordSearchInput" contenteditable="true" role="searchbox" aria-label="Search records by name or UHID" data-placeholder="Search name or UHID"></div>
-    </div>
-    <div class="search-scope-toggle" id="searchScopeToggle" aria-label="Search scope">
-      <button class="search-scope-btn active" data-search-scope="today" type="button">Today</button>
-      <button class="search-scope-btn" data-search-scope="all" type="button">All</button>
+    <div class="search-row">
+      <div class="record-search">
+        <div class="record-search-input" id="recordSearchInput" contenteditable="true" role="searchbox" aria-label="Search records by name or UHID" data-placeholder="Search name or UHID"></div>
+      </div>
+      <div class="search-scope-toggle" id="searchScopeToggle" aria-label="Search scope">
+        <button class="search-scope-btn active" data-search-scope="today" type="button">Today</button>
+        <button class="search-scope-btn" data-search-scope="all" type="button">All</button>
+      </div>
     </div>
 
     <div class="sidebar-section-label">Records</div>
@@ -4487,7 +4500,7 @@ if ('serviceWorker' in navigator) {
       refreshingForUpdate = true;
       window.location.reload();
     });
-    navigator.serviceWorker.register('./sw.js?v=66', {updateViaCache:'none'}).then(registration => {
+    navigator.serviceWorker.register('./sw.js?v=67', {updateViaCache:'none'}).then(registration => {
       registration.update();
     }).catch(error => {
       console.warn('Service worker registration failed:', error);
