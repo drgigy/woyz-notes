@@ -207,6 +207,12 @@
     box-shadow:0 5px 13px -8px var(--teal-deep);
   }
   .privacy-switch.active::after{ transform:translateX(20px); }
+  .main-topbar .privacy-row{
+    order:2;
+    flex:0 0 188px;
+    width:188px;
+    margin:0;
+  }
   .note-editor.anonymized{
     background:#F8FAF8;
     color:#3F4B45;
@@ -659,13 +665,13 @@
   }
   .topbar-mode-btn.inactive:hover{ background:#DDEFE9; border-color:#C9E1D9; }
   .topbar-review-btn{ display:inline-flex; align-items:center; }
-  .date-nav{ order:2; margin-left:auto; }
-  .save-draft-btn{ order:3; }
-  .btn-copy{ order:4; }
-  .print-btn{ order:5; }
-  .delete-btn{ order:6; }
+  .date-nav{ order:3; margin-left:auto; }
+  .save-draft-btn{ order:4; }
+  .btn-copy{ order:5; }
+  .print-btn{ order:6; }
+  .delete-btn{ order:7; }
   /* ---------- SETTINGS ---------- */
-  .settings-wrap{ order:7; position:relative; flex-shrink:0; }
+  .settings-wrap{ order:8; position:relative; flex-shrink:0; }
 
   .settings-btn{
     width:38px;height:38px;
@@ -884,13 +890,19 @@
       overflow-x:auto;
       overflow-y:hidden;
     }
-    .date-nav{ order:2; margin-left:auto; gap:5px; }
-    .save-draft-btn{ order:3; }
-    .discharge-btn{ order:4; }
-    .btn-copy{ order:5; }
-    .print-btn{ order:6; }
-    .delete-btn{ order:7; }
-    .settings-wrap{ order:8; }
+    .main-topbar .privacy-row{
+      order:2;
+      flex:0 0 174px;
+      width:174px;
+      margin-right:auto;
+    }
+    .date-nav{ order:3; margin-left:auto; gap:5px; }
+    .save-draft-btn{ order:4; }
+    .discharge-btn{ order:5; }
+    .btn-copy{ order:6; }
+    .print-btn{ order:7; }
+    .delete-btn{ order:8; }
+    .settings-wrap{ order:9; }
     .topbar-mode-btn{
       flex:1 1 0;
       min-width:0;
@@ -1034,6 +1046,11 @@
     .date-nav{
       margin-left:0;
       flex:0 1 auto;
+    }
+    .main-topbar .privacy-row{
+      flex:0 0 160px;
+      width:160px;
+      margin-right:0;
     }
     .date-today{
       min-width:88px;
@@ -1295,6 +1312,7 @@
     .date-today{ display:none; }
     .main-topbar > .date-nav{ display:flex; }
     .topbar-doc-actions,.topbar-continue-btn{ display:none !important; }
+    .main-topbar .privacy-row{ display:none; }
     .main-scroll{
       flex:1;
       min-height:0;
@@ -1448,10 +1466,6 @@
         <span>Note</span>
       </button>
     </div>
-    <div class="privacy-row">
-      <button class="privacy-label" id="anonymizeLabel" type="button">Anonymize</button>
-      <button class="privacy-switch" id="anonymizeToggle" type="button" role="switch" aria-checked="false" aria-label="Toggle anonymized display"></button>
-    </div>
     <div class="visit-toggle" id="visitToggle" aria-label="Visit type">
       <button class="visit-toggle-btn active" data-visit-type="OP">OP</button>
       <button class="visit-toggle-btn" data-visit-type="IP">IP</button>
@@ -1499,6 +1513,10 @@
         <button class="topbar-mode-btn inactive" type="button" disabled>Cross Consultation</button>
         <button class="topbar-mode-btn inactive" type="button" disabled>OT Notes</button>
         <button class="topbar-mode-btn inactive" type="button" disabled>Reports</button>
+      </div>
+      <div class="privacy-row">
+        <button class="privacy-label" id="anonymizeLabel" type="button">Anonymize</button>
+        <button class="privacy-switch" id="anonymizeToggle" type="button" role="switch" aria-checked="false" aria-label="Toggle anonymized display"></button>
       </div>
       <div class="date-nav" id="dateNav" aria-label="Visit date navigation">
         <button class="date-today" id="todayBtn" title="Jump to today"></button>
@@ -4501,7 +4519,7 @@ if ('serviceWorker' in navigator) {
       refreshingForUpdate = true;
       window.location.reload();
     });
-    navigator.serviceWorker.register('./sw.js?v=69', {updateViaCache:'none'}).then(registration => {
+    navigator.serviceWorker.register('./sw.js?v=70', {updateViaCache:'none'}).then(registration => {
       registration.update();
     }).catch(error => {
       console.warn('Service worker registration failed:', error);
