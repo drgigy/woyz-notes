@@ -400,6 +400,17 @@
     min-width:0;
     position:relative;
   }
+  .record-search.empty::before{
+    content:attr(data-placeholder);
+    position:absolute;
+    left:10px;
+    top:50%;
+    transform:translateY(-50%);
+    color:#A3ADA7;
+    font:700 12px 'Inter',sans-serif;
+    letter-spacing:.02em;
+    pointer-events:none;
+  }
   .record-search-input{
     width:100%;
     height:36px;
@@ -413,7 +424,7 @@
     overflow:hidden;
     white-space:nowrap;
   }
-  .record-search-input:empty::before{ content:attr(data-placeholder); color:#8A938C; font-weight:600; }
+  .record-search-input:empty::before{ content:''; }
   .record-search-input:focus{ border-color:var(--focus); box-shadow:0 0 0 3px rgba(143,185,172,.2); }
   .search-scope-toggle{
     height:36px;
@@ -1480,8 +1491,8 @@
       <button class="mobile-doc-action" data-mobile-voice-mode="Reply letter">Reply Letter</button>
     </div>
     <div class="search-row">
-      <div class="record-search">
-        <div class="record-search-input" id="recordSearchInput" contenteditable="true" role="searchbox" aria-label="Search records by name or UHID" data-placeholder="Search"></div>
+      <div class="record-search empty" data-placeholder="SEARCH">
+        <div class="record-search-input" id="recordSearchInput" contenteditable="true" role="searchbox" aria-label="Search records by name or UHID"></div>
       </div>
       <div class="search-scope-toggle" id="searchScopeToggle" aria-label="Search scope">
         <button class="search-scope-btn active" data-search-scope="today" type="button">Today</button>
@@ -2605,6 +2616,11 @@ async function persistRecord(record, changes){
 function clearRecordSearch(){
   recordSearchTerm = '';
   if (recordSearchInput) recordSearchInput.textContent = '';
+  updateRecordSearchPlaceholder();
+}
+
+function updateRecordSearchPlaceholder(){
+  recordSearchInput?.parentElement?.classList.toggle('empty', !(recordSearchInput.textContent || '').trim());
 }
 
 loginForm.addEventListener('submit', async event => {
@@ -4180,6 +4196,7 @@ anonymizeToggle.addEventListener('click', toggleAnonymize);
 
 recordSearchInput.addEventListener('input', () => {
   recordSearchTerm = recordSearchInput.textContent || '';
+  updateRecordSearchPlaceholder();
   renderEntries();
   if (searchScope === 'all' && !selectedTimelineKey){
     mainScroll.innerHTML = '<div class="empty-state"><div class="empty-title">Search all patients</div><div class="empty-sub">Select a patient to view previous records.</div></div>';
@@ -4200,7 +4217,9 @@ recordSearchInput.addEventListener('keydown', event => {
 recordSearchInput.addEventListener('paste', event => {
   event.preventDefault();
   document.execCommand('insertText', false, event.clipboardData?.getData('text/plain') || '');
+  requestAnimationFrame(updateRecordSearchPlaceholder);
 });
+updateRecordSearchPlaceholder();
 searchScopeToggle.addEventListener('click', event => {
   const button = event.target.closest('[data-search-scope]');
   if (!button) return;
@@ -4539,7 +4558,7 @@ if ('serviceWorker' in navigator) {
       refreshingForUpdate = true;
       window.location.reload();
     });
-    navigator.serviceWorker.register('./sw.js?v=73', {updateViaCache:'none'}).then(registration => {
+    navigator.serviceWorker.register('./sw.js?v=74', {updateViaCache:'none'}).then(registration => {
       registration.update();
     }).catch(error => {
       console.warn('Service worker registration failed:', error);
