@@ -1677,7 +1677,7 @@
 <script type="module">
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/12.16.0/firebase-app.js';
 import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut as firebaseSignOut } from 'https://www.gstatic.com/firebasejs/12.16.0/firebase-auth.js';
-import { getFirestore, collection, query, where, onSnapshot, addDoc, updateDoc, deleteDoc, doc, getDoc, getDocs, setDoc, serverTimestamp } from 'https://www.gstatic.com/firebasejs/12.16.0/firebase-firestore.js';
+import { getFirestore, collection, query, where, onSnapshot, addDoc, deleteDoc, doc, getDoc, getDocs, setDoc, serverTimestamp } from 'https://www.gstatic.com/firebasejs/12.16.0/firebase-firestore.js';
 import { firebaseConfig } from './firebase-config.js';
 
 const firebaseApp = initializeApp(firebaseConfig);
@@ -2621,7 +2621,7 @@ function saveButtonLabel(){
 
 async function persistRecord(record, changes){
   if (!currentUser || !record?.firestoreId) return;
-  await updateDoc(noteDocRef(record),changes);
+  await setDoc(noteDocRef(record),changes,{merge:true});
 }
 
 function clearRecordSearch(){
@@ -4021,9 +4021,9 @@ function selectExistingDraftRecord(record){
   return true;
 }
 
-function selectExistingLocalDraft(){
+function selectExistingLocalDraft({visitType = selectedVisitType, fallbackToAny = true} = {}){
   const ownDrafts = records.filter(record => record.isDraft && noteOwnerUid(record) === currentUser?.uid);
-  const draft = ownDrafts.find(noteMatchesSelectedVisitType) || ownDrafts[0];
+  const draft = ownDrafts.find(record => noteVisitType(record) === visitType) || (fallbackToAny ? ownDrafts[0] : null);
   return selectExistingDraftRecord(draft);
 }
 
@@ -4049,6 +4049,8 @@ async function createVoiceDraft(mode = null){
   if (!currentUser) return;
   return withDraftCreationLock(async () => {
     const selectedMode = mode || null;
+    const requestedVisitType = selectedVisitType === 'IP' ? 'IP' : 'OP';
+    const requestedDateString = dateInputValue(selectedVisitDate);
     openPreparingNewVoiceDock(selectedMode);
     if (searchScope === 'all'){
       searchScope = 'today';
@@ -4057,30 +4059,22 @@ async function createVoiceDraft(mode = null){
       subscribeToSelectedDate();
     }
     try{
-      if (selectExistingLocalDraft()){
+      if (selectExistingLocalDraft({visitType:requestedVisitType,fallbackToAny:false})){
         if (records[activeIndex]?.voiceDraft) openNewVoiceDock();
-        return;
-      }
-      const existingDraft = await existingDraftSnapshotForCurrentUser();
-      if (existingDraft){
-        selectExistingDraftSnapshot(existingDraft);
-        selectLocalDraftFromSnapshot(existingDraft);
-        pendingNewVoiceDockId = null;
-        openNewVoiceDock();
         return;
       }
       stopVoiceTimer();
       stopMediaTracks();
       const now = new Date();
       const createdAt = now.toLocaleDateString('en-GB', {day:'2-digit', month:'short', year:'numeric'}) + ', ' + now.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
-      const selectedDateString = dateInputValue(selectedVisitDate);
-      const newDraft = await addDoc(userNotesCollection(),{
+      const newDraftRef = doc(userNotesCollection());
+      const draftData = {
         heading: voiceDraftHeadingForMode(selectedMode),
-        createdAt:serverTimestamp(),
+        createdAt:null,
         createdAtLabel:createdAt,
-        visitDate:selectedDateString,
-        visitType:selectedVisitType,
-        admissionDate:selectedVisitType === 'IP' ? selectedDateString : null,
+        visitDate:requestedDateString,
+        visitType:requestedVisitType,
+        admissionDate:requestedVisitType === 'IP' ? requestedDateString : null,
         isDraft: true,
         everSaved:false,
         saved:false,
@@ -4092,30 +4086,19 @@ async function createVoiceDraft(mode = null){
         status: 'Ready to record',
         transcription:newVoiceTemplateForMode(selectedMode),
         patientData:{name:'NIL',age:'NIL',uhid:'NIL',sex:'NIL'}
-      });
-      pendingSelectId = newDraft.id;
-      pendingNewVoiceDockId = newDraft.id;
+      };
+      pendingSelectId = newDraftRef.id;
+      pendingNewVoiceDockId = newDraftRef.id;
       remainingSeconds = 300;
-      selectLocalDraftFromSnapshot({id:newDraft.id,data:()=>({
-        heading: voiceDraftHeadingForMode(selectedMode),
-        createdAt:null,
-        createdAtLabel:createdAt,
-        visitDate:selectedDateString,
-        visitType:selectedVisitType,
-        admissionDate:selectedVisitType === 'IP' ? selectedDateString : null,
-        isDraft:true,
-        everSaved:false,
-        saved:false,
-        kind:'generated',
-        voiceDraft:true,
-        recording:false,
-        hasStarted:false,
-        selectedMode,
-        status:'Ready to record',
-        transcription:newVoiceTemplateForMode(selectedMode),
-        patientData:{name:'NIL',age:'NIL',uhid:'NIL',sex:'NIL'}
-      })});
+      selectLocalDraftFromSnapshot({id:newDraftRef.id,data:()=>draftData});
       openNewVoiceDock();
+      setDoc(newDraftRef,{...draftData,createdAt:serverTimestamp()},{merge:true}).catch(error => {
+        console.error('Voice draft save failed:', error);
+        if (continuationState.targetId === newDraftRef.id){
+          continuationState.status = 'Voice note opened, but saving is pending.';
+          renderContinuationDock();
+        }
+      });
     }catch(error){
       console.error('Voice draft creation failed:', error);
       continuationState.processing = false;
@@ -4646,7 +4629,7 @@ if ('serviceWorker' in navigator) {
       refreshingForUpdate = true;
       window.location.reload();
     });
-    navigator.serviceWorker.register('./sw.js?v=77', {updateViaCache:'none'}).then(registration => {
+    navigator.serviceWorker.register('./sw.js?v=78', {updateViaCache:'none'}).then(registration => {
       registration.update();
     }).catch(error => {
       console.warn('Service worker registration failed:', error);
