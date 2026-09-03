@@ -1098,6 +1098,13 @@
       .sidebar{
         padding-bottom:calc(18px + env(safe-area-inset-bottom));
       }
+      .continuation-dock{
+        position:fixed;
+        left:18px !important;
+        right:auto !important;
+        bottom:calc(22px + env(safe-area-inset-bottom)) !important;
+        top:auto !important;
+      }
     }
   }
 
@@ -3959,6 +3966,18 @@ function selectExistingDraftSnapshot(snapshot){
   subscribeToSelectedDate();
 }
 
+function selectLocalDraftFromSnapshot(snapshot){
+  const draft = noteFromSnapshot(snapshot, currentUser.uid);
+  records = [
+    draft,
+    ...records.filter(record => !(record.firestoreId === draft.firestoreId && noteOwnerUid(record) === noteOwnerUid(draft)))
+  ];
+  activeIndex = 0;
+  renderEntries();
+  renderGeneratedNote(draft);
+  return draft;
+}
+
 function selectExistingDraftRecord(record){
   if (!record?.firestoreId) return false;
   pendingSelectId = record.firestoreId;
@@ -3970,6 +3989,8 @@ function selectExistingDraftRecord(record){
     selectedVisitDate = new Date(year,month-1,day);
     updateDateNavigation();
   }
+  const localIndex = records.findIndex(candidate => candidate.firestoreId === record.firestoreId && noteOwnerUid(candidate) === noteOwnerUid(record));
+  if (localIndex >= 0) selectEntry(localIndex);
   subscribeToSelectedDate();
   return true;
 }
@@ -4008,10 +4029,16 @@ async function createVoiceDraft(mode = null){
       subscribeToSelectedDate();
     }
     const selectedMode = mode || null;
-    if (selectExistingLocalDraft()) return;
+    if (selectExistingLocalDraft()){
+      if (records[activeIndex]?.voiceDraft) openNewVoiceDock();
+      return;
+    }
     const existingDraft = await existingDraftSnapshotForCurrentUser();
     if (existingDraft){
       selectExistingDraftSnapshot(existingDraft);
+      selectLocalDraftFromSnapshot(existingDraft);
+      pendingNewVoiceDockId = null;
+      openNewVoiceDock();
       return;
     }
     stopVoiceTimer();
@@ -4041,6 +4068,26 @@ async function createVoiceDraft(mode = null){
     pendingSelectId = newDraft.id;
     pendingNewVoiceDockId = newDraft.id;
     remainingSeconds = 300;
+    selectLocalDraftFromSnapshot({id:newDraft.id,data:()=>({
+      heading: voiceDraftHeadingForMode(selectedMode),
+      createdAt:null,
+      createdAtLabel:createdAt,
+      visitDate:selectedDateString,
+      visitType:selectedVisitType,
+      admissionDate:selectedVisitType === 'IP' ? selectedDateString : null,
+      isDraft:true,
+      everSaved:false,
+      saved:false,
+      kind:'generated',
+      voiceDraft:true,
+      recording:false,
+      hasStarted:false,
+      selectedMode,
+      status:'Ready to record',
+      transcription:newVoiceTemplateForMode(selectedMode),
+      patientData:{name:'NIL',age:'NIL',uhid:'NIL',sex:'NIL'}
+    })});
+    openNewVoiceDock();
   });
 }
 
@@ -4236,7 +4283,11 @@ topbarPatient.addEventListener('keydown', event => {
 mobileBackdrop.addEventListener('click', closeMobileSidebar);
 mobileCopyBtn.addEventListener('click', () => copyBtn.click());
 mobileDeleteBtn.addEventListener('click', () => deleteBtn.click());
-mobileRecordBtn.addEventListener('click', () => createVoiceDraft());
+mobileRecordBtn.addEventListener('click', async event => {
+  event.preventDefault();
+  await createVoiceDraft();
+  closeMobileSidebar();
+});
 mobileAddNoteBtn.addEventListener('click', () => addNoteBtn.click());
 mobileSaveBtn.addEventListener('click', () => saveDraftBtn.click());
 continueNoteBtn.addEventListener('click', openContinuationDock);
@@ -4401,9 +4452,12 @@ signoutBtn.addEventListener('click', async () => {
   await firebaseSignOut(auth);
 });
 
-recordBtn.addEventListener('click', () => createVoiceDraft());
+recordBtn.addEventListener('click', async event => {
+  event.preventDefault();
+  await createVoiceDraft();
+  closeMobileSidebar();
+});
 addNoteBtn.addEventListener('click', createManualDraft);
-recordBtn.addEventListener('click', closeMobileSidebar);
 addNoteBtn.addEventListener('click', closeMobileSidebar);
 
 document.addEventListener('keydown', (event) => {
@@ -4558,7 +4612,7 @@ if ('serviceWorker' in navigator) {
       refreshingForUpdate = true;
       window.location.reload();
     });
-    navigator.serviceWorker.register('./sw.js?v=74', {updateViaCache:'none'}).then(registration => {
+    navigator.serviceWorker.register('./sw.js?v=76', {updateViaCache:'none'}).then(registration => {
       registration.update();
     }).catch(error => {
       console.warn('Service worker registration failed:', error);
