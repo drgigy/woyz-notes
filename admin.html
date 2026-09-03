@@ -402,10 +402,29 @@ function updatePrescriptionPrintButton(note){
 function prescriptionRowsHtml(text){
   const lines = String(text || '').replace(/\r\n/g, '\n').split('\n').map(line => line.trim()).filter(Boolean);
   const rows = [];
+  const medicineStartPattern = /^(?:\d+[.)]\s*)?(?:Tablet|Cap|Capsule|Syrup|Inj|Injection)\b/i;
+  const dosePattern = /\b\d+(?:\.\d+)?\s*(?:mg|mcg|g|ml|units?|iu)\b/i;
+  const isMedicineLine = line => medicineStartPattern.test(line) || dosePattern.test(line);
+  const isNumberedMedicineLine = line => /^\d+[.)]\s+/.test(line);
+  const isMalayalamLine = line => /[\u0D00-\u0D7F]/.test(line);
   for (let index = 0; index < lines.length; index += 1){
     const medicineMatch = lines[index].match(/^(\d+[.)])\s*(.+)$/);
+    if (!medicineMatch && isMedicineLine(lines[index])){
+      const english = lines[index + 1] && !isNumberedMedicineLine(lines[index + 1]) && !isMedicineLine(lines[index + 1]) && !isMalayalamLine(lines[index + 1]) ? lines[index + 1] : '';
+      const localIndex = english ? index + 2 : index + 1;
+      const local = lines[localIndex] && !isNumberedMedicineLine(lines[localIndex]) && !isMedicineLine(lines[localIndex]) ? lines[localIndex] : '';
+      rows.push({
+        number:`${rows.length + 1}.`,
+        medicine:lines[index],
+        english,
+        local
+      });
+      if (english) index += 1;
+      if (local) index += 1;
+      continue;
+    }
     if (!medicineMatch){
-      rows.push({number:'', medicine:lines[index], english:'', local:''});
+      rows.push({number:`${rows.length + 1}.`, medicine:lines[index], english:'', local:''});
       continue;
     }
     const english = lines[index + 1] && !/^\d+[.)]\s+/.test(lines[index + 1]) ? lines[index + 1] : '';
@@ -1026,10 +1045,15 @@ rxPrintBtn.addEventListener('click', () => {
   .rx-print-content{
     flex:1;
     padding:9mm 12mm 8mm;
+    display:flex;
+    flex-direction:column;
   }
   .rx{
     width:100%;
     max-width:none;
+    flex:1;
+    display:flex;
+    flex-direction:column;
   }
   .patient-line{
     display:flex;
@@ -1071,13 +1095,12 @@ rxPrintBtn.addEventListener('click', () => {
     white-space:normal;
   }
   .rx-print-footer{
-    margin-top:18mm;
+    margin-top:auto;
     border-top:1px solid #999;
     padding-top:4mm;
   }
   .rx-print-signature{
-    margin-top:auto;
-    padding:18mm 12mm 10mm;
+    padding:6mm 12mm 10mm;
   }
   .layout-small{ font-size:8.5pt; }
   .layout-medium{ font-size:10pt; }
@@ -1163,7 +1186,7 @@ if ('serviceWorker' in navigator) {
       refreshingForUpdate = true;
       window.location.reload();
     });
-    navigator.serviceWorker.register('./sw.js?v=94', {updateViaCache:'none'}).then(registration => {
+    navigator.serviceWorker.register('./sw.js?v=95', {updateViaCache:'none'}).then(registration => {
       registration.update();
     }).catch(error => {
       console.warn('Service worker registration failed:', error);
