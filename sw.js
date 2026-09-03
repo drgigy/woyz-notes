@@ -1,4 +1,4 @@
-const CACHE_NAME = 'woyz-notes-v91';
+const CACHE_NAME = 'woyz-notes-v92';
 const APP_SHELL = [
   './',
   './index.html',

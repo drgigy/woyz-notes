@@ -81,6 +81,9 @@
   .copy-btn.copied{ background:var(--teal); color:#fff; border-color:var(--teal); }
   .print-btn{ border-color:rgba(31,95,82,0.3); color:var(--teal-deep); }
   .print-btn:hover{ background:var(--teal-wash); }
+  .rx-print-btn{ display:none; border-color:rgba(31,95,82,0.3); color:var(--teal-deep); min-width:74px; }
+  .rx-print-btn:hover{ background:var(--teal-wash); }
+  .rx-print-btn[disabled]{ opacity:.45; cursor:not-allowed; }
   .discharge-btn{
     border-color:#E5B45F;
     background:#FFF6E6;
@@ -173,6 +176,7 @@
       <button class="btn discharge-btn" id="dischargeBtn" style="display:none;">Discharge</button>
       <button class="btn copy-btn" id="copyBtn" style="display:none;">Copy note</button>
       <button class="btn print-btn" id="printBtn" style="display:none;" aria-label="Print visit note" title="Print visit note">Print</button>
+      <button class="btn rx-print-btn" id="rxPrintBtn" type="button" aria-label="Print prescription" title="Print Prescription">Print Rx</button>
       <div class="admin-settings">
         <button class="btn" id="adminSettingsBtn" aria-expanded="false">Settings</button>
         <div class="settings-menu" id="adminSettingsMenu">
@@ -225,6 +229,7 @@ const saveNoteBtn = document.getElementById('saveNoteBtn');
 const dischargeBtn = document.getElementById('dischargeBtn');
 const copyBtn = document.getElementById('copyBtn');
 const printBtn = document.getElementById('printBtn');
+const rxPrintBtn = document.getElementById('rxPrintBtn');
 const adminSettingsBtn = document.getElementById('adminSettingsBtn');
 const adminSettingsMenu = document.getElementById('adminSettingsMenu');
 const signoutBtn = document.getElementById('signoutBtn');
@@ -244,6 +249,12 @@ let selectedVisitType = 'OP';
 let selectedVisitDate = new Date();
 let adminDateTouched = false;
 let currentAdminUid = null;
+
+const DEFAULT_PRESCRIPTION_LAYOUT = {
+  header:{text:'', bold:false, italic:false, size:'medium'},
+  footer:{text:'', bold:false, italic:false, size:'small'},
+  signature:{text:'', bold:false, italic:false, size:'small'}
+};
 
 function escapeHtml(value){
   return String(value ?? '').replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[char]));
@@ -306,6 +317,13 @@ function cleanAge(value){
   return number || text.replace(/\b(years?|yrs?|old)\b/gi, '').trim() || 'NIL';
 }
 
+function fullVisitDateLabel(value){
+  const [year,month,day] = String(value || '').split('-').map(Number);
+  if (!year || !month || !day) return value || 'Undated';
+  const date = new Date(year, month - 1, day);
+  return `${date.toLocaleDateString('en-US', {weekday:'long'})}, ${date.toLocaleDateString('en-GB', {day:'2-digit', month:'short', year:'numeric'})}`;
+}
+
 function compactSex(value){
   const text = String(value || '').trim() || 'NIL';
   if (/^f(emale)?\b/i.test(text)) return 'F';
@@ -355,6 +373,92 @@ function notePatientName(note){
 
 function noteVisitType(note){
   return note.data?.visitType === 'IP' ? 'IP' : 'OP';
+}
+
+function prescriptionTextFromNote(text){
+  const match = String(text || '').replace(/\r\n/g, '\n').match(/(?:^|\n)Prescription:\s*\n([\s\S]*?)(?=\n\n(?:Patient Name|Age|UHID|Sex|Presenting Complaint|History of Present Illness|Past Medical or Surgical History|Allergies|Family History|Personal History|Examination Findings|Review of Investigations|Current Medications|Diagnosis|Treatment Plan|Review Note(?:\s*\([^)]*\))?):|$)/i);
+  if (!match) return '';
+  const prescription = String(match[1] || '').trim();
+  return prescription && !isNilLike(prescription) ? prescription : '';
+}
+
+function selectedAdminNote(){
+  return allNotes.find(item => item.id === selectedNoteId && item.userId === selectedUserId) || null;
+}
+
+function selectedPrescriptionText(){
+  const note = selectedAdminNote();
+  if (!note || noteVisitType(note) !== 'OP') return '';
+  const editor = document.getElementById('adminNoteEditor');
+  return prescriptionTextFromNote(editorPlainText(editor) || note.data?.transcription || '');
+}
+
+function updatePrescriptionPrintButton(note){
+  const text = note ? selectedPrescriptionText() : '';
+  rxPrintBtn.style.display = note && noteVisitType(note) === 'OP' ? 'inline-flex' : 'none';
+  rxPrintBtn.disabled = !text;
+}
+
+function prescriptionRowsHtml(text){
+  const lines = String(text || '').replace(/\r\n/g, '\n').split('\n').map(line => line.trim()).filter(Boolean);
+  const rows = [];
+  for (let index = 0; index < lines.length; index += 1){
+    const medicineMatch = lines[index].match(/^(\d+[.)])\s*(.+)$/);
+    if (!medicineMatch){
+      rows.push({number:'', medicine:lines[index], english:'', local:''});
+      continue;
+    }
+    const english = lines[index + 1] && !/^\d+[.)]\s+/.test(lines[index + 1]) ? lines[index + 1] : '';
+    const local = english && lines[index + 2] && !/^\d+[.)]\s+/.test(lines[index + 2]) ? lines[index + 2] : '';
+    rows.push({number:medicineMatch[1], medicine:medicineMatch[2], english, local});
+    if (english) index += 1;
+    if (local) index += 1;
+  }
+  return rows.map(row => `
+    <div class="rx-row">
+      <div class="rx-number">${escapeHtml(row.number)}</div>
+      <div class="rx-medicine">${escapeHtml(row.medicine)}</div>
+      <div class="rx-instructions">
+        ${row.english ? `<div>${escapeHtml(row.english)}</div>` : ''}
+        ${row.local ? `<div>${escapeHtml(row.local)}</div>` : ''}
+      </div>
+    </div>
+  `).join('');
+}
+
+function normalizedLayoutBlock(block, defaults){
+  const size = ['small','medium','large'].includes(block?.size) ? block.size : defaults.size;
+  return {
+    text:String(block?.text ?? defaults.text ?? ''),
+    bold:Boolean(block?.bold),
+    italic:Boolean(block?.italic),
+    size
+  };
+}
+
+function prescriptionLayoutForNote(note){
+  const saved = userProfiles[note?.userId]?.prescriptionLayout;
+  return {
+    header:normalizedLayoutBlock(saved?.header, DEFAULT_PRESCRIPTION_LAYOUT.header),
+    footer:normalizedLayoutBlock(saved?.footer, DEFAULT_PRESCRIPTION_LAYOUT.footer),
+    signature:normalizedLayoutBlock(saved?.signature, DEFAULT_PRESCRIPTION_LAYOUT.signature)
+  };
+}
+
+function layoutBlockClass(block){
+  return [
+    `layout-${block.size || 'medium'}`,
+    block.bold ? 'layout-bold' : '',
+    block.italic ? 'layout-italic' : ''
+  ].filter(Boolean).join(' ');
+}
+
+function printBlockHtml(block, {firstLineStrong = false} = {}){
+  const lines = String(block?.text || '').replace(/\r\n/g, '\n').split('\n');
+  return lines.map((line, index) => {
+    const escaped = escapeHtml(line);
+    return firstLineStrong && index === 0 ? `<strong>${escaped}</strong>` : escaped;
+  }).join('<br>');
 }
 
 function noteMatchesSelectedScope(note, selectedDate = dateInputValue(selectedVisitDate)){
@@ -474,6 +578,7 @@ function closeAdminSettings(){
 function showEmpty(title, message){
   copyBtn.style.display = 'none';
   printBtn.style.display = 'none';
+  rxPrintBtn.style.display = 'none';
   saveNoteBtn.style.display = 'none';
   dischargeBtn.style.display = 'none';
   mainScroll.innerHTML = `<div class="empty-state"><div class="empty-title">${escapeHtml(title)}</div><div>${escapeHtml(message)}</div></div>`;
@@ -553,14 +658,16 @@ function renderSelectedNote(){
   printBtn.style.display = text ? 'inline-flex' : 'none';
   saveNoteBtn.style.display = 'inline-flex';
   updateDischargeButton(note);
+  updatePrescriptionPrintButton(note);
   saveNoteBtn.textContent = 'Save';
   saveNoteBtn.classList.remove('copied');
   copyBtn.classList.remove('copied');
   copyBtn.textContent = 'Copy note';
-  mainScroll.innerHTML = `
-    <h1 class="note-title">${escapeHtml(title)}</h1>
-    <div class="note-editor" id="adminNoteEditor" contenteditable="true" role="textbox" aria-label="Editable admin note">${richNoteHtml(text)}</div>
-  `;
+	  mainScroll.innerHTML = `
+	    <h1 class="note-title">${escapeHtml(title)}</h1>
+	    <div class="note-editor" id="adminNoteEditor" contenteditable="true" role="textbox" aria-label="Editable admin note">${richNoteHtml(text)}</div>
+	  `;
+  document.getElementById('adminNoteEditor')?.addEventListener('input', () => updatePrescriptionPrintButton(note));
 }
 
 function render(){
@@ -871,6 +978,142 @@ printBtn.addEventListener('click', () => {
   }, 150);
 });
 
+rxPrintBtn.addEventListener('click', () => {
+  const note = selectedAdminNote();
+  if (!note) return;
+  const prescription = selectedPrescriptionText();
+  if (!prescription) return;
+  const patient = note.data.patientData || {};
+  const age = cleanAge(patient.age);
+  const ageLabel = /^nil$/i.test(age) ? 'NIL' : `${age} years`;
+  const patientLine = [
+    `Age: ${ageLabel}`,
+    `Sex: ${compactSex(patient.sex || note.data.patientSex || 'NIL')}`,
+    `UHID: ${patient.uhid || 'NIL'}`,
+    fullVisitDateLabel(note.data.visitDate || dateInputValue(selectedVisitDate))
+  ].join(' | ');
+  const layout = prescriptionLayoutForNote(note);
+  const printWindow = window.open('', '_blank');
+  if (!printWindow){
+    window.print();
+    return;
+  }
+  printWindow.document.write(`<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>WOYZ Prescription Print</title>
+<style>
+  @page{ margin:8mm; }
+  *{ box-sizing:border-box; }
+  body{
+    margin:0;
+    color:#111;
+    font-family:Arial, Helvetica, sans-serif;
+    font-size:10.5pt;
+    line-height:1.35;
+  }
+  .page{
+    min-height:100vh;
+    display:flex;
+    flex-direction:column;
+  }
+  .rx-print-header{
+    background:#EEF4F6;
+    padding:12mm 12mm 10mm;
+    min-height:31mm;
+  }
+  .rx-print-content{
+    flex:1;
+    padding:9mm 12mm 8mm;
+  }
+  .rx{
+    width:100%;
+    max-width:none;
+  }
+  .patient-line{
+    display:flex;
+    flex-wrap:wrap;
+    gap:8px 14px;
+    margin:0 0 18px;
+    font-size:9.5pt;
+  }
+  h1{
+    margin:0 0 8px;
+    font-size:16pt;
+    line-height:1.15;
+    text-transform:uppercase;
+  }
+  .rx-heading{
+    color:#00395F;
+    font-size:12pt;
+    font-weight:700;
+    margin:0 0 13px;
+  }
+  .rx-table{
+    display:grid;
+    gap:11px;
+  }
+  .rx-row{
+    display:grid;
+    grid-template-columns:28px minmax(170px, 34%) 1fr;
+    column-gap:10px;
+    align-items:start;
+    break-inside:avoid;
+  }
+  .rx-number,
+  .rx-medicine{
+    font-weight:700;
+  }
+  .rx-instructions{
+    display:grid;
+    gap:2px;
+    white-space:normal;
+  }
+  .rx-print-footer{
+    margin-top:18mm;
+    border-top:1px solid #999;
+    padding-top:4mm;
+  }
+  .rx-print-signature{
+    margin-top:auto;
+    padding:18mm 12mm 10mm;
+  }
+  .layout-small{ font-size:8.5pt; }
+  .layout-medium{ font-size:10pt; }
+  .layout-large{ font-size:12pt; }
+  .layout-bold{ font-weight:700; }
+  .layout-italic{ font-style:italic; }
+  strong{ font-weight:700; }
+  @media print{
+    body{ print-color-adjust:exact; -webkit-print-color-adjust:exact; }
+  }
+</style>
+</head>
+<body>
+  <main class="page">
+    <header class="rx-print-header ${layoutBlockClass(layout.header)}">${printBlockHtml(layout.header, {firstLineStrong:true})}</header>
+    <section class="rx-print-content">
+      <div class="rx">
+        <h1>${escapeHtml(notePatientName(note))}</h1>
+        <div class="patient-line">${escapeHtml(patientLine)}</div>
+        <div class="rx-heading">Rx / ADVICE</div>
+        <div class="rx-table">${prescriptionRowsHtml(prescription)}</div>
+        ${layout.footer.text ? `<div class="rx-print-footer ${layoutBlockClass(layout.footer)}">${printBlockHtml(layout.footer)}</div>` : ''}
+      </div>
+    </section>
+    ${layout.signature.text ? `<section class="rx-print-signature ${layoutBlockClass(layout.signature)}">${printBlockHtml(layout.signature, {firstLineStrong:true})}</section>` : ''}
+  </main>
+</body>
+</html>`);
+  printWindow.document.close();
+  printWindow.focus();
+  setTimeout(() => {
+    printWindow.print();
+    printWindow.close();
+  }, 150);
+});
+
 saveNoteBtn.addEventListener('click', async () => {
   const note = allNotes.find(item => item.id === selectedNoteId && item.userId === selectedUserId);
   const editor = document.getElementById('adminNoteEditor');
@@ -920,7 +1163,7 @@ if ('serviceWorker' in navigator) {
       refreshingForUpdate = true;
       window.location.reload();
     });
-    navigator.serviceWorker.register('./sw.js?v=91', {updateViaCache:'none'}).then(registration => {
+    navigator.serviceWorker.register('./sw.js?v=92', {updateViaCache:'none'}).then(registration => {
       registration.update();
     }).catch(error => {
       console.warn('Service worker registration failed:', error);
