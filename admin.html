@@ -532,6 +532,16 @@ function printBlockHtml(block, {firstLineStrong = false} = {}){
   }).join('<br>');
 }
 
+function footerBlockHtml(block){
+  const lines = String(block?.text || '').replace(/\r\n/g, '\n').split('\n').map(line => line.trim()).filter(Boolean);
+  if (!lines.length) return '';
+  const displayLines = lines.length <= 2 ? lines : [
+    lines.slice(0, -2).join(' '),
+    lines.slice(-2).join(' ')
+  ];
+  return displayLines.map(line => `<span class="rx-print-footer-line">${escapeHtml(line)}</span>`).join('<br>');
+}
+
 function noteMatchesSelectedScope(note, selectedDate = dateInputValue(selectedVisitDate)){
   if (noteVisitType(note) !== selectedVisitType) return false;
   if (selectedVisitType !== 'IP') return note.data?.visitDate === selectedDate;
@@ -1170,7 +1180,10 @@ rxPrintBtn.addEventListener('click', () => {
     margin-top:0;
     border-top:1px solid #999;
     padding-top:4mm;
+    font-size:8pt;
+    line-height:1.28;
   }
+  .rx-print-footer-line{ white-space:nowrap; }
   .rx-print-signature{
     margin-top:14mm;
     padding:0;
@@ -1180,6 +1193,9 @@ rxPrintBtn.addEventListener('click', () => {
   .layout-large{ font-size:12pt; }
   .layout-bold{ font-weight:700; }
   .layout-italic{ font-style:italic; }
+  .rx-print-footer.layout-small,
+  .rx-print-footer.layout-medium,
+  .rx-print-footer.layout-large{ font-size:8pt; }
   strong{ font-weight:700; }
   @media print{
     body{ print-color-adjust:exact; -webkit-print-color-adjust:exact; }
@@ -1198,7 +1214,7 @@ rxPrintBtn.addEventListener('click', () => {
         ${layout.signature.text ? `<section class="rx-print-signature ${layoutBlockClass(layout.signature)}">${printBlockHtml(layout.signature, {firstLineStrong:true})}</section>` : ''}
       </div>
     </section>
-    ${layout.footer.text ? `<section class="rx-print-footer ${layoutBlockClass(layout.footer)}">${printBlockHtml(layout.footer)}</section>` : ''}
+    ${layout.footer.text ? `<section class="rx-print-footer ${layoutBlockClass(layout.footer)}">${footerBlockHtml(layout.footer)}</section>` : ''}
   </main>
 </body>
 </html>`);
@@ -1259,7 +1275,7 @@ if ('serviceWorker' in navigator) {
       refreshingForUpdate = true;
       window.location.reload();
     });
-    navigator.serviceWorker.register('./sw.js?v=101', {updateViaCache:'none'}).then(registration => {
+    navigator.serviceWorker.register('./sw.js?v=102', {updateViaCache:'none'}).then(registration => {
       registration.update();
     }).catch(error => {
       console.warn('Service worker registration failed:', error);
