@@ -211,32 +211,36 @@
   .privacy-switch.active::after{ transform:translateX(22px); }
   .sidebar > .privacy-row{
     flex:0 0 auto;
-    height:32px;
-    margin:7px 4px 0;
-    padding:4px;
+    width:auto;
+    height:36px;
+    margin:8px 4px 0;
+    padding:3px;
     border:1px solid #D8E1E7;
     border-radius:10px;
     background:#fff;
-    grid-template-columns:minmax(0,1fr) minmax(0,1fr);
+    grid-template-columns:minmax(104px,1fr) 50px;
+    gap:7px;
   }
   .sidebar > .privacy-row .privacy-label{
-    height:24px;
+    order:1;
+    height:30px;
     border-radius:7px;
-    font-size:11px;
+    font-size:12px;
     box-shadow:none;
   }
   .sidebar > .privacy-row .privacy-switch{
-    width:42px;
-    height:24px;
+    order:2;
+    width:50px;
+    height:30px;
     box-shadow:0 3px 10px -9px rgba(31,95,82,.6), inset 0 1px 2px rgba(0,0,0,.08);
   }
   .sidebar > .privacy-row .privacy-switch::after{
-    width:18px;
-    height:18px;
+    width:24px;
+    height:24px;
     background:var(--teal);
   }
   .sidebar > .privacy-row .privacy-switch.active::after{
-    transform:translateX(18px);
+    transform:translateX(20px);
   }
   .note-editor.anonymized{
     background:#F8FAF8;
@@ -246,10 +250,11 @@
   .btn.delete-btn{
     display:none;
     min-height:38px;
+    min-width:78px;
     background:var(--red);
     color:#fff;
     border-color:var(--red);
-    padding:0 18px;
+    padding:0 14px;
     font-weight:800;
   }
   .btn.delete-btn.visible{ display:flex; }
@@ -257,10 +262,11 @@
   .btn.save-draft-btn{
     display:none;
     min-height:38px;
+    min-width:78px;
     background:var(--teal);
     color:#fff;
     border-color:var(--teal);
-    padding:0 18px;
+    padding:0 14px;
     font-weight:800;
   }
   .btn.save-draft-btn.visible{ display:flex; }
@@ -634,13 +640,16 @@
     border:1px solid var(--border);
     background:var(--panel);
     color:var(--ink);
-    padding:9px 16px;
+    min-height:38px;
+    min-width:78px;
+    padding:0 14px;
     border-radius:10px;
     font-size:13.5px;
-    font-weight:600;
+    font-weight:800;
     cursor:pointer;
     display:flex;
     align-items:center;
+    justify-content:center;
     gap:7px;
     transition:background .12s ease, border-color .12s ease, transform .1s ease;
   }
@@ -663,7 +672,7 @@
     display:none;
     border-color:rgba(31,95,82,0.3);
     color:var(--teal-deep);
-    min-width:74px;
+    min-width:78px;
     justify-content:center;
   }
   .rx-print-btn.visible{ display:flex; }
@@ -676,10 +685,11 @@
   .btn.discharge-btn{
     display:none;
     min-height:38px;
+    min-width:78px;
     background:#FFF6E6;
     color:#8A5200;
     border-color:#E5B45F;
-    padding:0 18px;
+    padding:0 14px;
     font-weight:800;
   }
   .btn.discharge-btn.visible{ display:flex; }
@@ -754,6 +764,14 @@
     order:2;
     flex:0 0 auto;
   }
+  .template-wrap::after{
+    content:'';
+    position:absolute;
+    left:0;
+    right:0;
+    top:100%;
+    height:10px;
+  }
   .template-btn{ width:108px; }
   .template-wrap:hover .template-btn,
   .template-wrap:focus-within .template-btn{
@@ -802,6 +820,14 @@
   .trash-shortcut-btn{ order:9; flex-shrink:0; }
   /* ---------- SETTINGS ---------- */
   .settings-wrap{ order:10; position:relative; flex-shrink:0; }
+  .settings-wrap::after{
+    content:'';
+    position:absolute;
+    left:0;
+    right:0;
+    top:100%;
+    height:10px;
+  }
 
   .settings-btn,.trash-shortcut-btn{
     width:38px;height:38px;
@@ -837,7 +863,15 @@
     display:none;
     z-index:20;
   }
+  .settings-wrap:hover .settings-menu,
+  .settings-wrap:focus-within .settings-menu,
   .settings-menu.open{ display:block; }
+  .settings-wrap:hover .settings-btn,
+  .settings-wrap:focus-within .settings-btn{
+    background:var(--teal-wash);
+    color:var(--teal-deep);
+    border-color:rgba(31,95,82,0.3);
+  }
 
   .settings-item{
     width:100%;
@@ -1044,7 +1078,7 @@
       text-overflow:ellipsis;
     }
     .topbar-review-btn{ flex-basis:78px; }
-    .template-btn{ width:84px; }
+    .template-btn{ width:78px; }
     .template-menu{ min-width:160px; }
     .date-step,.date-today{ height:34px; }
     .date-step{ width:32px; }
@@ -1052,7 +1086,8 @@
     .date-input{ height:34px; width:118px; padding:0 8px; }
     .btn{
       min-height:34px;
-      padding:7px 10px;
+      min-width:72px;
+      padding:0 10px;
       border-radius:9px;
       font-size:12px;
     }
@@ -1083,7 +1118,7 @@
       font-size:11.5px;
     }
     .topbar-review-btn{ flex-basis:88px; }
-    .template-btn{ width:98px; }
+    .template-btn{ width:88px; }
   }
 
   @media (min-width:601px) and (max-width:1180px){
@@ -1189,13 +1224,10 @@
     .btn.save-draft-btn,
     .btn.discharge-btn,
     .btn.delete-btn,
+    .btn-copy,
     .print-btn,
     .rx-print-btn{
-      min-width:74px;
-      justify-content:center;
-    }
-    .btn-copy{
-      min-width:66px;
+      min-width:72px;
       justify-content:center;
     }
     .generated-note-card{ padding:28px 30px 80px; }
@@ -2010,8 +2042,10 @@ const mobileSaveBtn = document.getElementById('mobileSaveBtn');
 const continueNoteBtn = document.getElementById('continueNoteBtn');
 const topbarDocActions = document.getElementById('topbarDocActions');
 const topbarContinueBtn = document.getElementById('topbarContinueBtn');
+const templateWrap = document.querySelector('.template-wrap');
 const templateBtn = document.getElementById('templateBtn');
 const templateMenu = document.getElementById('templateMenu');
+const settingsWrap = document.querySelector('.settings-wrap');
 const loginScreen = document.getElementById('loginScreen');
 const loginForm = document.getElementById('loginForm');
 const loginEmail = document.getElementById('loginEmail');
@@ -2108,6 +2142,8 @@ let latestDateLookupInProgress = false;
 let dateSubscriptionRequestId = 0;
 let saveFeedbackTimer = null;
 let saveFeedbackUntil = 0;
+let templateCloseTimer = null;
+let settingsCloseTimer = null;
 let anonymizeEnabled = localStorage.getItem(ANONYMIZE_STORAGE) === 'true';
 let continuationState = {
   open:false,
@@ -5128,19 +5164,47 @@ dischargeBtn.addEventListener('click', async () => {
 });
 
 function closeSettings(){
+  clearTimeout(settingsCloseTimer);
   settingsMenu.classList.remove('open');
   settingsBtn.classList.remove('open');
   settingsBtn.setAttribute('aria-expanded', 'false');
 }
 
+function openSettings(){
+  clearTimeout(settingsCloseTimer);
+  settingsMenu.classList.add('open');
+  settingsBtn.classList.add('open');
+  settingsBtn.setAttribute('aria-expanded', 'true');
+}
+
+function scheduleCloseSettings(){
+  clearTimeout(settingsCloseTimer);
+  settingsCloseTimer = setTimeout(closeSettings, 900);
+}
+
 function closeTemplateMenu(){
+  clearTimeout(templateCloseTimer);
   templateMenu.classList.remove('open');
+  templateBtn.classList.remove('active');
   templateBtn.setAttribute('aria-expanded', 'false');
   updateContinueNoteButton();
 }
 
+function openTemplateMenu(){
+  clearTimeout(templateCloseTimer);
+  templateMenu.classList.add('open');
+  templateBtn.classList.add('active');
+  templateBtn.setAttribute('aria-expanded', 'true');
+}
+
+function scheduleCloseTemplateMenu(){
+  clearTimeout(templateCloseTimer);
+  templateCloseTimer = setTimeout(closeTemplateMenu, 900);
+}
+
 templateBtn.addEventListener('click', event => {
   event.stopPropagation();
+  clearTimeout(templateCloseTimer);
   const isOpen = templateMenu.classList.toggle('open');
   templateBtn.classList.toggle('active', isOpen);
   templateBtn.setAttribute('aria-expanded', String(isOpen));
@@ -5148,10 +5212,16 @@ templateBtn.addEventListener('click', event => {
 
 settingsBtn.addEventListener('click', (e) => {
   e.stopPropagation();
+  clearTimeout(settingsCloseTimer);
   const isOpen = settingsMenu.classList.toggle('open');
   settingsBtn.classList.toggle('open', isOpen);
   settingsBtn.setAttribute('aria-expanded', String(isOpen));
 });
+
+templateWrap.addEventListener('pointerenter', openTemplateMenu);
+templateWrap.addEventListener('pointerleave', scheduleCloseTemplateMenu);
+settingsWrap.addEventListener('pointerenter', openSettings);
+settingsWrap.addEventListener('pointerleave', scheduleCloseSettings);
 
 document.addEventListener('click', (e) => {
   if (!settingsMenu.contains(e.target) && e.target !== settingsBtn){
@@ -5411,7 +5481,7 @@ if ('serviceWorker' in navigator) {
       refreshingForUpdate = true;
       window.location.reload();
     });
-    navigator.serviceWorker.register('./sw.js?v=93', {updateViaCache:'none'}).then(registration => {
+    navigator.serviceWorker.register('./sw.js?v=94', {updateViaCache:'none'}).then(registration => {
       registration.update();
     }).catch(error => {
       console.warn('Service worker registration failed:', error);
