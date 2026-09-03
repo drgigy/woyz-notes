@@ -445,34 +445,43 @@ function updatePrescriptionPrintButton(note){
 function prescriptionRowsHtml(text){
   const lines = String(text || '').replace(/\r\n/g, '\n').split('\n').map(line => line.trim()).filter(Boolean);
   const rows = [];
+  let pendingNumber = null;
   const medicineStartPattern = /^(?:\d+[.)]\s*)?(?:Tablet|Cap|Capsule|Syrup|Inj|Injection)\b/i;
   const dosePattern = /\b\d+(?:\.\d+)?\s*(?:mg|mcg|g|ml|units?|iu)\b/i;
   const isMedicineLine = line => medicineStartPattern.test(line) || dosePattern.test(line);
   const isNumberedMedicineLine = line => /^\d+[.)]\s+/.test(line);
   const isMalayalamLine = line => /[\u0D00-\u0D7F]/.test(line);
   for (let index = 0; index < lines.length; index += 1){
+    const numberOnlyMatch = lines[index].match(/^(\d+[.)])$/);
+    if (numberOnlyMatch){
+      pendingNumber = numberOnlyMatch[1];
+      continue;
+    }
     const medicineMatch = lines[index].match(/^(\d+[.)])\s*(.+)$/);
     if (!medicineMatch && isMedicineLine(lines[index])){
       const english = lines[index + 1] && !isNumberedMedicineLine(lines[index + 1]) && !isMedicineLine(lines[index + 1]) && !isMalayalamLine(lines[index + 1]) ? lines[index + 1] : '';
       const localIndex = english ? index + 2 : index + 1;
       const local = lines[localIndex] && !isNumberedMedicineLine(lines[localIndex]) && !isMedicineLine(lines[localIndex]) ? lines[localIndex] : '';
       rows.push({
-        number:`${rows.length + 1}.`,
+        number:pendingNumber || `${rows.length + 1}.`,
         medicine:lines[index],
         english,
         local
       });
+      pendingNumber = null;
       if (english) index += 1;
       if (local) index += 1;
       continue;
     }
     if (!medicineMatch){
-      rows.push({number:`${rows.length + 1}.`, medicine:lines[index], english:'', local:''});
+      rows.push({number:pendingNumber || `${rows.length + 1}.`, medicine:lines[index], english:'', local:''});
+      pendingNumber = null;
       continue;
     }
     const english = lines[index + 1] && !/^\d+[.)]\s+/.test(lines[index + 1]) ? lines[index + 1] : '';
     const local = english && lines[index + 2] && !/^\d+[.)]\s+/.test(lines[index + 2]) ? lines[index + 2] : '';
     rows.push({number:medicineMatch[1], medicine:medicineMatch[2], english, local});
+    pendingNumber = null;
     if (english) index += 1;
     if (local) index += 1;
   }
@@ -1251,7 +1260,7 @@ if ('serviceWorker' in navigator) {
       refreshingForUpdate = true;
       window.location.reload();
     });
-    navigator.serviceWorker.register('./sw.js?v=98', {updateViaCache:'none'}).then(registration => {
+    navigator.serviceWorker.register('./sw.js?v=99', {updateViaCache:'none'}).then(registration => {
       registration.update();
     }).catch(error => {
       console.warn('Service worker registration failed:', error);
