@@ -3418,13 +3418,13 @@ function printBlockHtml(block, {firstLineStrong = false} = {}){
 }
 
 function footerBlockHtml(block){
-  const lines = String(block?.text || '').replace(/\r\n/g, '\n').split('\n').map(line => line.trim()).filter(Boolean);
-  if (!lines.length) return '';
-  const displayLines = lines.length <= 2 ? lines : [
-    lines.slice(0, -2).join(' '),
-    lines.slice(-2).join(' ')
-  ];
-  return displayLines.map(line => `<span class="rx-print-footer-line">${escapeHtml(line)}</span>`).join('<br>');
+  const text = String(block?.text || '').replace(/\s+/g, ' ').trim();
+  if (!text) return '';
+  const emergencyIndex = text.search(/\bEmergency\s+Contact\b/i);
+  const displayLines = emergencyIndex > 0
+    ? [text.slice(0, emergencyIndex).trim(), text.slice(emergencyIndex).trim()]
+    : text.split(/\n+/).map(line => line.trim()).filter(Boolean);
+  return displayLines.map(line => `<span class="rx-print-footer-line">${escapeHtml(line)}</span>`).join('');
 }
 
 function createPrintWindow(){
@@ -5258,14 +5258,19 @@ rxPrintBtn.addEventListener('click', () => {
     font-size:8pt;
     line-height:1.28;
   }
-  .rx-print-footer-line{ white-space:nowrap; }
+  .rx-print-footer-line{
+    display:block;
+    max-width:100%;
+    overflow-wrap:normal;
+    white-space:normal;
+  }
   .rx-print-signature{
     margin-top:14mm;
     padding:0;
   }
   .layout-small{ font-size:8.5pt; }
-  .layout-medium{ font-size:10pt; }
-  .layout-large{ font-size:12pt; }
+  .layout-medium{ font-size:10.5pt; }
+  .layout-large{ font-size:14pt; }
   .layout-bold{ font-weight:700; }
   .layout-italic{ font-style:italic; }
   .rx-print-footer.layout-small,
