@@ -542,6 +542,37 @@ function footerBlockHtml(block){
   return displayLines.map(line => `<span class="rx-print-footer-line">${escapeHtml(line)}</span>`).join('<br>');
 }
 
+function createPrintWindow(){
+  const frame = document.createElement('iframe');
+  frame.setAttribute('aria-hidden', 'true');
+  frame.style.position = 'fixed';
+  frame.style.right = '0';
+  frame.style.bottom = '0';
+  frame.style.width = '0';
+  frame.style.height = '0';
+  frame.style.border = '0';
+  frame.style.opacity = '0';
+  document.body.appendChild(frame);
+  const frameWindow = frame.contentWindow;
+  if (!frameWindow) return window.open('', '_blank');
+  let cleaned = false;
+  const cleanup = () => {
+    if (cleaned) return;
+    cleaned = true;
+    setTimeout(() => frame.remove(), 500);
+  };
+  frameWindow.addEventListener('afterprint', cleanup, {once:true});
+  return {
+    document:frameWindow.document,
+    focus:() => frameWindow.focus(),
+    print:() => {
+      frameWindow.focus();
+      frameWindow.print();
+    },
+    close:() => setTimeout(cleanup, 2500)
+  };
+}
+
 function noteMatchesSelectedScope(note, selectedDate = dateInputValue(selectedVisitDate)){
   if (noteVisitType(note) !== selectedVisitType) return false;
   if (selectedVisitType !== 'IP') return note.data?.visitDate === selectedDate;
@@ -1011,7 +1042,7 @@ printBtn.addEventListener('click', () => {
   const editor = document.getElementById('adminNoteEditor');
   const text = editorPlainText(editor) || note?.data?.transcription || '';
   if (!text) return;
-  const printWindow = window.open('', '_blank');
+  const printWindow = createPrintWindow();
   if (!printWindow){
     window.print();
     return;
@@ -1096,7 +1127,7 @@ rxPrintBtn.addEventListener('click', () => {
     fullVisitDateLabel(note.data.visitDate || dateInputValue(selectedVisitDate))
   ].join(' | ');
   const layout = prescriptionLayoutForNote(note);
-  const printWindow = window.open('', '_blank');
+  const printWindow = createPrintWindow();
   if (!printWindow){
     window.print();
     return;
@@ -1275,7 +1306,7 @@ if ('serviceWorker' in navigator) {
       refreshingForUpdate = true;
       window.location.reload();
     });
-    navigator.serviceWorker.register('./sw.js?v=102', {updateViaCache:'none'}).then(registration => {
+    navigator.serviceWorker.register('./sw.js?v=103', {updateViaCache:'none'}).then(registration => {
       registration.update();
     }).catch(error => {
       console.warn('Service worker registration failed:', error);

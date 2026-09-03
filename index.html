@@ -778,7 +778,7 @@
   }
   .topbar-mode-btn.inactive:hover{ background:#DDEFE9; border-color:#C9E1D9; }
   .topbar-review-btn{
-    flex-basis:96px;
+    flex-basis:110px;
     display:inline-flex;
     align-items:center;
     justify-content:center;
@@ -1108,7 +1108,7 @@
       overflow:hidden;
       text-overflow:ellipsis;
     }
-    .topbar-review-btn{ flex-basis:78px; }
+    .topbar-review-btn{ flex-basis:104px; }
     .template-btn{ width:78px; }
     .template-menu{ min-width:160px; }
     .date-step,.date-today{ height:34px; }
@@ -1148,7 +1148,7 @@
       padding:0 12px;
       font-size:11.5px;
     }
-    .topbar-review-btn{ flex-basis:88px; }
+    .topbar-review-btn{ flex-basis:108px; }
     .template-btn{ width:88px; }
   }
 
@@ -1732,7 +1732,7 @@
         </div>
       </div>
       <div class="topbar-doc-actions" id="topbarDocActions" aria-label="Voice note actions">
-        <button class="topbar-mode-btn topbar-review-btn" id="topbarContinueBtn" aria-label="Add on to selected note by dictation" title="Add on dictation">Add On</button>
+        <button class="topbar-mode-btn topbar-review-btn" id="topbarContinueBtn" aria-label="Review note dictation for selected note" title="Review note dictation">Review Note</button>
         <div class="template-wrap">
           <button class="topbar-mode-btn template-btn" id="templateBtn" type="button" aria-haspopup="true" aria-expanded="false">Template</button>
           <div class="template-menu" id="templateMenu">
@@ -3427,6 +3427,37 @@ function footerBlockHtml(block){
   return displayLines.map(line => `<span class="rx-print-footer-line">${escapeHtml(line)}</span>`).join('<br>');
 }
 
+function createPrintWindow(){
+  const frame = document.createElement('iframe');
+  frame.setAttribute('aria-hidden', 'true');
+  frame.style.position = 'fixed';
+  frame.style.right = '0';
+  frame.style.bottom = '0';
+  frame.style.width = '0';
+  frame.style.height = '0';
+  frame.style.border = '0';
+  frame.style.opacity = '0';
+  document.body.appendChild(frame);
+  const frameWindow = frame.contentWindow;
+  if (!frameWindow) return window.open('', '_blank');
+  let cleaned = false;
+  const cleanup = () => {
+    if (cleaned) return;
+    cleaned = true;
+    setTimeout(() => frame.remove(), 500);
+  };
+  frameWindow.addEventListener('afterprint', cleanup, {once:true});
+  return {
+    document:frameWindow.document,
+    focus:() => frameWindow.focus(),
+    print:() => {
+      frameWindow.focus();
+      frameWindow.print();
+    },
+    close:() => setTimeout(cleanup, 2500)
+  };
+}
+
 function loadLayoutModal(){
   const layout = prescriptionLayout();
   layoutHeaderInput.value = layout.header.text;
@@ -3511,7 +3542,7 @@ function renderGeneratedNote(draft){
           </div>
         </div>
         <div class="note-editor ${anonymizeEnabled ? 'anonymized' : ''}" id="generatedNoteEditor" contenteditable="${canEdit ? 'true' : 'false'}" spellcheck="true" role="textbox" aria-multiline="true" aria-label="Editable generated note">${richNoteHtml(displayText)}</div>
-        <button class="mobile-review-inline ${selectedRecordCanContinue() ? 'visible' : ''}" id="mobileInlineReviewBtn" aria-label="Add on to selected note by dictation">Add On</button>
+        <button class="mobile-review-inline ${selectedRecordCanContinue() ? 'visible' : ''}" id="mobileInlineReviewBtn" aria-label="Review note dictation for selected note">Review Note</button>
       </section>
     </div>`;
   const editor = document.getElementById('generatedNoteEditor');
@@ -5056,7 +5087,7 @@ printBtn.addEventListener('click', () => {
   const sourceText = currentRecordSourceText(activeRecord);
   const note = anonymizeTextForRecord(formatStoredReviewNotes(sourceText), activeRecord);
   if (!note) return;
-  const printWindow = window.open('', '_blank');
+  const printWindow = createPrintWindow();
   if (!printWindow){
     window.print();
     return;
@@ -5140,7 +5171,7 @@ rxPrintBtn.addEventListener('click', () => {
     fullVisitDateLabel(activeRecord.visitDate || dateInputValue(selectedVisitDate))
   ].join(' | ');
   const layout = prescriptionLayout();
-  const printWindow = window.open('', '_blank');
+  const printWindow = createPrintWindow();
   if (!printWindow){
     window.print();
     return;
@@ -5621,7 +5652,7 @@ if ('serviceWorker' in navigator) {
       refreshingForUpdate = true;
       window.location.reload();
     });
-    navigator.serviceWorker.register('./sw.js?v=102', {updateViaCache:'none'}).then(registration => {
+    navigator.serviceWorker.register('./sw.js?v=103', {updateViaCache:'none'}).then(registration => {
       registration.update();
     }).catch(error => {
       console.warn('Service worker registration failed:', error);
