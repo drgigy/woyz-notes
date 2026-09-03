@@ -2034,22 +2034,21 @@ const continuationModeBar = document.getElementById('continuationModeBar');
 
 const GEMINI_KEY_STORAGE = 'woyz_gemini_authorization_key';
 const ANONYMIZE_STORAGE = 'woyz_anonymize_display';
-const PRESCRIPTION_LAYOUT_STORAGE = 'woyz_prescription_print_layout';
 const DEFAULT_PRESCRIPTION_LAYOUT = {
   header:{
-    text:'Dr Gigy Kuruttukulam MD, DM\nConsultant Neurologist\nReg no: 17733\nWhatsApp: 9846044490',
+    text:'',
     bold:false,
     italic:false,
     size:'medium'
   },
   footer:{
-    text:'If you develop any rash, breathing difficulty, swelling, severe allergy symptoms, or any unexpected reaction, please contact us immediately or get urgent medical attention. Emergency contact: +91 8330 811 911, Rajagiri Hospital, Aluva, Ernakulam.',
+    text:'',
     bold:false,
     italic:false,
     size:'small'
   },
   signature:{
-    text:'Dr Gigy Kuruttukulam MD, DM\nConsultant Neurologist\nReg no: 17733',
+    text:'',
     bold:false,
     italic:false,
     size:'small'
@@ -2096,6 +2095,7 @@ let userProfileUnsubscribe = null;
 let groupsUnsubscribe = null;
 let sharedOwnerIds = [];
 let ownerProfiles = {};
+let prescriptionLayoutState = DEFAULT_PRESCRIPTION_LAYOUT;
 let recordSearchTerm = '';
 let searchScope = 'today';
 let allRecords = [];
@@ -2954,6 +2954,8 @@ onAuthStateChanged(auth,user => {
       const profile = snapshot.data() || {};
       userEmail.textContent = displayCredentialName(profile.credentialName) || '';
       ownerProfiles[user.uid] = profile;
+      prescriptionLayoutState = normalizedPrescriptionLayout(profile.prescriptionLayout);
+      if (layoutModal.classList.contains('open')) loadLayoutModal();
       if (Array.isArray(profile.sharedWith)){
         applySharedOwners([user.uid, ...profile.sharedWith]);
       }
@@ -2973,6 +2975,7 @@ onAuthStateChanged(auth,user => {
     if (groupsUnsubscribe) groupsUnsubscribe();
     userProfileUnsubscribe = null;
     groupsUnsubscribe = null;
+    prescriptionLayoutState = DEFAULT_PRESCRIPTION_LAYOUT;
     sharedOwnerIds = [];
     ownerProfiles = {};
     searchScope = 'today';
@@ -3245,17 +3248,16 @@ function normalizedLayoutBlock(block, defaults){
   };
 }
 
+function normalizedPrescriptionLayout(layout){
+  return {
+    header:normalizedLayoutBlock(layout?.header, DEFAULT_PRESCRIPTION_LAYOUT.header),
+    footer:normalizedLayoutBlock(layout?.footer, DEFAULT_PRESCRIPTION_LAYOUT.footer),
+    signature:normalizedLayoutBlock(layout?.signature, DEFAULT_PRESCRIPTION_LAYOUT.signature)
+  };
+}
+
 function prescriptionLayout(){
-  try{
-    const saved = JSON.parse(localStorage.getItem(PRESCRIPTION_LAYOUT_STORAGE) || '{}');
-    return {
-      header:normalizedLayoutBlock(saved.header, DEFAULT_PRESCRIPTION_LAYOUT.header),
-      footer:normalizedLayoutBlock(saved.footer, DEFAULT_PRESCRIPTION_LAYOUT.footer),
-      signature:normalizedLayoutBlock(saved.signature, DEFAULT_PRESCRIPTION_LAYOUT.signature)
-    };
-  }catch(error){
-    return DEFAULT_PRESCRIPTION_LAYOUT;
-  }
+  return prescriptionLayoutState;
 }
 
 function layoutBlockClass(block){
@@ -5198,22 +5200,53 @@ layoutBtn.addEventListener('click', openLayoutModal);
 layoutCloseBtn.addEventListener('click', closeLayoutModal);
 layoutCancelBtn.addEventListener('click', closeLayoutModal);
 layoutModal.addEventListener('click', event => { if (event.target === layoutModal) closeLayoutModal(); });
-layoutResetBtn.addEventListener('click', () => {
-  localStorage.removeItem(PRESCRIPTION_LAYOUT_STORAGE);
-  loadLayoutModal();
+layoutResetBtn.addEventListener('click', async () => {
+  if (!currentUser) return;
+  layoutResetBtn.disabled = true;
+  layoutResetBtn.textContent = 'Resetting...';
+  try{
+    prescriptionLayoutState = DEFAULT_PRESCRIPTION_LAYOUT;
+    await setDoc(doc(db,'users',currentUser.uid),{
+      prescriptionLayout:DEFAULT_PRESCRIPTION_LAYOUT,
+      prescriptionLayoutUpdatedAt:serverTimestamp()
+    },{merge:true});
+    loadLayoutModal();
+    layoutResetBtn.textContent = 'Reset';
+  }catch(error){
+    layoutResetBtn.textContent = 'Try again';
+    setTimeout(() => { layoutResetBtn.textContent = 'Reset'; }, 1200);
+  }finally{
+    layoutResetBtn.disabled = false;
+  }
 });
-layoutSaveBtn.addEventListener('click', () => {
+layoutSaveBtn.addEventListener('click', async () => {
+  if (!currentUser) return;
   const layout = {
     header:readLayoutBlock('header', layoutHeaderInput),
     footer:readLayoutBlock('footer', layoutFooterInput),
     signature:readLayoutBlock('signature', layoutSignatureInput)
   };
-  localStorage.setItem(PRESCRIPTION_LAYOUT_STORAGE, JSON.stringify(layout));
-  layoutSaveBtn.textContent = 'Saved';
-  setTimeout(() => {
-    layoutSaveBtn.textContent = 'Save layout';
-    closeLayoutModal();
-  }, 700);
+  layoutSaveBtn.disabled = true;
+  layoutSaveBtn.textContent = 'Saving...';
+  try{
+    prescriptionLayoutState = normalizedPrescriptionLayout(layout);
+    await setDoc(doc(db,'users',currentUser.uid),{
+      prescriptionLayout:prescriptionLayoutState,
+      prescriptionLayoutUpdatedAt:serverTimestamp()
+    },{merge:true});
+    layoutSaveBtn.textContent = 'Saved';
+    setTimeout(() => {
+      layoutSaveBtn.textContent = 'Save layout';
+      layoutSaveBtn.disabled = false;
+      closeLayoutModal();
+    }, 700);
+  }catch(error){
+    layoutSaveBtn.textContent = 'Try again';
+    setTimeout(() => {
+      layoutSaveBtn.textContent = 'Save layout';
+      layoutSaveBtn.disabled = false;
+    }, 1200);
+  }
 });
 trashBtn.addEventListener('click', openTrashModal);
 topbarTrashBtn.addEventListener('click', openTrashModal);
@@ -5365,7 +5398,7 @@ if ('serviceWorker' in navigator) {
       refreshingForUpdate = true;
       window.location.reload();
     });
-    navigator.serviceWorker.register('./sw.js?v=88', {updateViaCache:'none'}).then(registration => {
+    navigator.serviceWorker.register('./sw.js?v=89', {updateViaCache:'none'}).then(registration => {
       registration.update();
     }).catch(error => {
       console.warn('Service worker registration failed:', error);
