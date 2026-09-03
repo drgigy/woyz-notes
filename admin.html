@@ -1117,7 +1117,7 @@ rxPrintBtn.addEventListener('click', () => {
     min-height:31mm;
   }
   .rx-print-content{
-    padding:9mm 12mm 8mm;
+    padding:9mm 12mm 36mm;
   }
   .rx{
     width:100%;
@@ -1163,12 +1163,16 @@ rxPrintBtn.addEventListener('click', () => {
     white-space:normal;
   }
   .rx-print-footer{
-    margin-top:auto;
+    position:fixed;
+    left:12mm;
+    right:12mm;
+    bottom:10mm;
+    margin-top:0;
     border-top:1px solid #999;
-    padding:4mm 12mm 10mm;
+    padding-top:4mm;
   }
   .rx-print-signature{
-    margin-top:16mm;
+    margin-top:14mm;
     padding:0;
   }
   .layout-small{ font-size:8.5pt; }
@@ -1255,7 +1259,7 @@ if ('serviceWorker' in navigator) {
       refreshingForUpdate = true;
       window.location.reload();
     });
-    navigator.serviceWorker.register('./sw.js?v=100', {updateViaCache:'none'}).then(registration => {
+    navigator.serviceWorker.register('./sw.js?v=101', {updateViaCache:'none'}).then(registration => {
       registration.update();
     }).catch(error => {
       console.warn('Service worker registration failed:', error);
