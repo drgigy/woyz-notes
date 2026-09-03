@@ -1862,6 +1862,7 @@ const GEMINI_PROMPTS = {
 let activeIndex = null;
 let voiceInterval = null;
 let remainingSeconds = 300;
+let timerDeadlineMs = null;
 let mediaRecorder = null;
 let mediaStream = null;
 let audioChunks = [];
@@ -3059,18 +3060,36 @@ function stopProcessingProgress(){
 
 function startVoiceTimer(){
   stopVoiceTimer();
+  timerDeadlineMs = Date.now() + Math.max(0, remainingSeconds) * 1000;
+  updateTimer();
   voiceInterval = setInterval(() => {
-    if (remainingSeconds > 0) remainingSeconds -= 1;
+    remainingSeconds = secondsUntilTimerDeadline();
     updateTimer();
-  }, 1000);
+    if (remainingSeconds === 0) stopVoiceTimer({preserveRemaining:false});
+  }, 250);
 }
 
-function stopVoiceTimer(){
+function stopVoiceTimer({preserveRemaining = true} = {}){
+  if (preserveRemaining && timerDeadlineMs) remainingSeconds = secondsUntilTimerDeadline();
   if (voiceInterval) clearInterval(voiceInterval);
   voiceInterval = null;
+  timerDeadlineMs = null;
+}
+
+function secondsUntilTimerDeadline(){
+  if (!timerDeadlineMs) return Math.max(0, Math.ceil(Number(remainingSeconds) || 0));
+  return Math.max(0, Math.ceil((timerDeadlineMs - Date.now()) / 1000));
+}
+
+function addRecordingTime(seconds){
+  const extraSeconds = Number(seconds) || 0;
+  if (timerDeadlineMs) timerDeadlineMs += extraSeconds * 1000;
+  remainingSeconds = timerDeadlineMs ? secondsUntilTimerDeadline() : Math.max(0, remainingSeconds) + extraSeconds;
+  updateTimer();
 }
 
 function updateTimer(){
+  remainingSeconds = Math.max(0, Math.ceil(Number(remainingSeconds) || 0));
   const minutes = String(Math.floor(remainingSeconds / 60)).padStart(2, '0');
   const seconds = String(remainingSeconds % 60).padStart(2, '0');
   document.querySelectorAll('#voiceTimer,#continuationTimer').forEach(timer => {
@@ -3083,11 +3102,10 @@ function updateTimer(){
 
 function extendRecordingTime(){
   if (activeIndex === null || !records[activeIndex]?.hasStarted || records[activeIndex]?.transcribing) return;
-  remainingSeconds += 300;
+  addRecordingTime(300);
   const draft = records[activeIndex];
   draft.status = 'Recording extended by 5 minutes';
   if (draft.recording && !voiceInterval) startVoiceTimer();
-  updateTimer();
   const status = document.getElementById('voiceStatus');
   if (status) status.textContent = draft.status;
 }
@@ -3450,10 +3468,9 @@ function pauseResumeContinuationRecording(){
 
 function extendContinuationRecording(){
   if (!continuationState.open || !continuationState.hasStarted || continuationState.processing) return;
-  remainingSeconds += 300;
+  addRecordingTime(300);
   if (continuationState.recording && !voiceInterval) startVoiceTimer();
   setContinuationStatus('Five minutes added.');
-  updateTimer();
 }
 
 function setVoiceDraftMode(draft, mode){
@@ -4811,7 +4828,7 @@ if ('serviceWorker' in navigator) {
       refreshingForUpdate = true;
       window.location.reload();
     });
-    navigator.serviceWorker.register('./sw.js?v=81', {updateViaCache:'none'}).then(registration => {
+    navigator.serviceWorker.register('./sw.js?v=82', {updateViaCache:'none'}).then(registration => {
       registration.update();
     }).catch(error => {
       console.warn('Service worker registration failed:', error);
