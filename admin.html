@@ -106,6 +106,29 @@
   .note-editor{ width:100%; min-height:calc(100vh - 190px); border:0; outline:none; resize:vertical; background:#fff; color:#26302B; font:16px/1.55 'Inter',system-ui,sans-serif; padding:0; white-space:pre-wrap; }
   .note-editor p{ margin:0 0 10px; }
   .note-editor strong{ font-weight:800; color:#1E2521; }
+  .note-editor .rx-table{
+    display:grid;
+    gap:12px;
+    margin:8px 0 18px;
+    white-space:normal;
+  }
+  .note-editor .rx-row{
+    display:grid;
+    grid-template-columns:30px minmax(190px, 34%) minmax(0,1fr);
+    column-gap:12px;
+    align-items:start;
+  }
+  .note-editor .rx-number,
+  .note-editor .rx-medicine{
+    font-weight:800;
+    color:#1E2521;
+  }
+  .note-editor .rx-instructions{
+    display:grid;
+    gap:2px;
+    min-width:0;
+  }
+  .note-editor .rx-instructions div + div{ color:var(--muted); }
   .empty-state{ height:100%; display:flex; align-items:center; justify-content:center; flex-direction:column; color:var(--muted); text-align:center; padding:32px; }
   .empty-title{ font:600 30px 'Fraunces',serif; color:#1E2521; margin-bottom:8px; }
   .user-rail{ width:76px; min-height:0; border-left:1px solid var(--border); background:#FAFBF9; display:flex; flex-direction:column; align-items:center; padding:14px 8px; gap:8px; overflow:auto; overscroll-behavior:contain; }
@@ -275,15 +298,31 @@ function compactNoteText(text){
     .join('\n\n');
 }
 
-function richNoteHtml(text){
+const NOTE_SECTION_LOOKAHEAD = '(?:Patient Name|Age|UHID|Sex|Presenting Complaint|History of Present Illness|Past Medical or Surgical History|Allergies|Family History|Personal History|Examination Findings|Review of Investigations|Current Medications|Diagnosis|Treatment Plan|Prescription|Review Note(?:\\s*\\([^)]*\\))?)';
+
+function simpleRichNoteHtml(text){
   return String(text || '')
-    .replace(/\r\n/g, '\n')
     .split('\n')
     .map(line => {
       const escaped = escapeHtml(line);
       return escaped.replace(/^([^:<\n]{2,90}:)(\s*)/, '<strong>$1</strong>$2');
     })
     .join('<br>');
+}
+
+function richNoteHtml(text){
+  const normalized = String(text || '').replace(/\r\n/g, '\n');
+  const prescriptionPattern = new RegExp(`(^|\\n)(Prescription:)\\s*\\n([\\s\\S]*?)(?=\\n\\n${NOTE_SECTION_LOOKAHEAD}:|$)`, 'gi');
+  let html = '';
+  let lastIndex = 0;
+  for (const match of normalized.matchAll(prescriptionPattern)){
+    const labelIndex = match.index + match[1].length;
+    html += simpleRichNoteHtml(normalized.slice(lastIndex, labelIndex));
+    html += `<strong>${escapeHtml(match[2])}</strong><br><div class="rx-table">${prescriptionRowsHtml(match[3])}</div>`;
+    lastIndex = match.index + match[0].length;
+  }
+  html += simpleRichNoteHtml(normalized.slice(lastIndex));
+  return html;
 }
 
 function editorPlainText(editor){
@@ -1186,7 +1225,7 @@ if ('serviceWorker' in navigator) {
       refreshingForUpdate = true;
       window.location.reload();
     });
-    navigator.serviceWorker.register('./sw.js?v=95', {updateViaCache:'none'}).then(registration => {
+    navigator.serviceWorker.register('./sw.js?v=96', {updateViaCache:'none'}).then(registration => {
       registration.update();
     }).catch(error => {
       console.warn('Service worker registration failed:', error);
