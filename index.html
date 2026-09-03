@@ -4011,8 +4011,8 @@ async function sendContinuationAudioToGemini(audioBlob, apiKey, onRetry){
     apiKey,
     audioBlob,
     audioData,
-    systemPrompt:'You are a clinical dictation assistant. Convert this additional dictation into complete professional clinical English to append to an existing note. Correct spelling and grammar only. Do not add, remove, infer, summarize, shorten, condense, compress, or change clinical information. Preserve every clearly dictated medicine, dose, route, frequency, duration, investigation, numeric value, unit, date, examination finding, advice, instruction, consultation note, referral, follow-up, and chronology exactly as dictated. If investigation reports are dictated, output them under the exact heading "Review of Investigations:" and format each investigation/report as a numbered item, with every numbered item starting on a new line. If an investigation report has multiple findings or sentences, put each finding on its own line below the numbered investigation without numbering those finding lines. If blood investigations are dictated, group all blood tests from the same date under one numbered item such as "Blood investigations on 12th January 2026:"; below that item, list each blood value on its own unnumbered line. Never number individual blood values. If blood reports are dictated from multiple dates, create one numbered "Blood investigations on [date]:" item for each date. Add standard conventional units for common blood values even when units are not dictated, while preserving dictated values exactly. If current medicines or medication history are dictated, output them under the exact heading "Current Medications:" and format each medicine as a numbered item, with every numbered medicine starting on a new line. If advice, instructions, consultation advice, or treatment changes are dictated, preserve the dictated heading when present and list each separate instruction on its own numbered line. If no investigations, medicines, advice, or instructions are dictated, do not add those headings; return only the complete continuation paragraph or dictated headings. Do not repeat patient identifiers unless the doctor dictates them as clinical content. Return only the requested JSON object.',
-    taskPrompt:'Transcribe this continuation dictation as complete append-only note text. Keep all dictated headings and every dictated clinical detail. Do not create a full new visit note. Do not summarize, shorten, condense, or omit medicines, doses, investigations, values, instructions, advice, or follow-up. Only create a "Review of Investigations:" section when investigation reports are dictated; then number the investigation reports one by one. For multi-sentence investigation findings, place each finding on a separate unnumbered line below that investigation. For blood investigations, use one numbered item per blood-report date and list the individual blood values below it without numbering, adding standard units when absent. Only create a "Current Medications:" section when medications are dictated; then number each medication one by one, with each medicine on a new line. For advice, instructions, consultation notes, or treatment changes, keep the dictated heading when present and list separate items one by one.',
+    systemPrompt:'You are a clinical dictation assistant. Convert this additional dictation into complete professional clinical English to append to an existing note. Correct spelling and grammar only. Do not add, remove, infer, summarize, shorten, condense, compress, or change clinical information. Preserve every clearly dictated medicine, dose, route, frequency, duration, investigation, numeric value, unit, date, examination finding, advice, instruction, consultation note, referral, follow-up, and chronology exactly as dictated. If the doctor dictates medicines as prescriptions, new medicines, changed medicines, or explicitly continued medicines for the patient, output them under the exact heading "Prescription:" and not under "Current Medications:". Inside Prescription, use exactly this compact format for each medicine: numbered medicine line containing only Tablet/Cap/Syrup/Inj brand name dose, then one clear English patient instruction with timing, duration, and food or administration instruction without repeating the medicine name, then the Malayalam patient instruction for the same medicine without repeating the medicine name. Do not write the word Malayalam before the Malayalam text. Do not translate medicine brand names into Malayalam. Keep medicine names and doses in English in the numbered medicine line only. Always write tablet medicines as Tablet, not Tab. Do not use internal labels like morning, noon, night, bedtime, Duration, or Instructions in prescription lines. If medicines are dictated only as medication history or existing background medicines, output them under the exact heading "Current Medications:" and format each medicine as a numbered item. If investigation reports are dictated, output them under the exact heading "Review of Investigations:" and format each investigation/report as a numbered item, with every numbered item starting on a new line. If investigation orders or advised tests are dictated, output them under the exact heading "Treatment Plan:" and number each ordered investigation or test separately. If an investigation report has multiple findings or sentences, put each finding on its own line below the numbered investigation without numbering those finding lines. If blood investigations are dictated, group all blood tests from the same date under one numbered item such as "Blood investigations on 12th January 2026:"; below that item, list each blood value on its own unnumbered line. Never number individual blood values. If blood reports are dictated from multiple dates, create one numbered "Blood investigations on [date]:" item for each date. Add standard conventional units for common blood values even when units are not dictated, while preserving dictated values exactly. If advice, instructions, consultation advice, treatment changes, or investigation orders are dictated, preserve the dictated heading when present and list each separate instruction one by one. If no investigations, medicines, prescriptions, advice, or instructions are dictated, do not add those headings; return only the complete continuation paragraph or dictated headings. Do not repeat patient identifiers unless the doctor dictates them as clinical content. Return only the requested JSON object.',
+    taskPrompt:'Transcribe this continuation dictation as complete append-only note text. Keep all dictated headings and every dictated clinical detail. Do not create a full new visit note. Do not summarize, shorten, condense, or omit medicines, doses, investigations, values, instructions, advice, or follow-up. If the doctor dictates a prescription, new medicine, changed medicine, or explicitly continued medicine, create a "Prescription:" section and format each medicine as three lines: numbered Tablet/Cap/Syrup/Inj brand name dose; English patient instruction without repeating the medicine name; Malayalam patient instruction without repeating the medicine name. Do not put prescribed medicines under Current Medications. Only create a "Current Medications:" section when medicines are dictated as medication history or existing background medicines. Only create a "Review of Investigations:" section when investigation reports are dictated; then number the investigation reports one by one. For multi-sentence investigation findings, place each finding on a separate unnumbered line below that investigation. For blood investigations, use one numbered item per blood-report date and list the individual blood values below it without numbering, adding standard units when absent. If investigation orders or advised tests are dictated, place them under "Treatment Plan:" and number each ordered investigation or test separately. For advice, instructions, consultation notes, treatment changes, or investigation orders, keep the dictated heading when present and list separate items one by one.',
     responseSchema:continuationResponseSchema(),
     onRetry
   });
@@ -4026,19 +4026,23 @@ async function sendContinuationAudioToGemini(audioBlob, apiKey, onRetry){
 }
 
 function formatContinuationText(text){
-  const normalized = String(text || '')
-    .replace(/\s*(Review of Investigations:\s*)/i, '\n\nReview of Investigations:\n')
-    .replace(/\s*((?:Current )?Medications?:\s*)/i, '\n\nCurrent Medications:\n')
-    .replace(/\s*([A-Z][A-Za-z /-]*(?:Advice|Instructions?|Medications?|Investigations?|Treatment|Plan):\s*)/g, '\n\n$1\n')
-    .replace(/([.!?])\s+([A-Z][A-Za-z /-]{2,80}:)/g, '$1\n\n$2')
-    .replace(/\s+(\d+[.)]\s+)/g, '\n$1')
-    .replace(/\n{3,}/g, '\n\n')
-    .trim();
-  return normalized.replace(
-    /([A-Z][A-Za-z /-]*(?:Advice|Instructions?|Medications?|Investigations?|Treatment|Plan)):\s*\n([\s\S]*?)(?=\n\n[A-Z][A-Za-z /-]*(?:Advice|Instructions?|Medications?|Investigations?|Treatment|Plan):|$)/g,
-    (match, label, value) => `${label}:\n${formatSectionValue(label, value)}`
-  ).trim();
-}
+	  const normalized = String(text || '')
+	    .replace(/\s*(Review of Investigations:\s*)/i, '\n\nReview of Investigations:\n')
+	    .replace(/\s*((?:Current )?Medications?:\s*)/i, '\n\nCurrent Medications:\n')
+	    .replace(/\s*((?:Prescription|Rx|R\/x):\s*)/i, '\n\nPrescription:\n')
+	    .replace(/\s*([A-Z][A-Za-z /-]*(?:Advice|Instructions?|Medications?|Investigations?|Treatment|Plan|Prescription|Rx|R\/x):\s*)/g, '\n\n$1\n')
+	    .replace(/([.!?])\s+([A-Z][A-Za-z /-]{2,80}:)/g, '$1\n\n$2')
+	    .replace(/\s+(\d+[.)]\s+)/g, '\n$1')
+	    .replace(/\n{3,}/g, '\n\n')
+	    .trim();
+	  return normalized.replace(
+	    /([A-Z][A-Za-z /-]*(?:Advice|Instructions?|Medications?|Investigations?|Treatment|Plan|Prescription|Rx|R\/x)):\s*\n([\s\S]*?)(?=\n\n[A-Z][A-Za-z /-]*(?:Advice|Instructions?|Medications?|Investigations?|Treatment|Plan|Prescription|Rx|R\/x):|$)/g,
+	    (match, label, value) => {
+	      const normalizedLabel = /^(?:Rx|R\/x)$/i.test(label.trim()) ? 'Prescription' : label;
+	      return `${normalizedLabel}:\n${formatSectionValue(normalizedLabel, value)}`;
+	    }
+	  ).trim();
+	}
 
 function formatStoredReviewNotes(text){
   const note = String(text || '').replace(
@@ -4259,11 +4263,14 @@ function formatPrescriptionList(text){
 
 function formatInstructionList(text){
   const medicineStart = '(?:Tab\\.?|Tablet|Cap\\.?|Capsule|Inj\\.?|Injection|Syp\\.?|Syrup|Drops?|Patch|Cream|Ointment|Nebulization|Inhaler)';
+  const investigationStart = '(?:MRI|CT|USG|EEG|EMG|NCV|NCS|X[- ]?ray|Blood investigations?|Blood reports?|CBC|LFT|RFT|ESR|CRP|Electrolytes?|Creatinine|Urea|Sodium|Potassium)';
   const source = stripExistingListNumbers(text);
   const normalized = source
-    .replace(new RegExp(`[,;]\\s+(?=${medicineStart}(?:\\s|$))`, 'gi'), '\n')
-    .replace(/;\s+(?=[A-Za-z])/g, '\n')
-    .replace(/\band\s+(?=(?:Tab\.?|Tablet|Cap\.?|Capsule|Inj\.?|Injection|ice pack|limb elevation|weight-bearing|review|avoid|continue|start|stop|apply|use|take)\b)/gi, '\n')
+	    .replace(new RegExp(`[,;]\\s+(?=${medicineStart}(?:\\s|$))`, 'gi'), '\n')
+	    .replace(new RegExp(`[,;]\\s+(?=${investigationStart}\\b)`, 'gi'), '\n')
+	    .replace(new RegExp(`\\.\\s+(?=${investigationStart}\\b)`, 'gi'), '\n')
+	    .replace(/;\s+(?=[A-Za-z])/g, '\n')
+	    .replace(/\band\s+(?=(?:Tab\.?|Tablet|Cap\.?|Capsule|Inj\.?|Injection|MRI|CT|USG|EEG|EMG|NCV|NCS|X[- ]?ray|Blood|CBC|LFT|RFT|ESR|CRP|Electrolytes?|Creatinine|Urea|Sodium|Potassium|ice pack|limb elevation|weight-bearing|review|avoid|continue|start|stop|apply|use|take)\b)/gi, '\n')
     .replace(/\b(Tab|Cap|Inj|Syp)\.\s+/gi, '$1§ ')
     .replace(/\.\s+(?=[A-Z][a-z])/g, '\n')
     .replace(/§/g, '.')
@@ -5404,7 +5411,7 @@ if ('serviceWorker' in navigator) {
       refreshingForUpdate = true;
       window.location.reload();
     });
-    navigator.serviceWorker.register('./sw.js?v=92', {updateViaCache:'none'}).then(registration => {
+    navigator.serviceWorker.register('./sw.js?v=93', {updateViaCache:'none'}).then(registration => {
       registration.update();
     }).catch(error => {
       console.warn('Service worker registration failed:', error);
