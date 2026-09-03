@@ -194,6 +194,7 @@ import { getFirestore, collection, collectionGroup, doc, getDoc, onSnapshot, ser
 import { firebaseConfig } from './firebase-config.js';
 
 const MASTER_ADMIN_UID = 'Umb3lIKZfbXlLHth7OwDNFRvmUD3';
+const MASTER_ADMIN_EMAIL = 'drgigy@gmail.com';
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
@@ -690,7 +691,7 @@ onAuthStateChanged(auth, user => {
     userEmail.textContent = '';
     return;
   }
-  if (user.uid === MASTER_ADMIN_UID){
+  if (user.uid === MASTER_ADMIN_UID || String(user.email || '').toLowerCase() === MASTER_ADMIN_EMAIL){
     setDoc(doc(db,'users',user.uid),{
       email:user.email || '',
       emailUpdatedAt:serverTimestamp()
@@ -919,7 +920,7 @@ if ('serviceWorker' in navigator) {
       refreshingForUpdate = true;
       window.location.reload();
     });
-    navigator.serviceWorker.register('./sw.js?v=90', {updateViaCache:'none'}).then(registration => {
+    navigator.serviceWorker.register('./sw.js?v=91', {updateViaCache:'none'}).then(registration => {
       registration.update();
     }).catch(error => {
       console.warn('Service worker registration failed:', error);
