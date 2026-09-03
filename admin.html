@@ -151,6 +151,10 @@
     .app.authenticated{ grid-template-columns:240px 1fr 66px; }
     .sidebar{ padding:16px 12px; }
     .main-scroll{ padding:26px 24px 70px; }
+    .note-editor .rx-row{
+      grid-template-columns:26px minmax(150px, 38%) minmax(0,1fr);
+      column-gap:9px;
+    }
     .user-rail{ width:66px; }
     .user-pill{ width:48px; }
   }
@@ -1015,6 +1019,28 @@ printBtn.addEventListener('click', () => {
     padding:8mm 9mm;
     white-space:pre-wrap;
   }
+  .rx-table{
+    display:grid;
+    gap:4mm;
+    margin:3mm 0 5mm;
+    white-space:normal;
+  }
+  .rx-row{
+    display:grid;
+    grid-template-columns:9mm minmax(44mm, 34%) minmax(0,1fr);
+    column-gap:4mm;
+    align-items:start;
+    break-inside:avoid;
+  }
+  .rx-number,
+  .rx-medicine{
+    font-weight:700;
+  }
+  .rx-instructions{
+    display:grid;
+    gap:1mm;
+    min-width:0;
+  }
   h1{
     margin:0 0 10px;
     font-size:18pt;
@@ -1225,7 +1251,7 @@ if ('serviceWorker' in navigator) {
       refreshingForUpdate = true;
       window.location.reload();
     });
-    navigator.serviceWorker.register('./sw.js?v=96', {updateViaCache:'none'}).then(registration => {
+    navigator.serviceWorker.register('./sw.js?v=97', {updateViaCache:'none'}).then(registration => {
       registration.update();
     }).catch(error => {
       console.warn('Service worker registration failed:', error);
