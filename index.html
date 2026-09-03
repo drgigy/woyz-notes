@@ -593,8 +593,7 @@
     padding:8px 14px;
     border-bottom:1px solid var(--border);
     background:var(--panel);
-    overflow-x:auto;
-    overflow-y:hidden;
+    overflow:visible;
   }
 
   .topbar-patient{
@@ -649,6 +648,20 @@
   }
   .print-btn.visible{ display:flex; }
   .print-btn:hover{ background:var(--teal-wash); }
+  .rx-print-btn{
+    display:none;
+    border-color:rgba(31,95,82,0.3);
+    color:var(--teal-deep);
+    min-width:38px;
+    justify-content:center;
+  }
+  .rx-print-btn.visible{ display:flex; }
+  .rx-print-btn:hover:not(:disabled){ background:var(--teal-wash); }
+  .rx-print-btn:disabled{
+    opacity:.42;
+    cursor:not-allowed;
+    background:#F6F7F5;
+  }
   .btn.discharge-btn{
     display:none;
     min-height:38px;
@@ -725,14 +738,48 @@
     background:#B93B28;
     border-color:#B93B28;
   }
+  .template-wrap{
+    position:relative;
+    order:2;
+    flex:0 0 auto;
+  }
+  .template-btn{ width:108px; }
+  .template-menu{
+    position:absolute;
+    top:calc(100% + 8px);
+    left:0;
+    min-width:170px;
+    background:var(--panel);
+    border:1px solid var(--border);
+    border-radius:12px;
+    box-shadow:0 12px 28px -10px rgba(20,30,25,0.22);
+    padding:6px;
+    display:none;
+    z-index:25;
+  }
+  .template-menu.open{ display:block; }
+  .template-item{
+    width:100%;
+    min-height:36px;
+    border:0;
+    border-radius:8px;
+    background:transparent;
+    color:var(--ink);
+    padding:0 10px;
+    text-align:left;
+    font:700 12.5px 'Inter',sans-serif;
+    cursor:pointer;
+  }
+  .template-item:hover{ background:var(--teal-wash); color:var(--teal-deep); }
   .date-nav{ order:3; margin-left:0; }
   .save-draft-btn{ order:4; }
   .btn-copy{ order:5; }
   .print-btn{ order:6; }
-  .delete-btn{ order:7; }
-  .trash-shortcut-btn{ order:8; flex-shrink:0; }
+  .rx-print-btn{ order:7; }
+  .delete-btn{ order:8; }
+  .trash-shortcut-btn{ order:9; flex-shrink:0; }
   /* ---------- SETTINGS ---------- */
-  .settings-wrap{ order:9; position:relative; flex-shrink:0; }
+  .settings-wrap{ order:10; position:relative; flex-shrink:0; }
 
   .settings-btn,.trash-shortcut-btn{
     width:38px;height:38px;
@@ -960,11 +1007,12 @@
     .discharge-btn{ order:4; }
     .btn-copy{ order:5; }
     .print-btn{ order:6; }
-    .delete-btn{ order:7; }
-    .trash-shortcut-btn{ order:8; }
-    .settings-wrap{ order:9; }
+    .rx-print-btn{ order:7; }
+    .delete-btn{ order:8; }
+    .trash-shortcut-btn{ order:9; }
+    .settings-wrap{ order:10; }
     .topbar-mode-btn{
-      flex:0 0 108px;
+      flex:0 0 96px;
       min-width:0;
       height:34px;
       padding:0 10px;
@@ -973,13 +1021,16 @@
       overflow:hidden;
       text-overflow:ellipsis;
     }
-    .topbar-review-btn{ flex-basis:86px; }
+    .topbar-review-btn{ flex-basis:78px; }
+    .template-btn{ width:84px; }
+    .template-menu{ min-width:160px; }
     .date-step,.date-today{ height:34px; }
-    .date-step{ width:34px; }
-    .date-input{ height:34px; width:132px; }
+    .date-step{ width:32px; }
+    .date-today{ min-width:68px; padding:0 9px; }
+    .date-input{ height:34px; width:118px; padding:0 8px; }
     .btn{
       min-height:34px;
-      padding:7px 11px;
+      padding:7px 10px;
       border-radius:9px;
       font-size:12px;
     }
@@ -993,22 +1044,24 @@
       border-color:var(--red);
       color:#fff;
     }
-    .settings-btn{ width:34px; height:34px; }
+    .settings-btn,.trash-shortcut-btn{ width:34px; height:34px; }
   }
 
   @media (min-width:1181px) and (max-width:1800px){
     .topbar-doc-actions{
-      justify-content:space-between;
-      gap:10px;
+      justify-content:flex-start;
+      gap:8px;
     }
     .topbar-mode-btn{
-      flex:1 1 0;
+      flex:0 0 108px;
       max-width:none;
       min-width:0;
-      height:40px;
-      padding:0 14px;
-      font-size:12px;
+      height:38px;
+      padding:0 12px;
+      font-size:11.5px;
     }
+    .topbar-review-btn{ flex-basis:88px; }
+    .template-btn{ width:98px; }
   }
 
   @media (min-width:601px) and (max-width:1180px){
@@ -1090,8 +1143,6 @@
     }
     .topbar-doc-actions{
       flex-wrap:nowrap;
-      overflow-x:auto;
-      overflow-y:hidden;
       padding-bottom:2px;
       -webkit-overflow-scrolling:touch;
       scrollbar-width:none;
@@ -1109,14 +1160,15 @@
       flex:0 1 auto;
     }
     .date-today{
-      min-width:88px;
+      min-width:68px;
       padding:0 10px;
     }
-    .date-input{ width:128px; }
+    .date-input{ width:116px; }
     .btn.save-draft-btn,
     .btn.discharge-btn,
     .btn.delete-btn,
-    .print-btn{
+    .print-btn,
+    .rx-print-btn{
       min-width:74px;
       justify-content:center;
     }
@@ -1167,11 +1219,12 @@
     .discharge-btn{ order:4; }
     .btn-copy{ order:5; }
     .print-btn{ order:6; }
-    .delete-btn{ order:7; }
-    .trash-shortcut-btn{ order:8; }
-    .settings-wrap{ order:9; margin-left:0; }
-    .date-today{ min-width:84px; }
-    .date-input{ width:122px; }
+    .rx-print-btn{ order:7; }
+    .delete-btn{ order:8; }
+    .trash-shortcut-btn{ order:9; }
+    .settings-wrap{ order:10; margin-left:0; }
+    .date-today{ min-width:68px; }
+    .date-input{ width:112px; }
     .generated-note-card{ padding:24px 24px 76px; }
   }
 
@@ -1571,8 +1624,13 @@
       </div>
       <div class="topbar-doc-actions" id="topbarDocActions" aria-label="Voice note actions">
         <button class="topbar-mode-btn topbar-review-btn" id="topbarContinueBtn" aria-label="Add on to selected note by dictation" title="Add on dictation">Add On</button>
-        <button class="topbar-mode-btn" data-topbar-voice-mode="Medical certificate">Certificate</button>
-        <button class="topbar-mode-btn" data-topbar-voice-mode="Reply letter">Reply Letter</button>
+        <div class="template-wrap">
+          <button class="topbar-mode-btn template-btn" id="templateBtn" type="button" aria-haspopup="true" aria-expanded="false">Template</button>
+          <div class="template-menu" id="templateMenu">
+            <button class="template-item" type="button" data-topbar-voice-mode="Medical certificate">Certificate</button>
+            <button class="template-item" type="button" data-topbar-voice-mode="Reply letter">Reply Letter</button>
+          </div>
+        </div>
       </div>
       <div class="date-nav" id="dateNav" aria-label="Visit date navigation">
         <button class="date-today" id="todayBtn" title="Jump to today"></button>
@@ -1586,6 +1644,7 @@
       <button class="btn discharge-btn" id="dischargeBtn" aria-label="Discharge IP patient" title="Discharge IP patient">Discharge</button>
       <button class="btn btn-copy" id="copyBtn" style="display:none;">Copy</button>
       <button class="btn print-btn" id="printBtn" aria-label="Print visit note" title="Print visit note">Print</button>
+      <button class="btn rx-print-btn" id="rxPrintBtn" type="button" aria-label="Print prescription" title="Print Prescription">Rx</button>
       <button class="btn delete-btn" id="deleteBtn" aria-label="Delete selected note" title="Delete selected note">Delete</button>
       <button class="trash-shortcut-btn" id="topbarTrashBtn" type="button" aria-label="Open Trash" title="Trash">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
@@ -1804,6 +1863,7 @@ const topbarUhid = document.getElementById('topbarUhid');
 const topbarAge = document.getElementById('topbarAge');
 const copyBtn = document.getElementById('copyBtn');
 const printBtn = document.getElementById('printBtn');
+const rxPrintBtn = document.getElementById('rxPrintBtn');
 const deleteBtn = document.getElementById('deleteBtn');
 const topbarTrashBtn = document.getElementById('topbarTrashBtn');
 const dischargeBtn = document.getElementById('dischargeBtn');
@@ -1848,6 +1908,8 @@ const mobileSaveBtn = document.getElementById('mobileSaveBtn');
 const continueNoteBtn = document.getElementById('continueNoteBtn');
 const topbarDocActions = document.getElementById('topbarDocActions');
 const topbarContinueBtn = document.getElementById('topbarContinueBtn');
+const templateBtn = document.getElementById('templateBtn');
+const templateMenu = document.getElementById('templateMenu');
 const loginScreen = document.getElementById('loginScreen');
 const loginForm = document.getElementById('loginForm');
 const loginEmail = document.getElementById('loginEmail');
@@ -2180,6 +2242,7 @@ function renderPatientTimeline(key){
   topbarPatient.classList.add('visible');
   copyBtn.style.display = 'none';
   printBtn.classList.remove('visible');
+  rxPrintBtn.classList.remove('visible');
   saveDraftBtn.classList.remove('visible');
   deleteBtn.classList.remove('visible');
   dischargeBtn.classList.remove('visible');
@@ -2490,6 +2553,7 @@ function setSearchScope(scope){
   topbarPatient.classList.remove('visible');
   copyBtn.style.display = 'none';
   printBtn.classList.remove('visible');
+  rxPrintBtn.classList.remove('visible');
   saveDraftBtn.classList.remove('visible');
   deleteBtn.classList.remove('visible');
   dischargeBtn.classList.remove('visible');
@@ -2673,6 +2737,7 @@ function showEmptyDate(message = 'No notes saved for this date.'){
   topbarPatient.classList.remove('visible');
   copyBtn.style.display = 'none';
   printBtn.classList.remove('visible');
+  rxPrintBtn.classList.remove('visible');
   saveDraftBtn.classList.remove('visible');
   deleteBtn.classList.remove('visible');
   dischargeBtn.classList.remove('visible');
@@ -2691,6 +2756,8 @@ function updateContinueNoteButton(){
     button.classList.toggle('active', showVoiceModes && record?.selectedMode === button.dataset.topbarVoiceMode);
     button.disabled = continuationState.hasStarted || continuationState.processing;
   });
+  templateBtn.classList.toggle('active', templateMenu.classList.contains('open') || (showVoiceModes && ['Medical certificate','Reply letter'].includes(record?.selectedMode)));
+  templateBtn.disabled = continuationState.hasStarted || continuationState.processing;
 }
 
 function flashSaveButton(){
@@ -2853,6 +2920,7 @@ function selectEntry(i){
   topbarPatient.classList.add('visible');
   copyBtn.style.display = (!r.isDraft || r.transcription) ? 'flex' : 'none';
   printBtn.classList.toggle('visible', Boolean(!r.isDraft || r.transcription));
+  updatePrescriptionPrintButton();
   deleteBtn.classList.toggle('visible', canDeleteRecord(r));
   updateDischargeButton(r);
   saveDraftBtn.classList.toggle('visible', Boolean(r.isDraft || isGeneratedRecord));
@@ -2974,6 +3042,36 @@ function editorPlainText(editor){
   return (editor?.value ?? editor?.innerText ?? '').replace(/\u00a0/g, ' ');
 }
 
+function currentRecordSourceText(record){
+  if (!record) return '';
+  const editor = document.getElementById('generatedNoteEditor');
+  if (anonymizeEnabled) return record.transcription || (record.isDraft ? '' : noteText(record));
+  return editorPlainText(editor) || record.transcription || (record.isDraft ? '' : noteText(record));
+}
+
+function prescriptionTextFromNote(text){
+  const note = formatStoredReviewNotes(String(text || ''));
+  const match = note.match(/(?:^|\n)Prescription:\s*\n([\s\S]*?)(?=\n\n(?:Patient Name|Age|UHID|Sex|Presenting Complaint|History of Present Illness|Past Medical or Surgical History|Allergies|Family History|Personal History|Examination Findings|Review of Investigations|Current Medications|Diagnosis|Treatment Plan|Review Note(?:\s*\([^)]*\))?):|$)/i);
+  if (!match) return '';
+  const prescription = String(match[1] || '').trim();
+  return prescription && !isNilLike(prescription) ? prescription : '';
+}
+
+function activePrescriptionText(){
+  if (activeIndex === null) return '';
+  const record = records[activeIndex];
+  if (!record || noteVisitType(record) !== 'OP') return '';
+  return prescriptionTextFromNote(currentRecordSourceText(record));
+}
+
+function updatePrescriptionPrintButton(){
+  if (!rxPrintBtn) return;
+  const hasPrintableRecord = activeIndex !== null && Boolean(records[activeIndex]) && (!records[activeIndex].isDraft || records[activeIndex].transcription);
+  const prescription = hasPrintableRecord ? activePrescriptionText() : '';
+  rxPrintBtn.classList.toggle('visible', hasPrintableRecord && noteVisitType(records[activeIndex]) === 'OP');
+  rxPrintBtn.disabled = !prescription;
+}
+
 function focusEditorEnd(editor){
   if (!editor) return;
   editor.focus();
@@ -3048,6 +3146,7 @@ function renderGeneratedNote(draft){
       clearTimeout(saveFeedbackTimer);
       saveFeedbackUntil = 0;
       saveDraftBtn.querySelector('span').textContent = 'Save';
+      updatePrescriptionPrintButton();
       resizeNoteEditor(editor);
     });
     editor.addEventListener('paste', event => {
@@ -3057,6 +3156,7 @@ function renderGeneratedNote(draft){
   }
   recordBtn.classList.remove('is-recording');
   copyBtn.style.display = 'flex';
+  updatePrescriptionPrintButton();
   updateContinueNoteButton();
 }
 
@@ -4526,6 +4626,7 @@ function handleDocumentModeAction(mode){
 topbarDocActions.addEventListener('click', event => {
   const button = event.target.closest('[data-topbar-voice-mode]');
   if (!button) return;
+  closeTemplateMenu();
   handleDocumentModeAction(button.dataset.topbarVoiceMode);
 });
 document.addEventListener('click', event => {
@@ -4538,10 +4639,7 @@ document.addEventListener('click', event => {
 copyBtn.addEventListener('click', async () => {
   if (activeIndex === null) return;
   const activeRecord = records[activeIndex];
-  const editor = document.getElementById('generatedNoteEditor');
-  const sourceText = anonymizeEnabled
-    ? (activeRecord.transcription || (activeRecord.isDraft ? '' : noteText(activeRecord)))
-    : (editorPlainText(editor) || activeRecord.transcription || (activeRecord.isDraft ? '' : noteText(activeRecord)));
+  const sourceText = currentRecordSourceText(activeRecord);
   const rawText = anonymizeTextForRecord(formatStoredReviewNotes(sourceText), activeRecord);
   const text = removeNilSectionsForCopy(rawText);
   try{
@@ -4558,10 +4656,7 @@ copyBtn.addEventListener('click', async () => {
 printBtn.addEventListener('click', () => {
   if (activeIndex === null) return;
   const activeRecord = records[activeIndex];
-  const editor = document.getElementById('generatedNoteEditor');
-  const sourceText = anonymizeEnabled
-    ? (activeRecord.transcription || (activeRecord.isDraft ? '' : noteText(activeRecord)))
-    : (editorPlainText(editor) || activeRecord.transcription || (activeRecord.isDraft ? '' : noteText(activeRecord)));
+  const sourceText = currentRecordSourceText(activeRecord);
   const note = anonymizeTextForRecord(formatStoredReviewNotes(sourceText), activeRecord);
   if (!note) return;
   const printWindow = window.open('', '_blank');
@@ -4612,6 +4707,80 @@ printBtn.addEventListener('click', () => {
   }, 150);
 });
 
+rxPrintBtn.addEventListener('click', () => {
+  if (activeIndex === null) return;
+  const activeRecord = records[activeIndex];
+  const prescription = activePrescriptionText();
+  if (!prescription) return;
+  const identity = patientIdentity(activeRecord);
+  const patientLine = [
+    `Name: ${displayPatientName(activeRecord)}`,
+    `Age: ${identity.age}`,
+    `UHID: ${anonymizeEnabled ? 'hidden' : (identity.uhid || 'NIL')}`,
+    `Sex: ${identity.sex || activeRecord.patientSex || 'NIL'}`
+  ].join(' | ');
+  const printWindow = window.open('', '_blank');
+  if (!printWindow){
+    window.print();
+    return;
+  }
+  printWindow.document.write(`<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>WOYZ Prescription Print</title>
+<style>
+  @page{ margin:8mm; }
+  *{ box-sizing:border-box; }
+  body{
+    margin:0;
+    color:#111;
+    font-family:Arial, Helvetica, sans-serif;
+    font-size:12pt;
+    line-height:1.35;
+  }
+  .rx{
+    width:100%;
+    max-width:none;
+    min-height:100vh;
+    padding:8mm 9mm;
+    white-space:pre-wrap;
+  }
+  .patient-line{
+    display:flex;
+    flex-wrap:wrap;
+    gap:8px 14px;
+    padding-bottom:7px;
+    margin-bottom:12px;
+    border-bottom:1px solid #ccc;
+    font-weight:700;
+  }
+  h1{
+    margin:0 0 10px;
+    font-size:18pt;
+    line-height:1.15;
+  }
+  @media print{
+    body{ print-color-adjust:exact; -webkit-print-color-adjust:exact; }
+  }
+</style>
+</head>
+<body>
+  <main class="rx">
+    <div class="patient-line">${escapeHtml(patientLine)}</div>
+    <h1>Prescription</h1>
+    <div>${richNoteHtml(prescription)}</div>
+  </main>
+</body>
+</html>`);
+  printWindow.document.close();
+  printWindow.focus();
+  setTimeout(() => {
+    printWindow.print();
+    printWindow.close();
+  }, 150);
+});
+
 dischargeBtn.addEventListener('click', async () => {
   if (activeIndex === null || !records[activeIndex]) return;
   const record = records[activeIndex];
@@ -4651,6 +4820,19 @@ function closeSettings(){
   settingsBtn.setAttribute('aria-expanded', 'false');
 }
 
+function closeTemplateMenu(){
+  templateMenu.classList.remove('open');
+  templateBtn.setAttribute('aria-expanded', 'false');
+  updateContinueNoteButton();
+}
+
+templateBtn.addEventListener('click', event => {
+  event.stopPropagation();
+  const isOpen = templateMenu.classList.toggle('open');
+  templateBtn.classList.toggle('active', isOpen);
+  templateBtn.setAttribute('aria-expanded', String(isOpen));
+});
+
 settingsBtn.addEventListener('click', (e) => {
   e.stopPropagation();
   const isOpen = settingsMenu.classList.toggle('open');
@@ -4661,6 +4843,9 @@ settingsBtn.addEventListener('click', (e) => {
 document.addEventListener('click', (e) => {
   if (!settingsMenu.contains(e.target) && e.target !== settingsBtn){
     closeSettings();
+  }
+  if (!templateMenu.contains(e.target) && e.target !== templateBtn){
+    closeTemplateMenu();
   }
 });
 
@@ -4861,7 +5046,7 @@ if ('serviceWorker' in navigator) {
       refreshingForUpdate = true;
       window.location.reload();
     });
-    navigator.serviceWorker.register('./sw.js?v=84', {updateViaCache:'none'}).then(registration => {
+    navigator.serviceWorker.register('./sw.js?v=85', {updateViaCache:'none'}).then(registration => {
       registration.update();
     }).catch(error => {
       console.warn('Service worker registration failed:', error);
