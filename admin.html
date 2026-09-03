@@ -1117,17 +1117,11 @@ rxPrintBtn.addEventListener('click', () => {
     min-height:31mm;
   }
   .rx-print-content{
-    flex:1;
     padding:9mm 12mm 8mm;
-    display:flex;
-    flex-direction:column;
   }
   .rx{
     width:100%;
     max-width:none;
-    flex:1;
-    display:flex;
-    flex-direction:column;
   }
   .patient-line{
     display:flex;
@@ -1171,10 +1165,11 @@ rxPrintBtn.addEventListener('click', () => {
   .rx-print-footer{
     margin-top:auto;
     border-top:1px solid #999;
-    padding-top:4mm;
+    padding:4mm 12mm 10mm;
   }
   .rx-print-signature{
-    padding:6mm 12mm 10mm;
+    margin-top:16mm;
+    padding:0;
   }
   .layout-small{ font-size:8.5pt; }
   .layout-medium{ font-size:10pt; }
@@ -1196,10 +1191,10 @@ rxPrintBtn.addEventListener('click', () => {
         <div class="patient-line">${escapeHtml(patientLine)}</div>
         <div class="rx-heading">Rx / ADVICE</div>
         <div class="rx-table">${prescriptionRowsHtml(prescription)}</div>
-        ${layout.footer.text ? `<div class="rx-print-footer ${layoutBlockClass(layout.footer)}">${printBlockHtml(layout.footer)}</div>` : ''}
+        ${layout.signature.text ? `<section class="rx-print-signature ${layoutBlockClass(layout.signature)}">${printBlockHtml(layout.signature, {firstLineStrong:true})}</section>` : ''}
       </div>
     </section>
-    ${layout.signature.text ? `<section class="rx-print-signature ${layoutBlockClass(layout.signature)}">${printBlockHtml(layout.signature, {firstLineStrong:true})}</section>` : ''}
+    ${layout.footer.text ? `<section class="rx-print-footer ${layoutBlockClass(layout.footer)}">${printBlockHtml(layout.footer)}</section>` : ''}
   </main>
 </body>
 </html>`);
@@ -1260,7 +1255,7 @@ if ('serviceWorker' in navigator) {
       refreshingForUpdate = true;
       window.location.reload();
     });
-    navigator.serviceWorker.register('./sw.js?v=99', {updateViaCache:'none'}).then(registration => {
+    navigator.serviceWorker.register('./sw.js?v=100', {updateViaCache:'none'}).then(registration => {
       registration.update();
     }).catch(error => {
       console.warn('Service worker registration failed:', error);
