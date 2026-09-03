@@ -1787,12 +1787,15 @@
 
 <script type="module">
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/12.16.0/firebase-app.js';
-import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut as firebaseSignOut } from 'https://www.gstatic.com/firebasejs/12.16.0/firebase-auth.js';
+import { browserLocalPersistence, getAuth, onAuthStateChanged, setPersistence, signInWithEmailAndPassword, signOut as firebaseSignOut } from 'https://www.gstatic.com/firebasejs/12.16.0/firebase-auth.js';
 import { getFirestore, collection, query, where, onSnapshot, addDoc, deleteDoc, doc, getDoc, getDocs, setDoc, serverTimestamp } from 'https://www.gstatic.com/firebasejs/12.16.0/firebase-firestore.js';
 import { firebaseConfig } from './firebase-config.js';
 
 const firebaseApp = initializeApp(firebaseConfig);
 const auth = getAuth(firebaseApp);
+const authPersistenceReady = setPersistence(auth, browserLocalPersistence).catch(error => {
+  console.warn('Unable to enable persistent login:', error);
+});
 const db = getFirestore(firebaseApp);
 
 const sampleRecords = [
@@ -2797,6 +2800,7 @@ loginForm.addEventListener('submit', async event => {
   loginSubmit.disabled = true;
   loginSubmit.textContent = 'Signing in…';
   try{
+    await authPersistenceReady;
     await signInWithEmailAndPassword(auth,loginEmail.value.trim(),loginPassword.value);
     loginPassword.value = '';
   }catch(error){
@@ -5046,7 +5050,7 @@ if ('serviceWorker' in navigator) {
       refreshingForUpdate = true;
       window.location.reload();
     });
-    navigator.serviceWorker.register('./sw.js?v=85', {updateViaCache:'none'}).then(registration => {
+    navigator.serviceWorker.register('./sw.js?v=86', {updateViaCache:'none'}).then(registration => {
       registration.update();
     }).catch(error => {
       console.warn('Service worker registration failed:', error);
