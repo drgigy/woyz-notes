@@ -209,11 +209,11 @@
     box-shadow:0 5px 13px -8px var(--teal-deep);
   }
   .privacy-switch.active::after{ transform:translateX(22px); }
-  .main-topbar .privacy-row{
-    order:2;
-    flex:0 0 188px;
-    width:188px;
-    margin:0 4px 0 auto;
+  .sidebar > .privacy-row{
+    flex:0 0 auto;
+    margin:10px 4px 0;
+    padding-top:10px;
+    border-top:1px solid var(--border);
   }
   .note-editor.anonymized{
     background:#F8FAF8;
@@ -912,24 +912,13 @@
       overflow-x:auto;
       overflow-y:hidden;
     }
-    .main-topbar .privacy-row{
-      order:2;
-      flex:0 0 174px;
-      width:174px;
-      height:34px;
-      margin:0 2px 0 auto;
-    }
-    .main-topbar .privacy-label{ height:34px; }
-    .main-topbar .privacy-switch{ width:54px; height:34px; }
-    .main-topbar .privacy-switch::after{ width:28px; height:28px; }
-    .main-topbar .privacy-switch.active::after{ transform:translateX(20px); }
-    .date-nav{ order:3; margin-left:0; gap:5px; }
-    .save-draft-btn{ order:4; }
-    .discharge-btn{ order:5; }
-    .btn-copy{ order:6; }
-    .print-btn{ order:7; }
-    .delete-btn{ order:8; }
-    .settings-wrap{ order:9; }
+    .date-nav{ order:2; margin-left:auto; gap:5px; }
+    .save-draft-btn{ order:3; }
+    .discharge-btn{ order:4; }
+    .btn-copy{ order:5; }
+    .print-btn{ order:6; }
+    .delete-btn{ order:7; }
+    .settings-wrap{ order:8; }
     .topbar-mode-btn{
       flex:1 1 0;
       min-width:0;
@@ -1031,7 +1020,7 @@
     }
     .sidebar .visit-toggle{ height:36px; margin-top:10px; }
     .sidebar .visit-toggle-btn{ height:28px; font-size:12px; }
-    .privacy-row{ margin-top:10px; }
+    .sidebar > .privacy-row{ margin-top:10px; }
     .search-row{ margin-top:10px; gap:6px; }
     .search-scope-toggle{ width:112px; flex-basis:112px; }
     .search-scope-btn{ font-size:10.5px; }
@@ -1073,11 +1062,6 @@
     .date-nav{
       margin-left:0;
       flex:0 1 auto;
-    }
-    .main-topbar .privacy-row{
-      flex:0 0 160px;
-      width:160px;
-      margin:0 0 0 auto;
     }
     .date-today{
       min-width:88px;
@@ -1348,7 +1332,7 @@
     .date-today{ display:none; }
     .main-topbar > .date-nav{ display:flex; }
     .topbar-doc-actions,.topbar-continue-btn{ display:none !important; }
-    .main-topbar .privacy-row{ display:none; }
+    .sidebar > .privacy-row{ display:grid; }
     .main-scroll{
       flex:1;
       min-height:0;
@@ -1522,6 +1506,10 @@
 
     <div class="sidebar-section-label">Records</div>
     <div class="entry-list" id="entryList"></div>
+    <div class="privacy-row">
+      <button class="privacy-switch" id="anonymizeToggle" type="button" role="switch" aria-checked="false" aria-label="Toggle anonymized display"></button>
+      <button class="privacy-label" id="anonymizeLabel" type="button">Anonymize</button>
+    </div>
   </aside>
 
   <!-- MAIN -->
@@ -1543,10 +1531,6 @@
         <button class="topbar-mode-btn topbar-review-btn" id="topbarContinueBtn" aria-label="Add on to selected note by dictation" title="Add on dictation">Add On</button>
         <button class="topbar-mode-btn" data-topbar-voice-mode="Medical certificate">Certificate</button>
         <button class="topbar-mode-btn" data-topbar-voice-mode="Reply letter">Reply Letter</button>
-      </div>
-      <div class="privacy-row">
-        <button class="privacy-switch" id="anonymizeToggle" type="button" role="switch" aria-checked="false" aria-label="Toggle anonymized display"></button>
-        <button class="privacy-label" id="anonymizeLabel" type="button">Anonymize</button>
       </div>
       <div class="date-nav" id="dateNav" aria-label="Visit date navigation">
         <button class="date-today" id="todayBtn" title="Jump to today"></button>
@@ -4828,7 +4812,7 @@ if ('serviceWorker' in navigator) {
       refreshingForUpdate = true;
       window.location.reload();
     });
-    navigator.serviceWorker.register('./sw.js?v=82', {updateViaCache:'none'}).then(registration => {
+    navigator.serviceWorker.register('./sw.js?v=83', {updateViaCache:'none'}).then(registration => {
       registration.update();
     }).catch(error => {
       console.warn('Service worker registration failed:', error);
