@@ -20,25 +20,39 @@ service cloud.firestore {
         && request.auth.uid in sharedWith(userId);
     }
 
+    function userProfileFields() {
+      return [
+        "credentialName",
+        "credentialUpdatedAt",
+        "prescriptionLayout",
+        "prescriptionLayoutUpdatedAt",
+        "email",
+        "emailUpdatedAt"
+      ];
+    }
+
+    function mappingFields() {
+      return [
+        "groupIds",
+        "adminGroupIds",
+        "adminSharedWith",
+        "sharedWith",
+        "mappingUpdatedAt",
+        "mappingUpdatedBy"
+      ];
+    }
+
     match /users/{userId} {
       allow read: if signedInAs(userId) || isAdmin() || isMappedTo(userId);
       allow create: if signedInAs(userId)
-        && request.resource.data.keys().hasOnly(["credentialName", "credentialUpdatedAt"])
-        && request.resource.data.credentialName is string
-        && request.resource.data.credentialName.size() <= 80;
+        && request.resource.data.keys().hasOnly(userProfileFields());
       allow create: if isAdmin()
-        && request.resource.data.keys().hasOnly(["groupIds", "sharedWith", "mappingUpdatedAt", "mappingUpdatedBy"])
-        && request.resource.data.groupIds is list
-        && request.resource.data.sharedWith is list
+        && request.resource.data.keys().hasOnly(mappingFields())
         && request.resource.data.mappingUpdatedBy == request.auth.uid;
       allow update: if signedInAs(userId)
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["credentialName", "credentialUpdatedAt"])
-        && request.resource.data.credentialName is string
-        && request.resource.data.credentialName.size() <= 80;
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(userProfileFields());
       allow update: if isAdmin()
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["groupIds", "sharedWith", "mappingUpdatedAt", "mappingUpdatedBy"])
-        && request.resource.data.groupIds is list
-        && request.resource.data.sharedWith is list
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(mappingFields())
         && request.resource.data.mappingUpdatedBy == request.auth.uid;
       allow delete: if false;
 
@@ -51,17 +65,17 @@ service cloud.firestore {
           && request.resource.data.isDraft is bool
           && request.resource.data.transcription is string;
 
-        allow update: if (signedInAs(userId) || isMappedTo(userId))
+        allow update: if (signedInAs(userId) || isAdmin() || isMappedTo(userId))
           && request.resource.data.visitDate is string
           && request.resource.data.isDraft is bool
           && request.resource.data.transcription is string;
 
-        allow update: if isAdmin()
+        allow update: if (isAdmin() || isMappedTo(userId))
           && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["adminCopiedAt", "adminCopiedBy"])
           && request.resource.data.adminCopiedBy == request.auth.uid
           && request.resource.data.adminCopiedAt is timestamp;
 
-        allow update: if isAdmin()
+        allow update: if (isAdmin() || isMappedTo(userId))
           && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["transcription", "adminEditedAt", "adminEditedBy"])
           && request.resource.data.transcription is string
           && request.resource.data.adminEditedBy == request.auth.uid
@@ -76,8 +90,11 @@ service cloud.firestore {
         && request.resource.data.name is string
         && request.resource.data.name.size() <= 80
         && request.resource.data.memberUids is list
-        && request.resource.data.memberUids.size() >= 2
+        && request.resource.data.memberUids.size() >= 1
         && request.resource.data.memberUids.size() <= 30
+        && request.resource.data.adminEmails is list
+        && request.resource.data.adminEmails.size() >= 1
+        && request.resource.data.adminEmails.size() <= 30
         && request.resource.data.mappingUpdatedBy == request.auth.uid;
       allow delete: if isAdmin();
     }

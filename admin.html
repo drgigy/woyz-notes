@@ -120,16 +120,6 @@
   .modal-title{ margin:0 0 5px; font:600 27px 'Fraunces',serif; }
   .modal-sub{ margin:0; color:var(--muted); font-size:13px; }
   .modal-close{ width:36px; height:36px; border:1px solid var(--border); border-radius:10px; background:#fff; cursor:pointer; font-size:22px; line-height:1; }
-  .mapping-row{ display:grid; grid-template-columns:minmax(0,1fr) auto; gap:10px; margin-bottom:14px; }
-  .mapping-input{ height:40px; border:1.5px solid var(--border); border-radius:10px; padding:0 12px; font:14px 'Inter',sans-serif; outline:none; }
-  .mapping-input:focus{ border-color:#8FB9AC; box-shadow:0 0 0 3px rgba(143,185,172,.2); }
-  .mapping-users{ display:grid; grid-template-columns:repeat(auto-fit,minmax(210px,1fr)); gap:8px; margin:10px 0 18px; }
-  .mapping-user{ display:flex; align-items:center; gap:9px; border:1px solid var(--border); border-radius:10px; padding:10px; font-size:13px; color:var(--ink); }
-  .mapping-user span{ min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-  .mapping-groups{ display:flex; flex-direction:column; gap:8px; border-top:1px solid var(--border); padding-top:14px; }
-  .mapping-group{ display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:center; gap:12px; border:1px solid var(--border); border-radius:12px; padding:11px 12px; }
-  .mapping-group-title{ font-weight:800; }
-  .mapping-group-members{ color:var(--muted); font-size:12px; margin-top:3px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .danger-btn{ color:var(--red); border-color:#F3B3A9; }
   @media (max-width:900px){
     .app.authenticated{ grid-template-columns:240px 1fr 66px; }
@@ -145,7 +135,7 @@
   <form class="login-card" id="loginForm">
     <div class="login-brand"><span class="login-brand-pill"><span class="login-brand-dot"></span>WOYZ</span><span>Admin</span></div>
     <h1 class="login-title">Sign in</h1>
-    <p class="login-sub">Admin access is restricted to the configured Firebase UID.</p>
+    <p class="login-sub">Admin access is restricted to accounts assigned in Master Admin.</p>
     <label class="login-label" for="loginEmail">Email address</label>
     <input class="login-input" id="loginEmail" type="email" autocomplete="username" required>
     <label class="login-label" for="loginPassword">Password</label>
@@ -186,7 +176,6 @@
       <div class="admin-settings">
         <button class="btn" id="adminSettingsBtn" aria-expanded="false">Settings</button>
         <div class="settings-menu" id="adminSettingsMenu">
-          <button class="settings-item" id="mappingBtn" type="button">Mapping</button>
           <button class="settings-item" id="signoutBtn" type="button">Sign out</button>
         </div>
       </div>
@@ -198,31 +187,13 @@
   </nav>
 </div>
 
-<div class="modal" id="mappingModal" aria-hidden="true">
-  <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="mappingTitle">
-    <div class="modal-head">
-      <div>
-        <h2 class="modal-title" id="mappingTitle">Mapping</h2>
-        <p class="modal-sub">Create groups so selected users can see and edit each other's OP and IP notes. Delete remains owner-only.</p>
-      </div>
-      <button class="modal-close" id="mappingCloseBtn" type="button" aria-label="Close mapping">&times;</button>
-    </div>
-    <div class="mapping-row">
-      <input class="mapping-input" id="mappingGroupName" type="text" placeholder="Group name">
-      <button class="btn copy-btn" id="saveMappingBtn" type="button">Create group</button>
-    </div>
-    <div class="mapping-users" id="mappingUserList"></div>
-    <div class="mapping-groups" id="mappingGroupsList"></div>
-  </div>
-</div>
-
 <script type="module">
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/12.16.0/firebase-app.js';
 import { browserLocalPersistence, getAuth, onAuthStateChanged, setPersistence, signInWithEmailAndPassword, signOut } from 'https://www.gstatic.com/firebasejs/12.16.0/firebase-auth.js';
-import { getFirestore, addDoc, collection, collectionGroup, deleteDoc, doc, getDocs, onSnapshot, serverTimestamp, setDoc, updateDoc } from 'https://www.gstatic.com/firebasejs/12.16.0/firebase-firestore.js';
+import { getFirestore, collection, collectionGroup, doc, getDoc, onSnapshot, serverTimestamp, setDoc, updateDoc } from 'https://www.gstatic.com/firebasejs/12.16.0/firebase-firestore.js';
 import { firebaseConfig } from './firebase-config.js';
 
-const ADMIN_UID = 'th8Jr2dzCdbBaKQYST1MzQZDG4G3';
+const MASTER_ADMIN_UID = 'th8Jr2dzCdbBaKQYST1MzQZDG4G3';
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
@@ -255,28 +226,23 @@ const copyBtn = document.getElementById('copyBtn');
 const printBtn = document.getElementById('printBtn');
 const adminSettingsBtn = document.getElementById('adminSettingsBtn');
 const adminSettingsMenu = document.getElementById('adminSettingsMenu');
-const mappingBtn = document.getElementById('mappingBtn');
 const signoutBtn = document.getElementById('signoutBtn');
 const notesLabel = document.getElementById('notesLabel');
-const mappingModal = document.getElementById('mappingModal');
-const mappingCloseBtn = document.getElementById('mappingCloseBtn');
-const mappingGroupName = document.getElementById('mappingGroupName');
-const mappingUserList = document.getElementById('mappingUserList');
-const mappingGroupsList = document.getElementById('mappingGroupsList');
-const saveMappingBtn = document.getElementById('saveMappingBtn');
 
 let notesUnsubscribe = null;
 let profilesUnsubscribe = null;
-let groupsUnsubscribe = null;
+let profileUnsubscribes = [];
+let noteUnsubscribes = [];
 let allNotes = [];
 let userProfiles = {};
-let allGroups = [];
+let scopedOwnerIds = [];
 let users = [];
 let selectedUserId = null;
 let selectedNoteId = null;
 let selectedVisitType = 'OP';
 let selectedVisitDate = new Date();
 let adminDateTouched = false;
+let currentAdminUid = null;
 
 function escapeHtml(value){
   return String(value ?? '').replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[char]));
@@ -492,74 +458,16 @@ function userLabel(userId, index){
 }
 
 function allKnownUsers(){
-  const ids = new Set([...Object.keys(userProfiles), ...allNotes.map(note => note.userId)]);
+  const ids = new Set([...scopedOwnerIds, ...allNotes.map(note => note.userId)]);
   return Array.from(ids)
-    .filter(uid => uid && uid !== 'unknown' && uid !== ADMIN_UID)
+    .filter(uid => uid && uid !== 'unknown')
     .sort()
     .map((uid, index) => ({uid, label:userLabel(uid, index)}));
-}
-
-function groupMemberLabels(memberUids = []){
-  return memberUids.map(uid => userProfiles[uid]?.credentialName || uid.slice(0, 8)).join(', ');
-}
-
-function renderMapping(){
-  const knownUsers = allKnownUsers();
-  mappingUserList.innerHTML = knownUsers.length
-    ? knownUsers.map(user => `
-      <label class="mapping-user">
-        <input type="checkbox" value="${escapeHtml(user.uid)}">
-        <span>${escapeHtml(user.label)}</span>
-      </label>
-    `).join('')
-    : '<div class="empty-sub">No users available yet.</div>';
-  mappingGroupsList.innerHTML = allGroups.length
-    ? allGroups.map(group => `
-      <div class="mapping-group">
-        <div>
-          <div class="mapping-group-title">${escapeHtml(group.name)}</div>
-          <div class="mapping-group-members">${escapeHtml(groupMemberLabels(group.memberUids))}</div>
-        </div>
-        <button class="btn danger-btn" data-delete-group="${escapeHtml(group.id)}" type="button">Remove</button>
-      </div>
-    `).join('')
-    : '<div class="empty-sub">No mapping groups created.</div>';
 }
 
 function closeAdminSettings(){
   adminSettingsMenu.classList.remove('open');
   adminSettingsBtn.setAttribute('aria-expanded','false');
-}
-
-function openMapping(){
-  closeAdminSettings();
-  renderMapping();
-  mappingModal.classList.add('open');
-  mappingModal.setAttribute('aria-hidden','false');
-  setTimeout(() => mappingGroupName.focus(), 0);
-}
-
-function closeMapping(){
-  mappingModal.classList.remove('open');
-  mappingModal.setAttribute('aria-hidden','true');
-  mappingGroupName.value = '';
-}
-
-async function syncUserMappings(){
-  const groupsSnapshot = await getDocs(collection(db,'groups'));
-  const groups = groupsSnapshot.docs.map(groupDoc => ({id:groupDoc.id, ...groupDoc.data()}));
-  const knownUsers = allKnownUsers();
-  await Promise.all(knownUsers.map(user => {
-    const memberGroups = groups.filter(group => (group.memberUids || []).includes(user.uid));
-    const sharedWith = Array.from(new Set(memberGroups.flatMap(group => group.memberUids || []).filter(uid => uid !== user.uid)));
-    const groupIds = memberGroups.map(group => group.id);
-    return setDoc(doc(db,'users',user.uid),{
-      groupIds,
-      sharedWith,
-      mappingUpdatedAt:serverTimestamp(),
-      mappingUpdatedBy:ADMIN_UID
-    },{merge:true});
-  }));
 }
 
 function showEmpty(title, message){
@@ -675,6 +583,16 @@ function render(){
   renderSelectedNote();
 }
 
+function clearScopedSubscriptions(){
+  profileUnsubscribes.forEach(unsubscribe => unsubscribe());
+  noteUnsubscribes.forEach(unsubscribe => unsubscribe());
+  profileUnsubscribes = [];
+  noteUnsubscribes = [];
+  scopedOwnerIds = [];
+  allNotes = [];
+  userProfiles = {};
+}
+
 function subscribeToAllNotes(){
   if (notesUnsubscribe) notesUnsubscribe();
   notesUnsubscribe = onSnapshot(collectionGroup(db,'notes'), snapshot => {
@@ -700,19 +618,41 @@ function subscribeToUserProfiles(){
   profilesUnsubscribe = onSnapshot(collection(db,'users'), snapshot => {
     userProfiles = Object.fromEntries(snapshot.docs.map(doc => [doc.id, doc.data()]));
     render();
-    renderMapping();
   }, error => {
     console.error(error);
   });
 }
 
-function subscribeToGroups(){
-  if (groupsUnsubscribe) groupsUnsubscribe();
-  groupsUnsubscribe = onSnapshot(collection(db,'groups'), snapshot => {
-    allGroups = snapshot.docs.map(groupDoc => ({id:groupDoc.id, ...groupDoc.data()}));
-    renderMapping();
-  }, error => {
-    console.error(error);
+function subscribeToScopedNotes(ownerIds){
+  clearScopedSubscriptions();
+  scopedOwnerIds = Array.from(new Set(ownerIds.filter(uid => typeof uid === 'string' && uid.trim())));
+  if (!scopedOwnerIds.length){
+    render();
+    showEmpty('No group assigned', 'This admin login has not been assigned to a group in Master Admin.');
+    return;
+  }
+  const notesByOwner = new Map();
+  scopedOwnerIds.forEach(ownerId => {
+    profileUnsubscribes.push(onSnapshot(doc(db,'users',ownerId), snapshot => {
+      userProfiles[ownerId] = snapshot.data() || {};
+      render();
+    }, error => console.error(error)));
+    noteUnsubscribes.push(onSnapshot(collection(db,'users',ownerId,'notes'), snapshot => {
+      notesByOwner.set(ownerId, snapshot.docs.map(noteDoc => ({
+        id:noteDoc.id,
+        path:noteDoc.ref.path,
+        userId:ownerId,
+        userLabel:'',
+        data:noteDoc.data()
+      })));
+      allNotes = Array.from(notesByOwner.values()).flat();
+      render();
+    }, error => {
+      console.error(error);
+      notesByOwner.set(ownerId, []);
+      allNotes = Array.from(notesByOwner.values()).flat();
+      render();
+    }));
   });
 }
 
@@ -736,35 +676,62 @@ loginForm.addEventListener('submit', async event => {
 onAuthStateChanged(auth, user => {
   if (notesUnsubscribe) notesUnsubscribe();
   if (profilesUnsubscribe) profilesUnsubscribe();
-  if (groupsUnsubscribe) groupsUnsubscribe();
+  clearScopedSubscriptions();
   notesUnsubscribe = null;
   profilesUnsubscribe = null;
-  groupsUnsubscribe = null;
   allNotes = [];
   userProfiles = {};
-  allGroups = [];
   selectedUserId = null;
   selectedNoteId = null;
+  currentAdminUid = user?.uid || null;
   if (!user){
     appShell.classList.remove('authenticated');
     loginScreen.classList.remove('hidden');
     userEmail.textContent = '';
     return;
   }
-  if (user.uid !== ADMIN_UID){
+  if (user.uid === MASTER_ADMIN_UID){
+    setDoc(doc(db,'users',user.uid),{
+      email:user.email || '',
+      emailUpdatedAt:serverTimestamp()
+    },{merge:true}).catch(error => console.warn('Unable to update admin email:', error));
+    loginScreen.classList.add('hidden');
+    appShell.classList.add('authenticated');
+    userEmail.textContent = user.email || '';
+    updateDateNavigation();
+    subscribeToUserProfiles();
+    subscribeToAllNotes();
+    return;
+  }
+  const profileRef = doc(db,'users',user.uid);
+  setDoc(profileRef,{
+    email:user.email || '',
+    emailUpdatedAt:serverTimestamp()
+  },{merge:true}).catch(error => {
+    console.warn('Unable to update admin email:', error);
+  }).then(() => getDoc(profileRef)).then(snapshot => {
+    const profile = snapshot.data() || {};
+    const ownerIds = Array.from(new Set([...(profile.sharedWith || []), ...(profile.adminSharedWith || [])]));
+    const adminGroupIds = Array.isArray(profile.adminGroupIds) ? profile.adminGroupIds : [];
+    if (!ownerIds.length && !adminGroupIds.length){
+      appShell.classList.remove('authenticated');
+      loginScreen.classList.remove('hidden');
+      userEmail.textContent = '';
+      loginError.innerHTML = `<div class="blocked">This account is not assigned to any admin group. Please add it in Master Admin.</div>`;
+      return;
+    }
+    loginScreen.classList.add('hidden');
+    appShell.classList.add('authenticated');
+    userEmail.textContent = user.email || '';
+    updateDateNavigation();
+    subscribeToScopedNotes(ownerIds);
+  }).catch(error => {
+    console.error(error);
     appShell.classList.remove('authenticated');
     loginScreen.classList.remove('hidden');
     userEmail.textContent = '';
-    loginError.innerHTML = `<div class="blocked">This account is not authorized for admin access. Use Sign out only if you need to switch accounts.</div>`;
-    return;
-  }
-  loginScreen.classList.add('hidden');
-  appShell.classList.add('authenticated');
-  userEmail.textContent = '';
-  updateDateNavigation();
-  subscribeToUserProfiles();
-  subscribeToGroups();
-  subscribeToAllNotes();
+    loginError.innerHTML = `<div class="blocked">Unable to check admin access. Please try again.</div>`;
+  });
 });
 
 adminPreviousDateBtn.addEventListener('click', () => moveAdminDate(-1));
@@ -807,7 +774,7 @@ copyBtn.addEventListener('click', async () => {
   try{
     await updateDoc(doc(db,note.path),{
       adminCopiedAt:serverTimestamp(),
-      adminCopiedBy:ADMIN_UID
+      adminCopiedBy:currentAdminUid || ''
     });
   }catch(error){
     console.error(error);
@@ -833,12 +800,12 @@ dischargeBtn.addEventListener('click', async () => {
   const previousDischargeDate = note.data?.dischargeDate || null;
   const previousDischargedBy = note.data?.dischargedBy || null;
   note.data.dischargeDate = wasDischarged ? null : selectedDateString;
-  note.data.dischargedBy = wasDischarged ? null : ADMIN_UID;
+  note.data.dischargedBy = wasDischarged ? null : currentAdminUid;
   updateDischargeButton(note);
   try{
     const changes = wasDischarged
       ? {dischargeDate:null, dischargedBy:null, dischargedAt:null, updatedAt:serverTimestamp()}
-      : {dischargeDate:selectedDateString, dischargedBy:ADMIN_UID, dischargedAt:serverTimestamp(), updatedAt:serverTimestamp()};
+      : {dischargeDate:selectedDateString, dischargedBy:currentAdminUid || '', dischargedAt:serverTimestamp(), updatedAt:serverTimestamp()};
     await updateDoc(doc(db,note.path),changes);
     render();
   }catch(error){
@@ -913,7 +880,7 @@ saveNoteBtn.addEventListener('click', async () => {
     await updateDoc(doc(db,note.path),{
       transcription:editorPlainText(editor),
       adminEditedAt:serverTimestamp(),
-      adminEditedBy:ADMIN_UID
+      adminEditedBy:currentAdminUid || ''
     });
     saveNoteBtn.textContent = 'Saved';
     saveNoteBtn.classList.add('copied');
@@ -941,59 +908,6 @@ document.addEventListener('click', event => {
   }
 });
 
-mappingBtn.addEventListener('click', openMapping);
-mappingCloseBtn.addEventListener('click', closeMapping);
-mappingModal.addEventListener('click', event => {
-  if (event.target === mappingModal) closeMapping();
-});
-
-saveMappingBtn.addEventListener('click', async () => {
-  const selectedUids = Array.from(mappingUserList.querySelectorAll('input[type="checkbox"]:checked')).map(input => input.value);
-  if (selectedUids.length < 2){
-    alert('Select at least two users for mapping.');
-    return;
-  }
-  const name = mappingGroupName.value.trim() || selectedUids.map(uid => userProfiles[uid]?.credentialName || uid.slice(0, 6)).join(' + ');
-  saveMappingBtn.disabled = true;
-  saveMappingBtn.textContent = 'Saving...';
-  try{
-    await addDoc(collection(db,'groups'),{
-      name,
-      memberUids:selectedUids,
-      createdAt:serverTimestamp(),
-      mappingUpdatedAt:serverTimestamp(),
-      mappingUpdatedBy:ADMIN_UID
-    });
-    mappingGroupName.value = '';
-    await syncUserMappings();
-    saveMappingBtn.textContent = 'Created';
-    setTimeout(() => {
-      saveMappingBtn.textContent = 'Create group';
-      saveMappingBtn.disabled = false;
-    }, 900);
-  }catch(error){
-    console.error(error);
-    saveMappingBtn.textContent = 'Try again';
-    saveMappingBtn.disabled = false;
-  }
-});
-
-mappingGroupsList.addEventListener('click', async event => {
-  const button = event.target.closest('[data-delete-group]');
-  if (!button) return;
-  const groupId = button.dataset.deleteGroup;
-  const group = allGroups.find(item => item.id === groupId);
-  if (!confirm(`Remove mapping ${group?.name || 'group'}?`)) return;
-  button.disabled = true;
-  try{
-    await deleteDoc(doc(db,'groups',groupId));
-    await syncUserMappings();
-  }catch(error){
-    console.error(error);
-    button.disabled = false;
-  }
-});
-
 signoutBtn.addEventListener('click', () => signOut(auth));
 </script>
 <script>
@@ -1005,7 +919,7 @@ if ('serviceWorker' in navigator) {
       refreshingForUpdate = true;
       window.location.reload();
     });
-    navigator.serviceWorker.register('./sw.js?v=89', {updateViaCache:'none'}).then(registration => {
+    navigator.serviceWorker.register('./sw.js?v=90', {updateViaCache:'none'}).then(registration => {
       registration.update();
     }).catch(error => {
       console.warn('Service worker registration failed:', error);
