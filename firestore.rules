@@ -8,7 +8,7 @@ service cloud.firestore {
 
     function isAdmin() {
       return request.auth != null
-        && request.auth.uid == "th8Jr2dzCdbBaKQYST1MzQZDG4G3";
+        && request.auth.uid == "Umb3lIKZfbXlLHth7OwDNFRvmUD3";
     }
 
     function sharedWith(userId) {
