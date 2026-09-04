@@ -84,6 +84,21 @@
   .rx-print-btn{ display:none; border-color:rgba(31,95,82,0.3); color:var(--teal-deep); min-width:74px; }
   .rx-print-btn:hover{ background:var(--teal-wash); }
   .rx-print-btn[disabled]{ opacity:.45; cursor:not-allowed; }
+  .print-wrap{ position:relative; display:none; flex-shrink:0; }
+  .print-wrap.visible{ display:block; }
+  .print-wrap::after{ content:''; position:absolute; left:0; right:0; top:100%; height:10px; }
+  .print-menu-btn{ min-width:86px; }
+  .print-wrap:hover .print-menu-btn,
+  .print-wrap:focus-within .print-menu-btn,
+  .print-menu-btn.open{ background:var(--teal-wash); border-color:rgba(31,95,82,0.3); color:var(--teal-deep); }
+  .print-menu{ position:absolute; top:calc(100% + 8px); right:0; min-width:174px; background:#fff; border:1px solid var(--border); border-radius:12px; box-shadow:0 18px 38px -24px rgba(20,35,29,.45); padding:6px; display:none; z-index:25; }
+  .print-wrap:hover .print-menu,
+  .print-wrap:focus-within .print-menu,
+  .print-menu.open{ display:grid; gap:6px; }
+  .print-menu .btn{ width:100%; min-height:42px; justify-content:center; border-radius:9px; }
+  .print-menu .rx-print-btn,
+  .print-menu .print-btn{ display:flex !important; }
+  .print-menu .rx-print-btn:disabled{ background:#F6F7F5; color:#9BA8A4; border-color:#DDE5E1; }
   .discharge-btn{
     border-color:#E5B45F;
     background:#FFF6E6;
@@ -202,8 +217,13 @@
       <button class="btn copy-btn" id="saveNoteBtn" style="display:none;">Save</button>
       <button class="btn discharge-btn" id="dischargeBtn" style="display:none;">Discharge</button>
       <button class="btn copy-btn" id="copyBtn" style="display:none;">Copy note</button>
-      <button class="btn print-btn" id="printBtn" style="display:none;" aria-label="Print visit note" title="Print visit note">Print</button>
-      <button class="btn rx-print-btn" id="rxPrintBtn" type="button" aria-label="Print prescription" title="Print Prescription">Print Rx</button>
+      <div class="print-wrap" id="adminPrintWrap">
+        <button class="btn print-menu-btn" id="adminPrintMenuBtn" type="button" aria-label="Print options" aria-haspopup="true" aria-expanded="false">Print</button>
+        <div class="print-menu" id="adminPrintMenu">
+          <button class="btn rx-print-btn" id="rxPrintBtn" type="button" aria-label="Print prescription" title="Print Prescription">Prescription</button>
+          <button class="btn print-btn" id="printBtn" type="button" aria-label="Print visit note" title="Print visit note">Visit Note</button>
+        </div>
+      </div>
       <div class="admin-settings">
         <button class="btn" id="adminSettingsBtn" aria-expanded="false">Settings</button>
         <div class="settings-menu" id="adminSettingsMenu">
@@ -257,6 +277,9 @@ const dischargeBtn = document.getElementById('dischargeBtn');
 const copyBtn = document.getElementById('copyBtn');
 const printBtn = document.getElementById('printBtn');
 const rxPrintBtn = document.getElementById('rxPrintBtn');
+const adminPrintWrap = document.getElementById('adminPrintWrap');
+const adminPrintMenuBtn = document.getElementById('adminPrintMenuBtn');
+const adminPrintMenu = document.getElementById('adminPrintMenu');
 const adminSettingsBtn = document.getElementById('adminSettingsBtn');
 const adminSettingsMenu = document.getElementById('adminSettingsMenu');
 const signoutBtn = document.getElementById('signoutBtn');
@@ -276,6 +299,7 @@ let selectedVisitType = 'OP';
 let selectedVisitDate = new Date();
 let adminDateTouched = false;
 let currentAdminUid = null;
+let adminPrintCloseTimer = null;
 
 const DEFAULT_PRESCRIPTION_LAYOUT = {
   includeMalayalam:true,
@@ -443,8 +467,8 @@ function selectedPrescriptionText(){
 
 function updatePrescriptionPrintButton(note){
   const text = note ? selectedPrescriptionText() : '';
-  rxPrintBtn.style.display = note && noteVisitType(note) === 'OP' ? 'inline-flex' : 'none';
   rxPrintBtn.disabled = !text;
+  rxPrintBtn.title = text ? 'Print Prescription' : 'No prescription found in this note';
 }
 
 function prescriptionRowsHtml(text, {includeMalayalam = true} = {}){
@@ -697,10 +721,34 @@ function closeAdminSettings(){
   adminSettingsBtn.setAttribute('aria-expanded','false');
 }
 
+function closeAdminPrintMenu(){
+  clearTimeout(adminPrintCloseTimer);
+  adminPrintMenu.classList.remove('open');
+  adminPrintMenuBtn.classList.remove('open');
+  adminPrintMenuBtn.setAttribute('aria-expanded','false');
+}
+
+function openAdminPrintMenu(){
+  if (!adminPrintWrap.classList.contains('visible')) return;
+  clearTimeout(adminPrintCloseTimer);
+  adminPrintMenu.classList.add('open');
+  adminPrintMenuBtn.classList.add('open');
+  adminPrintMenuBtn.setAttribute('aria-expanded','true');
+}
+
+function scheduleCloseAdminPrintMenu(){
+  clearTimeout(adminPrintCloseTimer);
+  adminPrintCloseTimer = setTimeout(closeAdminPrintMenu, 900);
+}
+
+function hideAdminPrintMenu(){
+  adminPrintWrap.classList.remove('visible');
+  closeAdminPrintMenu();
+}
+
 function showEmpty(title, message){
   copyBtn.style.display = 'none';
-  printBtn.style.display = 'none';
-  rxPrintBtn.style.display = 'none';
+  hideAdminPrintMenu();
   saveNoteBtn.style.display = 'none';
   dischargeBtn.style.display = 'none';
   mainScroll.innerHTML = `<div class="empty-state"><div class="empty-title">${escapeHtml(title)}</div><div>${escapeHtml(message)}</div></div>`;
@@ -778,7 +826,8 @@ function renderSelectedNote(){
   const text = note.data.transcription || '';
   const layout = prescriptionLayoutForNote(note);
   copyBtn.style.display = text ? 'inline-flex' : 'none';
-  printBtn.style.display = text ? 'inline-flex' : 'none';
+  adminPrintWrap.classList.toggle('visible', Boolean(text));
+  if (!text) closeAdminPrintMenu();
   saveNoteBtn.style.display = 'inline-flex';
   updateDischargeButton(note);
   updatePrescriptionPrintButton(note);
@@ -1049,6 +1098,7 @@ dischargeBtn.addEventListener('click', async () => {
 });
 
 printBtn.addEventListener('click', () => {
+  closeAdminPrintMenu();
   const note = allNotes.find(item => item.id === selectedNoteId && item.userId === selectedUserId);
   const editor = document.getElementById('adminNoteEditor');
   const text = editorPlainText(editor) || note?.data?.transcription || '';
@@ -1124,6 +1174,7 @@ printBtn.addEventListener('click', () => {
 });
 
 rxPrintBtn.addEventListener('click', () => {
+  closeAdminPrintMenu();
   const note = selectedAdminNote();
   if (!note) return;
   const prescription = selectedPrescriptionText();
@@ -1305,9 +1356,23 @@ adminSettingsBtn.addEventListener('click', event => {
   adminSettingsBtn.setAttribute('aria-expanded', String(isOpen));
 });
 
+adminPrintMenuBtn.addEventListener('click', event => {
+  event.stopPropagation();
+  clearTimeout(adminPrintCloseTimer);
+  const isOpen = adminPrintMenu.classList.toggle('open');
+  adminPrintMenuBtn.classList.toggle('open', isOpen);
+  adminPrintMenuBtn.setAttribute('aria-expanded', String(isOpen));
+});
+
+adminPrintWrap.addEventListener('pointerenter', openAdminPrintMenu);
+adminPrintWrap.addEventListener('pointerleave', scheduleCloseAdminPrintMenu);
+
 document.addEventListener('click', event => {
   if (!adminSettingsMenu.contains(event.target) && event.target !== adminSettingsBtn){
     closeAdminSettings();
+  }
+  if (!adminPrintMenu.contains(event.target) && event.target !== adminPrintMenuBtn){
+    closeAdminPrintMenu();
   }
 });
 
@@ -1322,7 +1387,7 @@ if ('serviceWorker' in navigator) {
       refreshingForUpdate = true;
       window.location.reload();
     });
-    navigator.serviceWorker.register('./sw.js?v=103', {updateViaCache:'none'}).then(registration => {
+    navigator.serviceWorker.register('./sw.js?v=110', {updateViaCache:'none'}).then(registration => {
       registration.update();
     }).catch(error => {
       console.warn('Service worker registration failed:', error);
