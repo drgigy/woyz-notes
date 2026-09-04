@@ -278,6 +278,7 @@ let adminDateTouched = false;
 let currentAdminUid = null;
 
 const DEFAULT_PRESCRIPTION_LAYOUT = {
+  includeMalayalam:true,
   header:{text:'', enabled:true, bold:false, italic:false, size:'medium'},
   footer:{text:'', enabled:true, bold:false, italic:false, size:'small'},
   signature:{text:'', enabled:true, bold:false, italic:false, size:'small'}
@@ -314,7 +315,7 @@ function simpleRichNoteHtml(text){
     .join('<br>');
 }
 
-function richNoteHtml(text){
+function richNoteHtml(text, {includeMalayalam = true} = {}){
   const normalized = String(text || '').replace(/\r\n/g, '\n');
   const prescriptionPattern = new RegExp(`(^|\\n)(Prescription:)\\s*\\n([\\s\\S]*?)(?=\\n\\n${NOTE_SECTION_LOOKAHEAD}:|$)`, 'gi');
   let html = '';
@@ -322,7 +323,7 @@ function richNoteHtml(text){
   for (const match of normalized.matchAll(prescriptionPattern)){
     const labelIndex = match.index + match[1].length;
     html += simpleRichNoteHtml(normalized.slice(lastIndex, labelIndex));
-    html += `<strong>${escapeHtml(match[2])}</strong><br><div class="rx-table">${prescriptionRowsHtml(match[3])}</div>`;
+    html += `<strong>${escapeHtml(match[2])}</strong><br><div class="rx-table">${prescriptionRowsHtml(match[3], {includeMalayalam})}</div>`;
     lastIndex = match.index + match[0].length;
   }
   html += simpleRichNoteHtml(normalized.slice(lastIndex));
@@ -442,7 +443,7 @@ function updatePrescriptionPrintButton(note){
   rxPrintBtn.disabled = !text;
 }
 
-function prescriptionRowsHtml(text){
+function prescriptionRowsHtml(text, {includeMalayalam = true} = {}){
   const lines = String(text || '').replace(/\r\n/g, '\n').split('\n').map(line => line.trim()).filter(Boolean);
   const rows = [];
   let pendingNumber = null;
@@ -491,7 +492,7 @@ function prescriptionRowsHtml(text){
       <div class="rx-medicine">${escapeHtml(row.medicine)}</div>
       <div class="rx-instructions">
         ${row.english ? `<div>${escapeHtml(row.english)}</div>` : ''}
-        ${row.local ? `<div>${escapeHtml(row.local)}</div>` : ''}
+        ${includeMalayalam && row.local ? `<div>${escapeHtml(row.local)}</div>` : ''}
       </div>
     </div>
   `).join('');
@@ -511,6 +512,7 @@ function normalizedLayoutBlock(block, defaults){
 function prescriptionLayoutForNote(note){
   const saved = userProfiles[note?.userId]?.prescriptionLayout;
   return {
+    includeMalayalam:saved?.includeMalayalam !== false,
     header:normalizedLayoutBlock(saved?.header, DEFAULT_PRESCRIPTION_LAYOUT.header),
     footer:normalizedLayoutBlock(saved?.footer, DEFAULT_PRESCRIPTION_LAYOUT.footer),
     signature:normalizedLayoutBlock(saved?.signature, DEFAULT_PRESCRIPTION_LAYOUT.signature)
@@ -768,6 +770,7 @@ function renderSelectedNote(){
   }
   const title = note.data.selectedMode || note.data.heading || 'Saved note';
   const text = note.data.transcription || '';
+  const layout = prescriptionLayoutForNote(note);
   copyBtn.style.display = text ? 'inline-flex' : 'none';
   printBtn.style.display = text ? 'inline-flex' : 'none';
   saveNoteBtn.style.display = 'inline-flex';
@@ -779,7 +782,7 @@ function renderSelectedNote(){
   copyBtn.textContent = 'Copy note';
 	  mainScroll.innerHTML = `
 	    <h1 class="note-title">${escapeHtml(title)}</h1>
-	    <div class="note-editor" id="adminNoteEditor" contenteditable="true" role="textbox" aria-label="Editable admin note">${richNoteHtml(text)}</div>
+	    <div class="note-editor" id="adminNoteEditor" contenteditable="true" role="textbox" aria-label="Editable admin note">${richNoteHtml(text, {includeMalayalam:layout.includeMalayalam !== false})}</div>
 	  `;
   document.getElementById('adminNoteEditor')?.addEventListener('input', () => updatePrescriptionPrintButton(note));
 }
@@ -1104,7 +1107,7 @@ printBtn.addEventListener('click', () => {
   }
 </style>
 </head>
-<body><main class="note">${richNoteHtml(text)}</main></body>
+<body><main class="note">${richNoteHtml(text, {includeMalayalam:prescriptionLayoutForNote(note).includeMalayalam !== false})}</main></body>
 </html>`);
   printWindow.document.close();
   printWindow.focus();
@@ -1248,7 +1251,7 @@ rxPrintBtn.addEventListener('click', () => {
         <h1>${escapeHtml(notePatientName(note))}</h1>
         <div class="patient-line">${escapeHtml(patientLine)}</div>
         <div class="rx-heading">Rx / ADVICE</div>
-        <div class="rx-table">${prescriptionRowsHtml(prescription)}</div>
+        <div class="rx-table">${prescriptionRowsHtml(prescription, {includeMalayalam:layout.includeMalayalam !== false})}</div>
         ${layout.signature.enabled !== false && layout.signature.text ? `<section class="rx-print-signature ${layoutBlockClass(layout.signature)}">${printBlockHtml(layout.signature, {firstLineStrong:true})}</section>` : ''}
       </div>
     </section>
