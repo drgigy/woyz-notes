@@ -2342,6 +2342,7 @@ let saveFeedbackTimer = null;
 let saveFeedbackUntil = 0;
 let templateCloseTimer = null;
 let mmseSelections = new Set();
+let lastEditorSelectionRange = null;
 let settingsCloseTimer = null;
 let printCloseTimer = null;
 let anonymizeEnabled = localStorage.getItem(ANONYMIZE_STORAGE) === 'true';
@@ -3665,6 +3666,27 @@ function focusEditorEnd(editor){
   selection.addRange(range);
 }
 
+function captureEditorSelection(){
+  const editor = document.getElementById('generatedNoteEditor');
+  const selection = window.getSelection();
+  if (!editor || !selection || !selection.rangeCount) return;
+  const range = selection.getRangeAt(0);
+  const container = range.commonAncestorContainer;
+  const selectedInsideEditor = editor === container || editor.contains(container);
+  if (selectedInsideEditor) lastEditorSelectionRange = range.cloneRange();
+}
+
+function restoreEditorSelection(editor){
+  if (!editor || !lastEditorSelectionRange) return false;
+  const container = lastEditorSelectionRange.commonAncestorContainer;
+  if (container !== editor && !editor.contains(container)) return false;
+  editor.focus();
+  const selection = window.getSelection();
+  selection.removeAllRanges();
+  selection.addRange(lastEditorSelectionRange);
+  return true;
+}
+
 function displayCredentialName(value){
   return String(value || '').trim();
 }
@@ -3722,6 +3744,9 @@ function renderGeneratedNote(draft){
   resizeNoteEditor(editor);
   if (mobileInlineReviewBtn) mobileInlineReviewBtn.addEventListener('click', openContinuationDock);
   if (canEdit){
+    ['focus','keyup','mouseup','touchend'].forEach(eventName => {
+      editor.addEventListener(eventName, captureEditorSelection);
+    });
     editor.addEventListener('input', () => {
       draft.transcription = editorPlainText(editor);
       draft.saved = false;
@@ -3730,6 +3755,7 @@ function renderGeneratedNote(draft){
       saveDraftBtn.querySelector('span').textContent = 'Save';
       updatePrescriptionPrintButton();
       resizeNoteEditor(editor);
+      captureEditorSelection();
     });
     editor.addEventListener('paste', event => {
       event.preventDefault();
@@ -4339,6 +4365,7 @@ function openMmseModal(){
     alert('Please select a note before inserting MMSE.');
     return;
   }
+  captureEditorSelection();
   renderMmseModal();
   mmseModal.classList.add('open');
 }
@@ -4384,15 +4411,22 @@ function insertMmseIntoCurrentNote(){
   }
   const record = records[activeIndex];
   const editor = document.getElementById('generatedNoteEditor');
-  const existing = anonymizeEnabled ? record.transcription : (editor ? editorPlainText(editor) : record.transcription);
-  const baseText = String(existing || '').trimEnd();
-  record.transcription = `${baseText}\n\n${mmseNoteText()}`.trim();
+  if (editor && !anonymizeEnabled && restoreEditorSelection(editor)){
+    document.execCommand('insertText', false, `\n\n${mmseNoteText()}\n`);
+    record.transcription = editorPlainText(editor);
+    resizeNoteEditor(editor);
+  }else{
+    const existing = anonymizeEnabled ? record.transcription : (editor ? editorPlainText(editor) : record.transcription);
+    const baseText = String(existing || '').trimEnd();
+    record.transcription = `${baseText}\n\n${mmseNoteText()}`.trim();
+    renderGeneratedNote(record);
+    focusEditorEnd(document.getElementById('generatedNoteEditor'));
+  }
   record.saved = false;
   clearTimeout(saveFeedbackTimer);
   saveFeedbackUntil = 0;
   saveDraftBtn.querySelector('span').textContent = 'Save';
-  renderGeneratedNote(record);
-  focusEditorEnd(document.getElementById('generatedNoteEditor'));
+  updatePrescriptionPrintButton();
   closeMmseModal();
 }
 
@@ -5340,6 +5374,7 @@ document.addEventListener('click', event => {
   handleDocumentModeAction(button.dataset.mobileVoiceMode);
   closeMobileSidebar();
 });
+document.addEventListener('selectionchange', captureEditorSelection);
 
 copyBtn.addEventListener('click', async () => {
   if (activeIndex === null) return;
@@ -5984,7 +6019,7 @@ if ('serviceWorker' in navigator) {
       refreshingForUpdate = true;
       window.location.reload();
     });
-    navigator.serviceWorker.register('./sw.js?v=112', {updateViaCache:'none'}).then(registration => {
+    navigator.serviceWorker.register('./sw.js?v=113', {updateViaCache:'none'}).then(registration => {
       registration.update();
     }).catch(error => {
       console.warn('Service worker registration failed:', error);
