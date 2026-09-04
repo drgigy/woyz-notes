@@ -1387,7 +1387,7 @@ if ('serviceWorker' in navigator) {
       refreshingForUpdate = true;
       window.location.reload();
     });
-    navigator.serviceWorker.register('./sw.js?v=111', {updateViaCache:'none'}).then(registration => {
+    navigator.serviceWorker.register('./sw.js?v=112', {updateViaCache:'none'}).then(registration => {
       registration.update();
     }).catch(error => {
       console.warn('Service worker registration failed:', error);

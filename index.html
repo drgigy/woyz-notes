@@ -2299,7 +2299,12 @@ const MMSE_SECTIONS = [
   {key:'registration', title:'Registration', max:3, items:['Object 1','Object 2','Object 3']},
   {key:'attention', title:'Attention and calculation', max:5, items:['Serial 7s / WORLD 1','Serial 7s / WORLD 2','Serial 7s / WORLD 3','Serial 7s / WORLD 4','Serial 7s / WORLD 5']},
   {key:'recall', title:'Recall', max:3, items:['Object 1','Object 2','Object 3']},
-  {key:'language', title:'Language and praxis', max:9, items:['Naming pencil','Naming watch','Repetition','Command step 1','Command step 2','Command step 3','Reading command','Writing sentence','Copy design']}
+  {key:'naming', title:'Naming', max:2, items:['Pencil','Watch']},
+  {key:'repetition', title:'Repetition', max:1, items:['Repeats sentence']},
+  {key:'verbalComprehension', title:'Verbal comprehension - three-stage command', max:3, items:['Command step 1','Command step 2','Command step 3']},
+  {key:'reading', title:'Reading comprehension', max:1, items:['Reads and obeys written command']},
+  {key:'writing', title:'Writing', max:1, items:['Writes spontaneous sentence']},
+  {key:'visuospatial', title:'Visuospatial ability', max:1, items:['Copies intersecting pentagons']}
 ];
 
 let activeIndex = null;
@@ -4348,11 +4353,27 @@ function resetMmseModal(){
 }
 
 function mmseNoteText(){
-  const lines = ['Mini Mental State Examination (MMSE):'];
-  MMSE_SECTIONS.forEach(section => {
-    lines.push(`${section.title}: ${mmseSectionScore(section)}/${section.max}`);
-  });
-  lines.push(`Total MMSE score: ${mmseTotalScore()}/30`);
+  const score = key => {
+    const section = MMSE_SECTIONS.find(item => item.key === key);
+    return section ? mmseSectionScore(section) : 0;
+  };
+  const lines = [
+    'MMSE',
+    '',
+    `1. Orientation to time (5 points) = ${score('orientationTime')}`,
+    `2. Orientation to place (5 points) = ${score('orientationPlace')}`,
+    `3. Registration (immediate recall of three objects) (3 points) = ${score('registration')}`,
+    `4. Attention and calculation (5 points) = ${score('attention')}`,
+    `5. Recall (delayed recall of three objects) (3 points) = ${score('recall')}`,
+    `6. Naming (two common objects) (2 points) = ${score('naming')}`,
+    `7. Repetition (repeating a sentence) (1 point) = ${score('repetition')}`,
+    `8. Verbal comprehension - three-stage command (3 points) = ${score('verbalComprehension')}`,
+    `9. Reading comprehension (reading and obeying a written command) (1 point) = ${score('reading')}`,
+    `10. Writing (writing a spontaneous sentence) (1 point) = ${score('writing')}`,
+    `11. Visuospatial ability (copying intersecting pentagons) (1 point) = ${score('visuospatial')}`,
+    '',
+    `Total MMSE score: ${mmseTotalScore()} out of 30.`
+  ];
   return lines.join('\n');
 }
 
@@ -5963,7 +5984,7 @@ if ('serviceWorker' in navigator) {
       refreshingForUpdate = true;
       window.location.reload();
     });
-    navigator.serviceWorker.register('./sw.js?v=111', {updateViaCache:'none'}).then(registration => {
+    navigator.serviceWorker.register('./sw.js?v=112', {updateViaCache:'none'}).then(registration => {
       registration.update();
     }).catch(error => {
       console.warn('Service worker registration failed:', error);
