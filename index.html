@@ -2834,6 +2834,7 @@ function clearRecordDirty(record){
 }
 
 function applyLocalDirtyRecord(record){
+  if (record?.voiceDraft || record?.transcribing) return record;
   const dirty = localDirtyRecords.get(recordLocalKey(record));
   if (!dirty) return record;
   return {
@@ -2849,6 +2850,7 @@ function captureActiveEditorState(){
   const editor = document.getElementById('generatedNoteEditor');
   if (!editor) return;
   const record = records[activeIndex];
+  if (record.voiceDraft || record.transcribing) return;
   const text = editorPlainText(editor);
   if (text !== (record.transcription || '')){
     record.transcription = text;
@@ -3978,6 +3980,8 @@ function resumeRecording(){
 async function stopAndTranscribe(){
   const draft = records[activeIndex];
   if (!draft || !draft.hasStarted || draft.transcribing) return;
+  const draftKey = recordLocalKey(draft);
+  let transcriptionReady = false;
   stopVoiceTimer();
   draft.recording = false;
   draft.stopped = true;
@@ -4014,8 +4018,28 @@ async function stopAndTranscribe(){
     draft.transcription = generated.text;
     draft.patientData = generated.patientData;
     draft.audioBlob = null;
+    draft.voiceDraft = false;
+    draft.kind = 'generated';
+    draft.saved = false;
+    draft.status = 'Note ready';
+    clearRecordDirty(draft);
+    const liveIndex = records.findIndex(record => recordLocalKey(record) === draftKey);
+    if (liveIndex >= 0){
+      records[liveIndex] = {
+        ...records[liveIndex],
+        transcription:draft.transcription,
+        patientData:draft.patientData,
+        voiceDraft:false,
+        kind:'generated',
+        saved:false,
+        status:'Note ready',
+        transcribing:false
+      };
+      activeIndex = liveIndex;
+    }
     await persistRecord(draft,{
       kind:'generated',
+      voiceDraft:false,
       transcription:draft.transcription,
       patientData:draft.patientData,
       selectedMode:draft.selectedMode,
@@ -4025,13 +4049,19 @@ async function stopAndTranscribe(){
     });
     draft.progress = 100;
     draft.status = 'Note ready';
+    transcriptionReady = true;
   }catch(error){
     draft.status = 'Note generation paused. The recording is still kept. ' + (error.message || '');
   }finally{
     stopProcessingProgress();
     draft.transcribing = false;
     stopMediaTracks();
-    renderVoiceWorkspace();
+    if (transcriptionReady){
+      const finalRecord = records[activeIndex] || draft;
+      finalRecord.transcribing = false;
+      renderGeneratedNote(finalRecord);
+    }
+    else renderVoiceWorkspace();
   }
 }
 
@@ -6087,7 +6117,7 @@ if ('serviceWorker' in navigator) {
       refreshingForUpdate = true;
       window.location.reload();
     });
-    navigator.serviceWorker.register('./sw.js?v=117', {updateViaCache:'none'}).then(registration => {
+    navigator.serviceWorker.register('./sw.js?v=118', {updateViaCache:'none'}).then(registration => {
       registration.update();
     }).catch(error => {
       console.warn('Service worker registration failed:', error);
