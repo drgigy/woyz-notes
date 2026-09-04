@@ -3340,7 +3340,7 @@ function compactNoteText(text){
     .join('\n\n');
 }
 
-const NOTE_SECTION_LOOKAHEAD = '(?:Patient Name|Age|UHID|Sex|Presenting Complaint|History of Present Illness|Past Medical or Surgical History|Allergies|Family History|Personal History|Examination Findings|Review of Investigations|Current Medications|Diagnosis|Treatment Plan|Prescription|Review Note(?:\\s*\\([^)]*\\))?)';
+const NOTE_SECTION_LOOKAHEAD = '(?:Patient Name|Age|UHID|Sex|Presenting Complaint|History of Present Illness|Past Medical or Surgical History|Allergies|Family History|Personal History|Examination Findings|Review of Investigations|Current Medications|Diagnosis|Treatment Plan|Follow[- ]?up|Prescription|Review Note(?:\\s*\\([^)]*\\))?)';
 
 function simpleRichNoteHtml(text){
   return String(text || '')
@@ -3354,7 +3354,7 @@ function simpleRichNoteHtml(text){
 
 function richNoteHtml(text, {includeMalayalam = prescriptionLayout().includeMalayalam !== false} = {}){
   const normalized = String(text || '').replace(/\r\n/g, '\n');
-  const prescriptionPattern = new RegExp(`(^|\\n)(Prescription:)\\s*\\n([\\s\\S]*?)(?=\\n\\n${NOTE_SECTION_LOOKAHEAD}:|$)`, 'gi');
+  const prescriptionPattern = new RegExp(`(^|\\n)(Prescription:)\\s*\\n([\\s\\S]*?)(?=\\n+${NOTE_SECTION_LOOKAHEAD}:|$)`, 'gi');
   let html = '';
   let lastIndex = 0;
   for (const match of normalized.matchAll(prescriptionPattern)){
@@ -3380,7 +3380,7 @@ function currentRecordSourceText(record){
 
 function prescriptionTextFromNote(text){
   const note = formatStoredReviewNotes(String(text || ''));
-  const match = note.match(/(?:^|\n)Prescription:\s*\n([\s\S]*?)(?=\n\n(?:Patient Name|Age|UHID|Sex|Presenting Complaint|History of Present Illness|Past Medical or Surgical History|Allergies|Family History|Personal History|Examination Findings|Review of Investigations|Current Medications|Diagnosis|Treatment Plan|Review Note(?:\s*\([^)]*\))?):|$)/i);
+  const match = note.match(/(?:^|\n)Prescription:\s*\n([\s\S]*?)(?=\n+(?:Patient Name|Age|UHID|Sex|Presenting Complaint|History of Present Illness|Past Medical or Surgical History|Allergies|Family History|Personal History|Examination Findings|Review of Investigations|Current Medications|Diagnosis|Treatment Plan|Follow[- ]?up|Review Note(?:\s*\([^)]*\))?):|$)/i);
   if (!match) return '';
   const prescription = String(match[1] || '').trim();
   return prescription && !isNilLike(prescription) ? prescription : '';
@@ -3430,7 +3430,9 @@ function prescriptionRowsHtml(text, {includeMalayalam = true} = {}){
   const isMedicineLine = line => medicineStartPattern.test(line) || dosePattern.test(line);
   const isNumberedMedicineLine = line => /^\d+[.)]\s+/.test(line);
   const isMalayalamLine = line => /[\u0D00-\u0D7F]/.test(line);
+  const isSectionHeading = line => /^(?:Patient Name|Age|UHID|Sex|Presenting Complaint|History of Present Illness|Past Medical or Surgical History|Allergies|Family History|Personal History|Examination Findings|Review of Investigations|Current Medications|Diagnosis|Treatment Plan|Follow[- ]?up|Review Note(?:\s*\([^)]*\))?):$/i.test(line);
   for (let index = 0; index < lines.length; index += 1){
+    if (isSectionHeading(lines[index])) break;
     const numberOnlyMatch = lines[index].match(/^(\d+[.)])$/);
     if (numberOnlyMatch){
       pendingNumber = numberOnlyMatch[1];
