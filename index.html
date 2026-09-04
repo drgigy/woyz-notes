@@ -3347,7 +3347,8 @@ function removeNilSectionsForCopy(text){
 function selectEntry(i,{preserveDirtyEditor = false} = {}){
   activeIndex = i;
   const r = records[i];
-  const isGeneratedRecord = Boolean(r.transcription) || r.kind === 'generated';
+  const isVoiceDraftRecord = r.voiceDraft === true;
+  const isGeneratedRecord = !isVoiceDraftRecord && (Boolean(r.transcription) || r.kind === 'generated');
   const keepExistingEditor = preserveDirtyEditor && localDirtyRecords.has(recordLocalKey(r)) && Boolean(document.getElementById('generatedNoteEditor'));
   renderEntries();
 
@@ -3768,7 +3769,7 @@ function resizeNoteEditor(editor){
 function renderVoiceWorkspace(){
   const draft = records[activeIndex];
   updateContinueNoteButton();
-  if (draft.transcription){
+  if (draft.transcription && !draft.voiceDraft){
     renderGeneratedNote(draft);
     return;
   }
@@ -4320,7 +4321,7 @@ function setVoiceDraftMode(draft, mode){
   draft.selectedMode = mode || null;
   draft.transcription = newVoiceTemplateForMode(draft.selectedMode, draft.visitType || selectedVisitType);
   persistRecord(draft,{selectedMode:draft.selectedMode,transcription:draft.transcription});
-  if (records[activeIndex]?.firestoreId === draft.firestoreId) renderGeneratedNote(draft);
+  if (records[activeIndex]?.firestoreId === draft.firestoreId) renderVoiceWorkspace();
   updateContinueNoteButton();
 }
 
@@ -4392,6 +4393,7 @@ async function finishNewVoiceDraft(audioBlob, apiKey, onRetry){
   draft.kind = 'generated';
   draft.saved = false;
   draft.status = 'Note ready';
+  markRecordDirty(draft,{generated:true});
   const draftVisitType = draft.visitType || selectedVisitType;
   const selectedDateString = dateInputValue(selectedVisitDate);
   const admissionDate = draftVisitType === 'IP' ? (draft.admissionDate || draft.visitDate || selectedDateString) : null;
@@ -4408,7 +4410,12 @@ async function finishNewVoiceDraft(audioBlob, apiKey, onRetry){
     status:'Note ready',
     updatedAt:serverTimestamp()
   });
-  renderGeneratedNote(draft);
+  const liveIndex = records.findIndex(record => recordLocalKey(record) === recordLocalKey(draft));
+  if (liveIndex >= 0){
+    records[liveIndex] = applyLocalDirtyRecord({...records[liveIndex], ...draft, transcribing:false});
+    activeIndex = liveIndex;
+  }
+  renderGeneratedNote(records[activeIndex] || draft);
 }
 
 function appendContinuationText(addition){
@@ -5039,7 +5046,8 @@ function selectLocalDraftFromSnapshot(snapshot){
   ];
   activeIndex = 0;
   renderEntries();
-  renderGeneratedNote(draft);
+  if (draft.voiceDraft) renderVoiceWorkspace();
+  else renderGeneratedNote(draft);
   return draft;
 }
 
@@ -6119,12 +6127,28 @@ deleteBtn.addEventListener('click', async () => {
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     let refreshingForUpdate = false;
-    navigator.serviceWorker.addEventListener('controllerchange', () => {
+    let updateWaitingForIdle = false;
+    const hasActiveVoiceWork = () => {
+      const activeRecording = records.some(record => record?.recording || record?.transcribing);
+      const dockRecording = continuationState.open && (continuationState.recording || continuationState.processing || continuationState.hasStarted);
+      return Boolean(activeRecording || dockRecording);
+    };
+    const reloadForUpdateWhenIdle = () => {
       if (refreshingForUpdate) return;
+      if (hasActiveVoiceWork()){
+        updateWaitingForIdle = true;
+        return;
+      }
       refreshingForUpdate = true;
       window.location.reload();
+    };
+    window.addEventListener('focus', () => {
+      if (updateWaitingForIdle && !hasActiveVoiceWork()) reloadForUpdateWhenIdle();
     });
-    navigator.serviceWorker.register('./sw.js?v=119', {updateViaCache:'none'}).then(registration => {
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      reloadForUpdateWhenIdle();
+    });
+    navigator.serviceWorker.register('./sw.js?v=120', {updateViaCache:'none'}).then(registration => {
       registration.update();
     }).catch(error => {
       console.warn('Service worker registration failed:', error);
