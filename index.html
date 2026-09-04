@@ -3416,6 +3416,7 @@ function voiceMarkup(){
   const hasStarted = Boolean(draft.hasStarted);
   const isRecording = draft.recording === true;
   const isPaused = hasStarted && !isRecording && !draft.transcribing && !draft.stopped;
+  const hasGeneratedResult = Boolean(draft.transcription && !draft.voiceDraft);
   return `
     <div class="voice-wrap">
       <div class="voice-kicker">Ambient Mode</div>
@@ -3442,9 +3443,9 @@ function voiceMarkup(){
         <div class="voice-modes">
           ${['Review dictation','Reply letter','Medical certificate'].map(mode => `<button class="voice-mode ${draft.selectedMode === mode ? 'active' : ''}">${mode}</button>`).join('')}
         </div>
-        <div class="voice-result ${draft.transcription ? 'visible' : ''}" id="voiceResult">
+        <div class="voice-result ${hasGeneratedResult ? 'visible' : ''}" id="voiceResult">
           <div class="voice-result-label">Generated result</div>
-          <div class="voice-result-text" id="voiceResultText">${escapeHtml(draft.transcription || '')}</div>
+          <div class="voice-result-text" id="voiceResultText">${escapeHtml(hasGeneratedResult ? draft.transcription : '')}</div>
         </div>
       </section>
     </div>`;
@@ -4323,8 +4324,8 @@ function extendContinuationRecording(){
 function setVoiceDraftMode(draft, mode){
   if (!draft) return;
   draft.selectedMode = mode || null;
-  draft.transcription = newVoiceTemplateForMode(draft.selectedMode, draft.visitType || selectedVisitType);
-  persistRecord(draft,{selectedMode:draft.selectedMode,transcription:draft.transcription});
+  draft.transcription = '';
+  persistRecord(draft,{selectedMode:draft.selectedMode,transcription:''});
   if (records[activeIndex]?.firestoreId === draft.firestoreId) renderVoiceWorkspace();
   updateContinueNoteButton();
 }
@@ -5139,7 +5140,7 @@ async function createVoiceDraft(mode = null){
         hasStarted: false,
         selectedMode,
         status: 'Ready to record',
-        transcription:newVoiceTemplateForMode(selectedMode, requestedVisitType),
+        transcription:'',
         patientData:{name:'NIL',age:'NIL',uhid:'NIL',sex:'NIL'}
       };
       pendingSelectId = newDraftRef.id;
@@ -6156,7 +6157,7 @@ if ('serviceWorker' in navigator) {
     navigator.serviceWorker.addEventListener('controllerchange', () => {
       reloadForUpdateWhenIdle();
     });
-    navigator.serviceWorker.register('./sw.js?v=121', {updateViaCache:'none'}).then(registration => {
+    navigator.serviceWorker.register('./sw.js?v=122', {updateViaCache:'none'}).then(registration => {
       registration.update();
     }).catch(error => {
       console.warn('Service worker registration failed:', error);
