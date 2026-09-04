@@ -2817,12 +2817,13 @@ function recordLocalKey(record){
   return ownerUid && record?.firestoreId ? `${ownerUid}:${record.firestoreId}` : '';
 }
 
-function markRecordDirty(record){
+function markRecordDirty(record,{generated = false} = {}){
   const key = recordLocalKey(record);
   if (!key) return;
   localDirtyRecords.set(key,{
     transcription:record.transcription || '',
     patientData:record.patientData || null,
+    generated,
     saved:false,
     updatedAt:Date.now()
   });
@@ -2834,13 +2835,14 @@ function clearRecordDirty(record){
 }
 
 function applyLocalDirtyRecord(record){
-  if (record?.voiceDraft || record?.transcribing) return record;
   const dirty = localDirtyRecords.get(recordLocalKey(record));
   if (!dirty) return record;
+  if (!dirty.generated && (record?.voiceDraft || record?.transcribing)) return record;
   return {
     ...record,
     transcription:dirty.transcription,
     patientData:dirty.patientData || record.patientData,
+    ...(dirty.generated ? {kind:'generated', voiceDraft:false, transcribing:false, status:'Note ready'} : {}),
     saved:false
   };
 }
@@ -4022,7 +4024,7 @@ async function stopAndTranscribe(){
     draft.kind = 'generated';
     draft.saved = false;
     draft.status = 'Note ready';
-    clearRecordDirty(draft);
+    markRecordDirty(draft,{generated:true});
     const liveIndex = records.findIndex(record => recordLocalKey(record) === draftKey);
     if (liveIndex >= 0){
       records[liveIndex] = {
@@ -4057,6 +4059,11 @@ async function stopAndTranscribe(){
     draft.transcribing = false;
     stopMediaTracks();
     if (transcriptionReady){
+      const finalIndex = records.findIndex(record => recordLocalKey(record) === draftKey);
+      if (finalIndex >= 0){
+        records[finalIndex] = applyLocalDirtyRecord({...records[finalIndex], ...draft, transcribing:false});
+        activeIndex = finalIndex;
+      }
       const finalRecord = records[activeIndex] || draft;
       finalRecord.transcribing = false;
       renderGeneratedNote(finalRecord);
@@ -6117,7 +6124,7 @@ if ('serviceWorker' in navigator) {
       refreshingForUpdate = true;
       window.location.reload();
     });
-    navigator.serviceWorker.register('./sw.js?v=118', {updateViaCache:'none'}).then(registration => {
+    navigator.serviceWorker.register('./sw.js?v=119', {updateViaCache:'none'}).then(registration => {
       registration.update();
     }).catch(error => {
       console.warn('Service worker registration failed:', error);
