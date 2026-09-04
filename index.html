@@ -3361,7 +3361,7 @@ function selectEntry(i,{preserveDirtyEditor = false} = {}){
   updatePrescriptionPrintButton();
   deleteBtn.classList.toggle('visible', canDeleteRecord(r));
   updateDischargeButton(r);
-  saveDraftBtn.classList.toggle('visible', Boolean(r.isDraft || isGeneratedRecord));
+  saveDraftBtn.classList.toggle('visible', Boolean((r.isDraft && !isVoiceDraftRecord) || isGeneratedRecord));
   saveDraftBtn.querySelector('span').textContent = saveButtonLabel();
   copyBtn.classList.remove('copied');
   copyBtn.textContent = 'Copy';
@@ -3767,6 +3767,25 @@ function resizeNoteEditor(editor){
   editor.style.height = `${editor.scrollHeight}px`;
 }
 
+function renderVoiceDraftTemplate(draft){
+  const title = draft.selectedMode || 'Visit Note';
+  const templateText = newVoiceTemplateForMode(draft.selectedMode, draft.visitType || selectedVisitType);
+  mainScroll.innerHTML = `
+    <div class="generated-note">
+      <section class="generated-note-card">
+        <div class="generated-note-head">
+          <div>
+            <h1 class="generated-note-title">${escapeHtml(title)}</h1>
+          </div>
+        </div>
+        <div class="note-editor voice-template-preview" contenteditable="false" spellcheck="false" role="textbox" aria-multiline="true" aria-label="Voice draft template preview">${richNoteHtml(templateText)}</div>
+      </section>
+    </div>`;
+  resizeNoteEditor(document.querySelector('.voice-template-preview'));
+  recordBtn.classList.toggle('is-recording', draft.recording === true);
+  recordSub.textContent = draft.recording ? 'Listening...' : 'Voice draft open';
+}
+
 function renderVoiceWorkspace(){
   const draft = records[activeIndex];
   updateContinueNoteButton();
@@ -3774,22 +3793,7 @@ function renderVoiceWorkspace(){
     renderGeneratedNote(draft);
     return;
   }
-  mainScroll.innerHTML = voiceMarkup();
-  const micBtn = document.getElementById('micBtn');
-  recordBtn.classList.toggle('is-recording', draft.recording === true);
-  recordSub.textContent = draft.recording ? 'Listening…' : 'Voice draft open';
-  if (micBtn) micBtn.addEventListener('click', handleSpaceAction);
-  const pauseResumeBtn = document.getElementById('pauseResumeBtn');
-  const extendRecordingBtn = document.getElementById('extendRecordingBtn');
-  const stopTranscribeBtn = document.getElementById('stopTranscribeBtn');
-  if (pauseResumeBtn) pauseResumeBtn.addEventListener('click', handleSpaceAction);
-  if (extendRecordingBtn) extendRecordingBtn.addEventListener('click', extendRecordingTime);
-  if (stopTranscribeBtn) stopTranscribeBtn.addEventListener('click', stopAndTranscribe);
-  document.querySelectorAll('.voice-mode').forEach(button => button.addEventListener('click', () => {
-    draft.selectedMode = draft.selectedMode === button.textContent ? null : button.textContent;
-    persistRecord(draft,{selectedMode:draft.selectedMode});
-    renderVoiceWorkspace();
-  }));
+  renderVoiceDraftTemplate(draft);
   updateTimer();
 }
 
@@ -6157,7 +6161,7 @@ if ('serviceWorker' in navigator) {
     navigator.serviceWorker.addEventListener('controllerchange', () => {
       reloadForUpdateWhenIdle();
     });
-    navigator.serviceWorker.register('./sw.js?v=122', {updateViaCache:'none'}).then(registration => {
+    navigator.serviceWorker.register('./sw.js?v=123', {updateViaCache:'none'}).then(registration => {
       registration.update();
     }).catch(error => {
       console.warn('Service worker registration failed:', error);
