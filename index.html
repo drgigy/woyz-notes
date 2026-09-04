@@ -4040,7 +4040,10 @@ async function stopAndTranscribe(){
       };
       activeIndex = liveIndex;
     }
-    await persistRecord(draft,{
+    draft.progress = 100;
+    draft.status = 'Note ready';
+    transcriptionReady = true;
+    persistRecord(draft,{
       kind:'generated',
       voiceDraft:false,
       transcription:draft.transcription,
@@ -4049,10 +4052,11 @@ async function stopAndTranscribe(){
       visitType:draft.visitType || selectedVisitType,
       status:'Note ready',
       updatedAt:serverTimestamp()
+    }).catch(error => {
+      console.error('Generated note save failed:', error);
+      const finalRecord = records.find(record => recordLocalKey(record) === draftKey) || draft;
+      finalRecord.status = 'Note ready. Saving is pending.';
     });
-    draft.progress = 100;
-    draft.status = 'Note ready';
-    transcriptionReady = true;
   }catch(error){
     draft.status = 'Note generation paused. The recording is still kept. ' + (error.message || '');
   }finally{
@@ -4399,7 +4403,13 @@ async function finishNewVoiceDraft(audioBlob, apiKey, onRetry){
   const admissionDate = draftVisitType === 'IP' ? (draft.admissionDate || draft.visitDate || selectedDateString) : null;
   draft.visitType = draftVisitType;
   if (admissionDate) draft.admissionDate = admissionDate;
-  await persistRecord(draft,{
+  const liveIndex = records.findIndex(record => recordLocalKey(record) === recordLocalKey(draft));
+  if (liveIndex >= 0){
+    records[liveIndex] = applyLocalDirtyRecord({...records[liveIndex], ...draft, transcribing:false});
+    activeIndex = liveIndex;
+  }
+  renderGeneratedNote(records[activeIndex] || draft);
+  persistRecord(draft,{
     kind:'generated',
     voiceDraft:false,
     transcription:draft.transcription,
@@ -4409,13 +4419,11 @@ async function finishNewVoiceDraft(audioBlob, apiKey, onRetry){
     ...(draftVisitType === 'IP' ? {admissionDate} : {admissionDate:null}),
     status:'Note ready',
     updatedAt:serverTimestamp()
+  }).catch(error => {
+    console.error('Generated continuation note save failed:', error);
+    const visibleDraft = records[activeIndex] || draft;
+    visibleDraft.status = 'Note ready. Saving is pending.';
   });
-  const liveIndex = records.findIndex(record => recordLocalKey(record) === recordLocalKey(draft));
-  if (liveIndex >= 0){
-    records[liveIndex] = applyLocalDirtyRecord({...records[liveIndex], ...draft, transcribing:false});
-    activeIndex = liveIndex;
-  }
-  renderGeneratedNote(records[activeIndex] || draft);
 }
 
 function appendContinuationText(addition){
@@ -6148,7 +6156,7 @@ if ('serviceWorker' in navigator) {
     navigator.serviceWorker.addEventListener('controllerchange', () => {
       reloadForUpdateWhenIdle();
     });
-    navigator.serviceWorker.register('./sw.js?v=120', {updateViaCache:'none'}).then(registration => {
+    navigator.serviceWorker.register('./sw.js?v=121', {updateViaCache:'none'}).then(registration => {
       registration.update();
     }).catch(error => {
       console.warn('Service worker registration failed:', error);
