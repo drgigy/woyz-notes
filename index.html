@@ -460,6 +460,7 @@
   .layout-controls{ display:flex; flex-wrap:wrap; align-items:center; gap:8px 12px; }
   .layout-check{ display:inline-flex; align-items:center; gap:6px; color:var(--muted); font:800 12px 'Inter',sans-serif; }
   .layout-check input{ accent-color:var(--teal); }
+  .layout-include{ color:var(--teal-deep); margin-right:4px; }
   .layout-size{ margin-left:auto; display:inline-flex; align-items:center; gap:7px; color:var(--muted); font:800 12px 'Inter',sans-serif; }
   .layout-size select{ height:32px; border:1px solid var(--border); border-radius:8px; padding:0 8px; background:#fff; font:800 12px 'Inter',sans-serif; color:var(--ink); }
   .trash-list{ min-height:160px; overflow:auto; display:grid; gap:10px; padding-right:4px; }
@@ -1910,6 +1911,7 @@
       <div class="layout-section-title">Header</div>
       <textarea class="layout-textarea" id="layoutHeaderInput" rows="4" spellcheck="true"></textarea>
       <div class="layout-controls" data-layout-controls="header">
+        <label class="layout-check layout-include"><input type="checkbox" data-layout-style="enabled"> Include in print</label>
         <label class="layout-check"><input type="checkbox" data-layout-style="bold"> Bold</label>
         <label class="layout-check"><input type="checkbox" data-layout-style="italic"> Italic</label>
         <label class="layout-size">Size
@@ -1926,6 +1928,7 @@
       <div class="layout-section-title">Footer / advice</div>
       <textarea class="layout-textarea" id="layoutFooterInput" rows="4" spellcheck="true"></textarea>
       <div class="layout-controls" data-layout-controls="footer">
+        <label class="layout-check layout-include"><input type="checkbox" data-layout-style="enabled"> Include in print</label>
         <label class="layout-check"><input type="checkbox" data-layout-style="bold"> Bold</label>
         <label class="layout-check"><input type="checkbox" data-layout-style="italic"> Italic</label>
         <label class="layout-size">Size
@@ -1942,6 +1945,7 @@
       <div class="layout-section-title">Signature</div>
       <textarea class="layout-textarea" id="layoutSignatureInput" rows="3" spellcheck="true"></textarea>
       <div class="layout-controls" data-layout-controls="signature">
+        <label class="layout-check layout-include"><input type="checkbox" data-layout-style="enabled"> Include in print</label>
         <label class="layout-check"><input type="checkbox" data-layout-style="bold"> Bold</label>
         <label class="layout-check"><input type="checkbox" data-layout-style="italic"> Italic</label>
         <label class="layout-size">Size
@@ -2126,18 +2130,21 @@ const ANONYMIZE_STORAGE = 'woyz_anonymize_display';
 const DEFAULT_PRESCRIPTION_LAYOUT = {
   header:{
     text:'',
+    enabled:true,
     bold:false,
     italic:false,
     size:'medium'
   },
   footer:{
     text:'',
+    enabled:true,
     bold:false,
     italic:false,
     size:'small'
   },
   signature:{
     text:'',
+    enabled:true,
     bold:false,
     italic:false,
     size:'small'
@@ -3383,6 +3390,7 @@ function normalizedLayoutBlock(block, defaults){
   const size = ['small','medium','large'].includes(block?.size) ? block.size : defaults.size;
   return {
     text:String(block?.text ?? defaults.text ?? ''),
+    enabled:block?.enabled === undefined ? defaults.enabled !== false : block.enabled !== false,
     bold:Boolean(block?.bold),
     italic:Boolean(block?.italic),
     size
@@ -3418,7 +3426,8 @@ function printBlockHtml(block, {firstLineStrong = false} = {}){
 }
 
 function footerBlockHtml(block){
-  const text = String(block?.text || '').replace(/\s+/g, ' ').trim();
+  const rawText = String(block?.text || '').replace(/\r\n/g, '\n').trim();
+  const text = rawText.split(/\n+/).map(line => line.replace(/\s+/g, ' ').trim()).filter(Boolean).join(' ');
   if (!text) return '';
   const emergencyIndex = text.search(/\bEmergency\s+Contact\b/i);
   const displayLines = emergencyIndex > 0
@@ -3466,6 +3475,7 @@ function loadLayoutModal(){
   for (const [key, block] of Object.entries(layout)){
     const controls = layoutModal.querySelector(`[data-layout-controls="${key}"]`);
     if (!controls) continue;
+    controls.querySelector('[data-layout-style="enabled"]').checked = block.enabled !== false;
     controls.querySelector('[data-layout-style="bold"]').checked = block.bold;
     controls.querySelector('[data-layout-style="italic"]').checked = block.italic;
     controls.querySelector('[data-layout-style="size"]').value = block.size;
@@ -3476,6 +3486,7 @@ function readLayoutBlock(key, input){
   const controls = layoutModal.querySelector(`[data-layout-controls="${key}"]`);
   return {
     text:input.value.trim(),
+    enabled:controls.querySelector('[data-layout-style="enabled"]').checked,
     bold:controls.querySelector('[data-layout-style="bold"]').checked,
     italic:controls.querySelector('[data-layout-style="italic"]').checked,
     size:controls.querySelector('[data-layout-style="size"]').value
@@ -5284,17 +5295,17 @@ rxPrintBtn.addEventListener('click', () => {
 </head>
 <body>
   <main class="page">
-    <header class="rx-print-header ${layoutBlockClass(layout.header)}">${printBlockHtml(layout.header, {firstLineStrong:true})}</header>
+    ${layout.header.enabled !== false && layout.header.text ? `<header class="rx-print-header ${layoutBlockClass(layout.header)}">${printBlockHtml(layout.header, {firstLineStrong:true})}</header>` : ''}
     <section class="rx-print-content">
       <div class="rx">
         <h1>${escapeHtml(displayPatientName(activeRecord))}</h1>
         <div class="patient-line">${escapeHtml(patientLine)}</div>
         <div class="rx-heading">Rx / ADVICE</div>
         <div class="rx-table">${prescriptionRowsHtml(prescription)}</div>
-        ${layout.signature.text ? `<section class="rx-print-signature ${layoutBlockClass(layout.signature)}">${printBlockHtml(layout.signature, {firstLineStrong:true})}</section>` : ''}
+        ${layout.signature.enabled !== false && layout.signature.text ? `<section class="rx-print-signature ${layoutBlockClass(layout.signature)}">${printBlockHtml(layout.signature, {firstLineStrong:true})}</section>` : ''}
       </div>
     </section>
-    ${layout.footer.text ? `<section class="rx-print-footer ${layoutBlockClass(layout.footer)}">${footerBlockHtml(layout.footer)}</section>` : ''}
+    ${layout.footer.enabled !== false && layout.footer.text ? `<section class="rx-print-footer ${layoutBlockClass(layout.footer)}">${footerBlockHtml(layout.footer)}</section>` : ''}
   </main>
 </body>
 </html>`);

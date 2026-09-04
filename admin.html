@@ -278,9 +278,9 @@ let adminDateTouched = false;
 let currentAdminUid = null;
 
 const DEFAULT_PRESCRIPTION_LAYOUT = {
-  header:{text:'', bold:false, italic:false, size:'medium'},
-  footer:{text:'', bold:false, italic:false, size:'small'},
-  signature:{text:'', bold:false, italic:false, size:'small'}
+  header:{text:'', enabled:true, bold:false, italic:false, size:'medium'},
+  footer:{text:'', enabled:true, bold:false, italic:false, size:'small'},
+  signature:{text:'', enabled:true, bold:false, italic:false, size:'small'}
 };
 
 function escapeHtml(value){
@@ -501,6 +501,7 @@ function normalizedLayoutBlock(block, defaults){
   const size = ['small','medium','large'].includes(block?.size) ? block.size : defaults.size;
   return {
     text:String(block?.text ?? defaults.text ?? ''),
+    enabled:block?.enabled === undefined ? defaults.enabled !== false : block.enabled !== false,
     bold:Boolean(block?.bold),
     italic:Boolean(block?.italic),
     size
@@ -533,7 +534,8 @@ function printBlockHtml(block, {firstLineStrong = false} = {}){
 }
 
 function footerBlockHtml(block){
-  const text = String(block?.text || '').replace(/\s+/g, ' ').trim();
+  const rawText = String(block?.text || '').replace(/\r\n/g, '\n').trim();
+  const text = rawText.split(/\n+/).map(line => line.replace(/\s+/g, ' ').trim()).filter(Boolean).join(' ');
   if (!text) return '';
   const emergencyIndex = text.search(/\bEmergency\s+Contact\b/i);
   const displayLines = emergencyIndex > 0
@@ -1240,17 +1242,17 @@ rxPrintBtn.addEventListener('click', () => {
 </head>
 <body>
   <main class="page">
-    <header class="rx-print-header ${layoutBlockClass(layout.header)}">${printBlockHtml(layout.header, {firstLineStrong:true})}</header>
+    ${layout.header.enabled !== false && layout.header.text ? `<header class="rx-print-header ${layoutBlockClass(layout.header)}">${printBlockHtml(layout.header, {firstLineStrong:true})}</header>` : ''}
     <section class="rx-print-content">
       <div class="rx">
         <h1>${escapeHtml(notePatientName(note))}</h1>
         <div class="patient-line">${escapeHtml(patientLine)}</div>
         <div class="rx-heading">Rx / ADVICE</div>
         <div class="rx-table">${prescriptionRowsHtml(prescription)}</div>
-        ${layout.signature.text ? `<section class="rx-print-signature ${layoutBlockClass(layout.signature)}">${printBlockHtml(layout.signature, {firstLineStrong:true})}</section>` : ''}
+        ${layout.signature.enabled !== false && layout.signature.text ? `<section class="rx-print-signature ${layoutBlockClass(layout.signature)}">${printBlockHtml(layout.signature, {firstLineStrong:true})}</section>` : ''}
       </div>
     </section>
-    ${layout.footer.text ? `<section class="rx-print-footer ${layoutBlockClass(layout.footer)}">${footerBlockHtml(layout.footer)}</section>` : ''}
+    ${layout.footer.enabled !== false && layout.footer.text ? `<section class="rx-print-footer ${layoutBlockClass(layout.footer)}">${footerBlockHtml(layout.footer)}</section>` : ''}
   </main>
 </body>
 </html>`);
