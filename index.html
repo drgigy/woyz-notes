@@ -475,11 +475,10 @@
   .mmse-score-label{ color:var(--muted); font:800 11px 'Inter',sans-serif; text-transform:uppercase; letter-spacing:.06em; }
   .mmse-score-value{ color:var(--teal-deep); font:900 20px 'Inter',sans-serif; white-space:nowrap; }
   .mmse-grid{ margin-top:10px; display:grid; gap:7px; }
-  .mmse-section{ --mmse-accent:var(--teal); --mmse-tint:#F4FAF7; position:relative; border:1px solid color-mix(in srgb, var(--mmse-accent) 28%, var(--border)); border-radius:10px; padding:7px 9px 7px 13px; display:grid; grid-template-columns:minmax(190px,260px) 54px minmax(0,1fr); align-items:center; gap:8px; background:linear-gradient(90deg,var(--mmse-tint),#fff 42%); overflow:hidden; }
+  .mmse-section{ --mmse-accent:var(--teal); --mmse-tint:#F4FAF7; position:relative; border:1px solid color-mix(in srgb, var(--mmse-accent) 28%, var(--border)); border-radius:10px; padding:7px 9px 7px 13px; display:grid; grid-template-columns:minmax(230px,310px) 54px minmax(0,1fr); align-items:center; gap:8px; background:linear-gradient(90deg,var(--mmse-tint),#fff 46%); overflow:hidden; }
   .mmse-section::before{ content:''; position:absolute; left:0; top:0; bottom:0; width:4px; background:var(--mmse-accent); }
   .mmse-section-head{ display:contents; }
-  .mmse-section-title{ color:var(--ink); font:900 12.5px 'Inter',sans-serif; line-height:1.25; display:flex; align-items:center; gap:8px; }
-  .mmse-icon{ width:24px; height:24px; border-radius:8px; display:inline-flex; align-items:center; justify-content:center; flex:0 0 auto; background:var(--mmse-accent); color:#fff; font:900 11px 'Inter',sans-serif; box-shadow:0 5px 14px -9px var(--mmse-accent); }
+  .mmse-section-title{ color:#fff; background:var(--mmse-accent); border-radius:9px; padding:8px 10px; font:900 12.5px 'Inter',sans-serif; line-height:1.2; box-shadow:0 5px 14px -10px var(--mmse-accent); }
   .mmse-section-score{ justify-self:end; color:var(--mmse-accent); background:#fff; border:1px solid color-mix(in srgb, var(--mmse-accent) 30%, #fff); border-radius:999px; padding:4px 8px; font:900 12px 'Inter',sans-serif; white-space:nowrap; }
   .mmse-items{ display:flex; flex-wrap:wrap; gap:6px; min-width:0; }
   .mmse-item{ min-height:30px; border:1px solid color-mix(in srgb, var(--mmse-accent) 20%, var(--border)); border-radius:999px; background:rgba(255,255,255,.88); color:var(--ink); padding:0 10px; text-align:left; font:800 11.5px 'Inter',sans-serif; cursor:pointer; display:inline-flex; align-items:center; gap:6px; }
@@ -2307,17 +2306,17 @@ const GEMINI_PROMPTS = {
 };
 
 const MMSE_SECTIONS = [
-  {key:'orientationTime', title:'Orientation to time', icon:'T', accent:'#2563EB', tint:'#EFF6FF', max:5, items:['Year','Season','Date','Day','Month']},
-  {key:'orientationPlace', title:'Orientation to place', icon:'P', accent:'#0F766E', tint:'#ECFDF5', max:5, items:['State/country','District/town','Hospital/place','Floor/ward','Room/location']},
-  {key:'registration', title:'Registration', icon:'R', accent:'#7C3AED', tint:'#F5F3FF', max:3, items:['Object 1','Object 2','Object 3']},
-  {key:'attention', title:'Attention and calculation', icon:'7', accent:'#D97706', tint:'#FFFBEB', max:5, items:['Serial 7s / WORLD 1','Serial 7s / WORLD 2','Serial 7s / WORLD 3','Serial 7s / WORLD 4','Serial 7s / WORLD 5']},
-  {key:'recall', title:'Recall', icon:'M', accent:'#DB2777', tint:'#FDF2F8', max:3, items:['Object 1','Object 2','Object 3']},
-  {key:'naming', title:'Naming', icon:'N', accent:'#0891B2', tint:'#ECFEFF', max:2, items:['Pencil','Watch']},
-  {key:'repetition', title:'Repetition', icon:'S', accent:'#4F46E5', tint:'#EEF2FF', max:1, items:['Repeats sentence']},
-  {key:'verbalComprehension', title:'Verbal comprehension - three-stage command', icon:'3', accent:'#16A34A', tint:'#F0FDF4', max:3, items:['Command step 1','Command step 2','Command step 3']},
-  {key:'reading', title:'Reading comprehension', icon:'A', accent:'#EA580C', tint:'#FFF7ED', max:1, items:['Reads and obeys written command']},
-  {key:'writing', title:'Writing', icon:'W', accent:'#9333EA', tint:'#FAF5FF', max:1, items:['Writes spontaneous sentence']},
-  {key:'visuospatial', title:'Visuospatial ability', icon:'V', accent:'#475569', tint:'#F8FAFC', max:1, items:['Copies intersecting pentagons']}
+  {key:'orientationTime', title:'Orientation to time', accent:'#2563EB', tint:'#EFF6FF', max:5, items:['Year','Season','Date','Day','Month']},
+  {key:'orientationPlace', title:'Orientation to place', accent:'#0F766E', tint:'#ECFDF5', max:5, items:['State/country','District/town','Hospital/place','Floor/ward','Room/location']},
+  {key:'registration', title:'Registration', accent:'#7C3AED', tint:'#F5F3FF', max:3, items:['Object 1','Object 2','Object 3']},
+  {key:'attention', title:'Attention and calculation', accent:'#D97706', tint:'#FFFBEB', max:5, items:['Serial 7s / WORLD 1','Serial 7s / WORLD 2','Serial 7s / WORLD 3','Serial 7s / WORLD 4','Serial 7s / WORLD 5']},
+  {key:'recall', title:'Recall', accent:'#DB2777', tint:'#FDF2F8', max:3, items:['Object 1','Object 2','Object 3']},
+  {key:'naming', title:'Naming', accent:'#0891B2', tint:'#ECFEFF', max:2, items:['Pencil','Watch']},
+  {key:'repetition', title:'Repetition', accent:'#4F46E5', tint:'#EEF2FF', max:1, items:['Repeats sentence']},
+  {key:'verbalComprehension', title:'Verbal comprehension - three-stage command', accent:'#16A34A', tint:'#F0FDF4', max:3, items:['Command step 1','Command step 2','Command step 3']},
+  {key:'reading', title:'Reading comprehension', accent:'#EA580C', tint:'#FFF7ED', max:1, items:['Reads and obeys written command']},
+  {key:'writing', title:'Writing', accent:'#9333EA', tint:'#FAF5FF', max:1, items:['Writes spontaneous sentence']},
+  {key:'visuospatial', title:'Visuospatial ability', accent:'#475569', tint:'#F8FAFC', max:1, items:['Copies intersecting pentagons']}
 ];
 
 let activeIndex = null;
@@ -4414,7 +4413,7 @@ function renderMmseModal(){
     const score = mmseSectionScore(section);
     return `<section class="mmse-section" style="--mmse-accent:${escapeHtml(section.accent)};--mmse-tint:${escapeHtml(section.tint)};">
       <div class="mmse-section-head">
-        <div class="mmse-section-title"><span class="mmse-icon" aria-hidden="true">${escapeHtml(section.icon)}</span>${escapeHtml(section.title)}</div>
+        <div class="mmse-section-title">${escapeHtml(section.title)}</div>
         <div class="mmse-section-score">${score} / ${section.max}</div>
       </div>
       <div class="mmse-items">
@@ -6088,7 +6087,7 @@ if ('serviceWorker' in navigator) {
       refreshingForUpdate = true;
       window.location.reload();
     });
-    navigator.serviceWorker.register('./sw.js?v=116', {updateViaCache:'none'}).then(registration => {
+    navigator.serviceWorker.register('./sw.js?v=117', {updateViaCache:'none'}).then(registration => {
       registration.update();
     }).catch(error => {
       console.warn('Service worker registration failed:', error);
