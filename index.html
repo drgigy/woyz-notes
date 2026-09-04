@@ -3380,10 +3380,13 @@ function currentRecordSourceText(record){
 
 function prescriptionTextFromNote(text){
   const note = formatStoredReviewNotes(String(text || ''));
-  const match = note.match(/(?:^|\n)Prescription:\s*\n([\s\S]*?)(?=\n+(?:Patient Name|Age|UHID|Sex|Presenting Complaint|History of Present Illness|Past Medical or Surgical History|Allergies|Family History|Personal History|Examination Findings|Review of Investigations|Current Medications|Diagnosis|Treatment Plan|Follow[- ]?up|Review Note(?:\s*\([^)]*\))?):|$)/i);
-  if (!match) return '';
-  const prescription = String(match[1] || '').trim();
-  return prescription && !isNilLike(prescription) ? prescription : '';
+  const sections = [];
+  const pattern = /(?:^|\n)Prescription:\s*\n([\s\S]*?)(?=\n+(?:Patient Name|Age|UHID|Sex|Presenting Complaint|History of Present Illness|Past Medical or Surgical History|Allergies|Family History|Personal History|Examination Findings|Review of Investigations|Current Medications|Diagnosis|Treatment Plan|Follow[- ]?up|Review Note(?:\s*\([^)]*\))?):|$)/gi;
+  for (const match of note.matchAll(pattern)){
+    const prescription = String(match[1] || '').trim();
+    if (prescription && !isNilLike(prescription)) sections.push(prescription);
+  }
+  return sections.join('\n');
 }
 
 function activePrescriptionText(){
@@ -3444,7 +3447,7 @@ function prescriptionRowsHtml(text, {includeMalayalam = true} = {}){
       const localIndex = english ? index + 2 : index + 1;
       const local = lines[localIndex] && !isNumberedMedicineLine(lines[localIndex]) && !isMedicineLine(lines[localIndex]) ? lines[localIndex] : '';
       rows.push({
-        number:pendingNumber || `${rows.length + 1}.`,
+        number:`${rows.length + 1}.`,
         medicine:lines[index],
         english,
         local
@@ -3455,14 +3458,14 @@ function prescriptionRowsHtml(text, {includeMalayalam = true} = {}){
       continue;
     }
     if (!medicineMatch){
-      rows.push({number:pendingNumber || `${rows.length + 1}.`, medicine:lines[index], english:'', local:''});
+      rows.push({number:`${rows.length + 1}.`, medicine:lines[index], english:'', local:''});
       pendingNumber = null;
       continue;
     }
     const english = lines[index + 1] && !/^\d+[.)]\s+/.test(lines[index + 1]) ? lines[index + 1] : '';
     const local = english && lines[index + 2] && !/^\d+[.)]\s+/.test(lines[index + 2]) ? lines[index + 2] : '';
     rows.push({
-      number:medicineMatch[1],
+      number:`${rows.length + 1}.`,
       medicine:medicineMatch[2],
       english,
       local
