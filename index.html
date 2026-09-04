@@ -2343,6 +2343,7 @@ let saveFeedbackUntil = 0;
 let templateCloseTimer = null;
 let mmseSelections = new Set();
 let lastEditorSelectionRange = null;
+let localDirtyRecords = new Map();
 let settingsCloseTimer = null;
 let printCloseTimer = null;
 let anonymizeEnabled = localStorage.getItem(ANONYMIZE_STORAGE) === 'true';
@@ -2799,6 +2800,51 @@ function noteDocRef(record){
   return doc(db,'users',ownerUid,'notes',record.firestoreId);
 }
 
+function recordLocalKey(record){
+  const ownerUid = noteOwnerUid(record);
+  return ownerUid && record?.firestoreId ? `${ownerUid}:${record.firestoreId}` : '';
+}
+
+function markRecordDirty(record){
+  const key = recordLocalKey(record);
+  if (!key) return;
+  localDirtyRecords.set(key,{
+    transcription:record.transcription || '',
+    patientData:record.patientData || null,
+    saved:false,
+    updatedAt:Date.now()
+  });
+}
+
+function clearRecordDirty(record){
+  const key = recordLocalKey(record);
+  if (key) localDirtyRecords.delete(key);
+}
+
+function applyLocalDirtyRecord(record){
+  const dirty = localDirtyRecords.get(recordLocalKey(record));
+  if (!dirty) return record;
+  return {
+    ...record,
+    transcription:dirty.transcription,
+    patientData:dirty.patientData || record.patientData,
+    saved:false
+  };
+}
+
+function captureActiveEditorState(){
+  if (activeIndex === null || !records[activeIndex] || anonymizeEnabled) return;
+  const editor = document.getElementById('generatedNoteEditor');
+  if (!editor) return;
+  const record = records[activeIndex];
+  const text = editorPlainText(editor);
+  if (text !== (record.transcription || '')){
+    record.transcription = text;
+    record.saved = false;
+    markRecordDirty(record);
+  }
+}
+
 function canDeleteRecord(record){
   const ownerUid = noteOwnerUid(record);
   return Boolean(record?.firestoreId && currentUser && sharedOwnerIds.includes(ownerUid));
@@ -2966,8 +3012,9 @@ function subscribeToSelectedDate({allowLatestDateFallback = false} = {}){
   const ownerRecords = new Map();
   let receivedOwners = 0;
   const applyRecords = async () => {
+    captureActiveEditorState();
     const previousId = activeIndex !== null ? `${noteOwnerUid(records[activeIndex])}:${records[activeIndex]?.firestoreId}` : null;
-    records = Array.from(ownerRecords.values()).flat().filter(note => noteMatchesSelectedScope(note, selectedDate)).sort((a,b) => {
+    records = Array.from(ownerRecords.values()).flat().map(applyLocalDirtyRecord).filter(note => noteMatchesSelectedScope(note, selectedDate)).sort((a,b) => {
       const aTime = a.createdAtValue?.toMillis?.() || 0;
       const bTime = b.createdAtValue?.toMillis?.() || 0;
       return bTime - aTime;
@@ -2978,7 +3025,7 @@ function subscribeToSelectedDate({allowLatestDateFallback = false} = {}){
     const targetIndex = targetId ? records.findIndex(record => `${noteOwnerUid(record)}:${record.firestoreId}` === targetId || record.firestoreId === targetId) : -1;
     pendingSelectId = null;
     if (targetIndex >= 0){
-      selectEntry(targetIndex);
+      selectEntry(targetIndex,{preserveDirtyEditor:true});
       if (pendingNewVoiceDockId && records[activeIndex]?.firestoreId === pendingNewVoiceDockId){
         pendingNewVoiceDockId = null;
         openNewVoiceDock();
@@ -3281,10 +3328,11 @@ function removeNilSectionsForCopy(text){
     .trim();
 }
 
-function selectEntry(i){
+function selectEntry(i,{preserveDirtyEditor = false} = {}){
   activeIndex = i;
   const r = records[i];
   const isGeneratedRecord = Boolean(r.transcription) || r.kind === 'generated';
+  const keepExistingEditor = preserveDirtyEditor && localDirtyRecords.has(recordLocalKey(r)) && Boolean(document.getElementById('generatedNoteEditor'));
   renderEntries();
 
   const identity = patientIdentity(r);
@@ -3303,6 +3351,10 @@ function selectEntry(i){
   updateContinueNoteButton();
 
   if (isGeneratedRecord){
+    if (keepExistingEditor){
+      resizeNoteEditor(document.getElementById('generatedNoteEditor'));
+      return;
+    }
     renderGeneratedNote(r);
     return;
   }
@@ -3750,6 +3802,7 @@ function renderGeneratedNote(draft){
     editor.addEventListener('input', () => {
       draft.transcription = editorPlainText(editor);
       draft.saved = false;
+      markRecordDirty(draft);
       clearTimeout(saveFeedbackTimer);
       saveFeedbackUntil = 0;
       saveDraftBtn.querySelector('span').textContent = 'Save';
@@ -4322,6 +4375,7 @@ function appendContinuationText(addition){
   const reviewHeading = noteVisitType(record) === 'IP' ? `Review Note (${reviewTimestampLabel()}):` : 'Review Note:';
   record.transcription = `${baseText}\n\n${reviewHeading}\n${text}`.trim();
   record.saved = false;
+  markRecordDirty(record);
   clearTimeout(saveFeedbackTimer);
   saveFeedbackUntil = 0;
   saveDraftBtn.querySelector('span').textContent = 'Save';
@@ -4423,6 +4477,7 @@ function insertMmseIntoCurrentNote(){
     focusEditorEnd(document.getElementById('generatedNoteEditor'));
   }
   record.saved = false;
+  markRecordDirty(record);
   clearTimeout(saveFeedbackTimer);
   saveFeedbackUntil = 0;
   saveDraftBtn.querySelector('span').textContent = 'Save';
@@ -5966,6 +6021,7 @@ saveDraftBtn.addEventListener('click', async () => {
     userSavedAt:serverTimestamp(),
     updatedAt:serverTimestamp()
   });
+  clearRecordDirty(draft);
   flashSaveButton();
 });
 
@@ -6019,7 +6075,7 @@ if ('serviceWorker' in navigator) {
       refreshingForUpdate = true;
       window.location.reload();
     });
-    navigator.serviceWorker.register('./sw.js?v=113', {updateViaCache:'none'}).then(registration => {
+    navigator.serviceWorker.register('./sw.js?v=114', {updateViaCache:'none'}).then(registration => {
       registration.update();
     }).catch(error => {
       console.warn('Service worker registration failed:', error);
