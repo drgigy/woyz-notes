@@ -469,11 +469,9 @@
   .layout-size{ margin-left:auto; display:inline-flex; align-items:center; gap:7px; color:var(--muted); font:800 12px 'Inter',sans-serif; }
   .layout-size select{ height:32px; border:1px solid var(--border); border-radius:8px; padding:0 8px; background:#fff; font:800 12px 'Inter',sans-serif; color:var(--ink); }
   .mmse-modal{ width:min(1120px,100%); max-height:min(760px,92vh); overflow:auto; padding:20px; }
-  .mmse-modal .auth-modal-title{ font-size:22px; }
+  .mmse-modal .auth-modal-title{ font-size:22px; display:flex; align-items:baseline; gap:10px; }
+  .mmse-title-score{ color:var(--teal-deep); font:900 18px 'Inter',sans-serif; white-space:nowrap; }
   .mmse-modal .auth-help{ margin:6px 0 10px; }
-  .mmse-score-bar{ margin-top:10px; padding:9px 12px; border:1px solid #C9E1D9; border-radius:12px; background:var(--teal-wash); display:flex; align-items:center; justify-content:space-between; gap:12px; }
-  .mmse-score-label{ color:var(--muted); font:800 11px 'Inter',sans-serif; text-transform:uppercase; letter-spacing:.06em; }
-  .mmse-score-value{ color:var(--teal-deep); font:900 20px 'Inter',sans-serif; white-space:nowrap; }
   .mmse-grid{ margin-top:10px; display:grid; gap:7px; }
   .mmse-section{ --mmse-accent:var(--teal); --mmse-tint:#F4FAF7; position:relative; border:1px solid color-mix(in srgb, var(--mmse-accent) 28%, var(--border)); border-radius:10px; padding:7px 9px 7px 13px; display:grid; grid-template-columns:minmax(230px,310px) 54px minmax(0,1fr); align-items:center; gap:8px; background:linear-gradient(90deg,var(--mmse-tint),#fff 46%); overflow:hidden; }
   .mmse-section::before{ content:''; position:absolute; left:0; top:0; bottom:0; width:4px; background:var(--mmse-accent); }
@@ -2071,14 +2069,10 @@
 <div class="modal-backdrop" id="mmseModal" role="dialog" aria-modal="true" aria-labelledby="mmseModalTitle">
   <div class="auth-modal mmse-modal">
     <div class="auth-modal-head">
-      <h2 class="auth-modal-title" id="mmseModalTitle">MMSE</h2>
+      <h2 class="auth-modal-title" id="mmseModalTitle">MMSE <span class="mmse-title-score" id="mmseScoreValue">0 / 30</span></h2>
       <button class="modal-close" id="mmseCloseBtn" aria-label="Close MMSE dialog">&times;</button>
     </div>
     <p class="auth-help">Tap the correctly completed items. The score is calculated automatically and inserted into the current note.</p>
-    <div class="mmse-score-bar">
-      <span class="mmse-score-label">Total score</span>
-      <span class="mmse-score-value" id="mmseScoreValue">0 / 30</span>
-    </div>
     <div class="mmse-grid" id="mmseSections"></div>
     <div class="auth-actions">
       <button class="btn" id="mmseResetBtn">Reset</button>
@@ -4508,8 +4502,7 @@ function mmseNoteText(){
     return section ? mmseSectionScore(section) : 0;
   };
   const lines = [
-    'MMSE',
-    '',
+    `MMSE - Total score: ${mmseTotalScore()} out of 30.`,
     `1. Orientation to time (5 points) = ${score('orientationTime')}`,
     `2. Orientation to place (5 points) = ${score('orientationPlace')}`,
     `3. Registration (immediate recall of three objects) (3 points) = ${score('registration')}`,
@@ -4520,9 +4513,7 @@ function mmseNoteText(){
     `8. Verbal comprehension - three-stage command (3 points) = ${score('verbalComprehension')}`,
     `9. Reading comprehension (reading and obeying a written command) (1 point) = ${score('reading')}`,
     `10. Writing (writing a spontaneous sentence) (1 point) = ${score('writing')}`,
-    `11. Visuospatial ability (copying intersecting pentagons) (1 point) = ${score('visuospatial')}`,
-    '',
-    `Total MMSE score: ${mmseTotalScore()} out of 30.`
+    `11. Visuospatial ability (copying intersecting pentagons) (1 point) = ${score('visuospatial')}`
   ];
   return lines.join('\n');
 }
@@ -6161,7 +6152,7 @@ if ('serviceWorker' in navigator) {
     navigator.serviceWorker.addEventListener('controllerchange', () => {
       reloadForUpdateWhenIdle();
     });
-    navigator.serviceWorker.register('./sw.js?v=123', {updateViaCache:'none'}).then(registration => {
+    navigator.serviceWorker.register('./sw.js?v=124', {updateViaCache:'none'}).then(registration => {
       registration.update();
     }).catch(error => {
       console.warn('Service worker registration failed:', error);
