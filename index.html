@@ -3464,7 +3464,7 @@ function compactNoteText(text){
     .join('\n\n');
 }
 
-const NOTE_SECTION_LOOKAHEAD = '(?:Patient Name|Age|UHID|Sex|Presenting Complaint|History of Present Illness|Past Medical or Surgical History|Allergies|Family History|Personal History|Examination Findings|Review of Investigations|Current Medications|Diagnosis|Treatment Plan|Follow[- ]?up|Prescription|Review Note(?:\\s*\\([^)]*\\))?)';
+const NOTE_SECTION_LOOKAHEAD = '(?:Patient Name|Age|UHID|Sex|Presenting Complaint|History of Present Illness|Past Medical or Surgical History|Allergies|Family History|Personal History|Examination Findings|Review of Investigations|Current Medications|Diagnosis|Treatment Plan|Advice|Instructions?|Follow[- ]?up|Prescription|Review Note(?:\\s*\\([^)]*\\))?)';
 
 function simpleRichNoteHtml(text){
   return String(text || '')
@@ -3505,7 +3505,7 @@ function currentRecordSourceText(record){
 function prescriptionTextFromNote(text){
   const note = formatStoredReviewNotes(String(text || ''));
   const sections = [];
-  const pattern = /(?:^|\n)Prescription:\s*\n([\s\S]*?)(?=\n+(?:Patient Name|Age|UHID|Sex|Presenting Complaint|History of Present Illness|Past Medical or Surgical History|Allergies|Family History|Personal History|Examination Findings|Review of Investigations|Current Medications|Diagnosis|Treatment Plan|Follow[- ]?up|Review Note(?:\s*\([^)]*\))?):|$)/gi;
+  const pattern = /(?:^|\n)Prescription:\s*\n([\s\S]*?)(?=\n+(?:Patient Name|Age|UHID|Sex|Presenting Complaint|History of Present Illness|Past Medical or Surgical History|Allergies|Family History|Personal History|Examination Findings|Review of Investigations|Current Medications|Diagnosis|Treatment Plan|Advice|Instructions?|Follow[- ]?up|Review Note(?:\s*\([^)]*\))?):|$)/gi;
   for (const match of note.matchAll(pattern)){
     const prescription = String(match[1] || '').trim();
     if (prescription && !isNilLike(prescription)) sections.push(prescription);
@@ -3557,7 +3557,7 @@ function prescriptionRowsHtml(text, {includeMalayalam = true} = {}){
   const isMedicineLine = line => medicineStartPattern.test(line) || dosePattern.test(line);
   const isNumberedMedicineLine = line => /^\d+[.)]\s+/.test(line);
   const isMalayalamLine = line => /[\u0D00-\u0D7F]/.test(line);
-  const isSectionHeading = line => /^(?:Patient Name|Age|UHID|Sex|Presenting Complaint|History of Present Illness|Past Medical or Surgical History|Allergies|Family History|Personal History|Examination Findings|Review of Investigations|Current Medications|Diagnosis|Treatment Plan|Follow[- ]?up|Review Note(?:\s*\([^)]*\))?):$/i.test(line);
+  const isSectionHeading = line => /^(?:Patient Name|Age|UHID|Sex|Presenting Complaint|History of Present Illness|Past Medical or Surgical History|Allergies|Family History|Personal History|Examination Findings|Review of Investigations|Current Medications|Diagnosis|Treatment Plan|Advice|Instructions?|Follow[- ]?up|Review Note(?:\s*\([^)]*\))?):$/i.test(line);
   for (let index = 0; index < lines.length; index += 1){
     if (isSectionHeading(lines[index])) break;
     const numberOnlyMatch = lines[index].match(/^(\d+[.)])$/);
@@ -4636,11 +4636,11 @@ function formatContinuationText(text){
 
 function formatStoredReviewNotes(text){
   const note = String(text || '').replace(
-    /(Review Note(?:\s*\([^)]*\))?:)\n([\s\S]*?)(?=\n\n(?:Patient Name|Presenting Complaint|History of Present Illness|Past Medical or Surgical History|Allergies|Family History|Personal History|Examination Findings|Review of Investigations|Current Medications|Diagnosis|Treatment Plan|Prescription|Review Note(?:\s*\([^)]*\))?):|$)/g,
+    /(Review Note(?:\s*\([^)]*\))?:)\n([\s\S]*?)(?=\n\n(?:Patient Name|Presenting Complaint|History of Present Illness|Past Medical or Surgical History|Allergies|Family History|Personal History|Examination Findings|Review of Investigations|Current Medications|Diagnosis|Treatment Plan|Advice|Instructions?|Follow[- ]?up|Prescription|Review Note(?:\s*\([^)]*\))?):|$)/g,
     (match, heading, body) => `${heading}\n${formatContinuationText(body)}`
   );
   return note.replace(
-    /((?:Review of Investigations|Current Medications|Treatment Plan|Prescription):)\s*\n([\s\S]*?)(?=\n\n(?:Patient Name|Age|UHID|Sex|Presenting Complaint|History of Present Illness|Past Medical or Surgical History|Allergies|Family History|Personal History|Examination Findings|Review of Investigations|Current Medications|Diagnosis|Treatment Plan|Prescription|Review Note(?:\s*\([^)]*\))?):|$)/g,
+    /((?:Review of Investigations|Current Medications|Treatment Plan|Advice|Instructions?|Follow[- ]?up|Prescription):)\s*\n([\s\S]*?)(?=\n\n(?:Patient Name|Age|UHID|Sex|Presenting Complaint|History of Present Illness|Past Medical or Surgical History|Allergies|Family History|Personal History|Examination Findings|Review of Investigations|Current Medications|Diagnosis|Treatment Plan|Advice|Instructions?|Follow[- ]?up|Prescription|Review Note(?:\s*\([^)]*\))?):|$)/g,
     (match, label, value) => `${label}\n${formatSectionValue(label, value)}`
   );
 }
@@ -6152,7 +6152,7 @@ if ('serviceWorker' in navigator) {
     navigator.serviceWorker.addEventListener('controllerchange', () => {
       reloadForUpdateWhenIdle();
     });
-    navigator.serviceWorker.register('./sw.js?v=124', {updateViaCache:'none'}).then(registration => {
+    navigator.serviceWorker.register('./sw.js?v=125', {updateViaCache:'none'}).then(registration => {
       registration.update();
     }).catch(error => {
       console.warn('Service worker registration failed:', error);
