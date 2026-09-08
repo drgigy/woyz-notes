@@ -2760,6 +2760,36 @@ function patientIdentity(record){
   };
 }
 
+function patientDataWithFallback(primary = {}, fallback = {}){
+  const choose = (field, cleaner = value => String(value || '').trim()) => {
+    const primaryValue = cleaner(primary?.[field]);
+    if (primaryValue && !isNilLike(primaryValue)) return primaryValue;
+    const fallbackValue = cleaner(fallback?.[field]);
+    return fallbackValue && !isNilLike(fallbackValue) ? fallbackValue : 'NIL';
+  };
+  return {
+    name:choose('name'),
+    age:choose('age', cleanAge),
+    uhid:choose('uhid'),
+    sex:choose('sex', cleanSex)
+  };
+}
+
+function selectedPatientDataForNewDraft(){
+  const record = activeIndex !== null ? records[activeIndex] : null;
+  if (!record || record.voiceDraft) return {name:'NIL',age:'NIL',uhid:'NIL',sex:'NIL'};
+  return patientDataWithFallback(patientIdentity(record));
+}
+
+function templateWithPatientData(template, patientData){
+  const patient = patientDataWithFallback(patientData);
+  return String(template || '')
+    .replace(/^Patient Name:\s*.*$/m, `Patient Name: ${patient.name}`)
+    .replace(/^Age:\s*.*$/m, `Age: ${patient.age}`)
+    .replace(/^UHID:\s*.*$/m, `UHID: ${patient.uhid}`)
+    .replace(/^Sex:\s*.*$/m, `Sex: ${patient.sex}`);
+}
+
 function anonymizeTextForRecord(text, record){
   if (!anonymizeEnabled) return String(text || '');
   const identity = patientIdentity(record);
@@ -3763,7 +3793,7 @@ function resizeNoteEditor(editor){
 
 function renderVoiceDraftTemplate(draft){
   const title = draft.selectedMode || 'Visit Note';
-  const templateText = newVoiceTemplateForMode(draft.selectedMode, draft.visitType || selectedVisitType);
+  const templateText = templateWithPatientData(newVoiceTemplateForMode(draft.selectedMode, draft.visitType || selectedVisitType), draft.patientData);
   mainScroll.innerHTML = `
     <div class="generated-note">
       <section class="generated-note-card">
@@ -4011,7 +4041,7 @@ async function stopAndTranscribe(){
       if (processingStatus) processingStatus.textContent = message;
     };
     const generated = await runUntilGenerated(
-      onRetry => sendAudioToGemini(audioBlob, apiKey, draft.selectedMode, onRetry, draft.visitType || selectedVisitType),
+      onRetry => sendAudioToGemini(audioBlob, apiKey, draft.selectedMode, onRetry, draft.visitType || selectedVisitType, draft.patientData),
       {
         setStatus:updateProcessingStatus,
         shouldContinue:() => !draft.cancelProcessing && records.some(record => record.firestoreId === draft.firestoreId)
@@ -4229,7 +4259,7 @@ function openPreparingNewVoiceDock(mode = null){
   continuationState.audioBlob = null;
   continuationState.status = 'Preparing voice note...';
   remainingSeconds = 300;
-  placeDock('left');
+  placeDock('right');
   renderContinuationDock();
 }
 
@@ -4248,7 +4278,7 @@ function openNewVoiceDock(){
   continuationState.audioBlob = null;
   continuationState.status = 'Ready to record new voice note';
   remainingSeconds = 300;
-  placeDock('left');
+  placeDock('right');
   renderContinuationDock();
 }
 
@@ -4389,7 +4419,7 @@ async function finishNewVoiceDraft(audioBlob, apiKey, onRetry){
   activeIndex = targetIndex;
   const draft = records[targetIndex];
   setContinuationStatus('Creating your note...');
-  const generated = await sendAudioToGemini(audioBlob, apiKey, draft.selectedMode, onRetry || (message => setContinuationStatus(message)), draft.visitType || selectedVisitType);
+  const generated = await sendAudioToGemini(audioBlob, apiKey, draft.selectedMode, onRetry || (message => setContinuationStatus(message)), draft.visitType || selectedVisitType, draft.patientData);
   draft.transcription = generated.text;
   draft.patientData = generated.patientData;
   draft.voiceDraft = false;
@@ -4671,7 +4701,7 @@ function blobToBase64(blob){
   });
 }
 
-async function sendAudioToGemini(audioBlob, apiKey, selectedMode, onRetry, visitType = selectedVisitType){
+async function sendAudioToGemini(audioBlob, apiKey, selectedMode, onRetry, visitType = selectedVisitType, fallbackPatientData = {}){
   if (audioBlob.size > 19 * 1024 * 1024) throw new Error('Recording is too large for inline upload.');
   const audioData = await blobToBase64(audioBlob);
   const mode = selectedMode || 'ambient';
@@ -4698,11 +4728,13 @@ async function sendAudioToGemini(audioBlob, apiKey, selectedMode, onRetry, visit
   let parsed;
   try{ parsed = JSON.parse(responseText); }
   catch(error){ throw noteServiceError('The service returned an invalid structured response.', true); }
-  const patientData = {
+  const extractedPatientData = {
     name:String(parsed.patientName || 'NIL').trim(),
     age:String(parsed.patientAge || 'NIL').trim(),
-    uhid:String(parsed.patientUhid || 'NIL').trim()
+    uhid:String(parsed.patientUhid || 'NIL').trim(),
+    sex:String(parsed.patientSex || 'NIL').trim()
   };
+  const patientData = patientDataWithFallback(extractedPatientData, fallbackPatientData);
   return {text:formatGeneratedOutput(parsed, mode, patientData, visitContext),patientData};
 }
 
@@ -4806,7 +4838,7 @@ function formatGeneratedOutput(data, mode, patient, visitType = selectedVisitTyp
     return `${patientHeader}\n\n${String(data.text || '').trim()}`.trim();
   }
   if (mode === 'Medical certificate'){
-    return `${patientHeader}\nDate: ${data.date || 'NIL'}\nSex: ${data.patientSex || 'NIL'}\n\n${String(data.certificateBody || '').trim()}`.trim();
+    return `${patientHeader}\nDate: ${data.date || 'NIL'}\nSex: ${patient.sex || data.patientSex || 'NIL'}\n\n${String(data.certificateBody || '').trim()}`.trim();
   }
   const sections = [
     ['Presenting Complaint',data.presentingComplaint],
@@ -4822,7 +4854,7 @@ function formatGeneratedOutput(data, mode, patient, visitType = selectedVisitTyp
     ['Treatment Plan',data.treatmentPlan]
   ];
   if (visitType === 'OP') sections.push(['Prescription',data.prescription]);
-  return `${patientHeader}\nSex: ${data.patientSex || 'NIL'}\n\n${sections.map(([label,value])=>`${label}:\n${formatSectionValue(label,value)}`).join('\n\n')}`;
+  return `${patientHeader}\nSex: ${patient.sex || data.patientSex || 'NIL'}\n\n${sections.map(([label,value])=>`${label}:\n${formatSectionValue(label,value)}`).join('\n\n')}`;
 }
 
 function formatSectionValue(label, value){
@@ -5102,6 +5134,9 @@ async function createVoiceDraft(mode = null){
     const selectedMode = mode || null;
     const requestedVisitType = selectedVisitType === 'IP' ? 'IP' : 'OP';
     const requestedDateString = dateInputValue(selectedVisitDate);
+    const sourceRecord = activeIndex !== null ? records[activeIndex] : null;
+    const sourcePatientData = selectedPatientDataForNewDraft();
+    const sourceKey = sourceRecord && !sourceRecord.voiceDraft ? patientSearchKey(sourceRecord) : null;
     openPreparingNewVoiceDock(selectedMode);
     if (searchScope === 'all'){
       searchScope = 'today';
@@ -5130,14 +5165,15 @@ async function createVoiceDraft(mode = null){
         everSaved:false,
         saved:false,
         kind:'generated',
-        voiceDraft:true,
-        recording: false,
-        hasStarted: false,
-        selectedMode,
-        status: 'Ready to record',
-        transcription:'',
-        patientData:{name:'NIL',age:'NIL',uhid:'NIL',sex:'NIL'}
-      };
+	        voiceDraft:true,
+	        recording: false,
+	        hasStarted: false,
+	        selectedMode,
+	        status: 'Ready to record',
+	        transcription:'',
+	        patientData:sourcePatientData,
+	        sourcePatientKey:sourceKey
+	      };
       pendingSelectId = newDraftRef.id;
       pendingNewVoiceDockId = newDraftRef.id;
       remainingSeconds = 300;
@@ -6152,7 +6188,7 @@ if ('serviceWorker' in navigator) {
     navigator.serviceWorker.addEventListener('controllerchange', () => {
       reloadForUpdateWhenIdle();
     });
-    navigator.serviceWorker.register('./sw.js?v=125', {updateViaCache:'none'}).then(registration => {
+    navigator.serviceWorker.register('./sw.js?v=126', {updateViaCache:'none'}).then(registration => {
       registration.update();
     }).catch(error => {
       console.warn('Service worker registration failed:', error);
