@@ -5134,8 +5134,9 @@ async function createVoiceDraft(mode = null){
     const selectedMode = mode || null;
     const requestedVisitType = selectedVisitType === 'IP' ? 'IP' : 'OP';
     const requestedDateString = dateInputValue(selectedVisitDate);
-    const sourceRecord = activeIndex !== null ? records[activeIndex] : null;
-    const sourcePatientData = selectedPatientDataForNewDraft();
+    const shouldPrefillPatient = ['Medical certificate','Reply letter'].includes(selectedMode);
+    const sourceRecord = shouldPrefillPatient && activeIndex !== null ? records[activeIndex] : null;
+    const sourcePatientData = shouldPrefillPatient ? selectedPatientDataForNewDraft() : {name:'NIL',age:'NIL',uhid:'NIL',sex:'NIL'};
     const sourceKey = sourceRecord && !sourceRecord.voiceDraft ? patientSearchKey(sourceRecord) : null;
     openPreparingNewVoiceDock(selectedMode);
     if (searchScope === 'all'){
@@ -5162,9 +5163,9 @@ async function createVoiceDraft(mode = null){
         visitType:requestedVisitType,
         admissionDate:requestedVisitType === 'IP' ? requestedDateString : null,
         isDraft: true,
-        everSaved:false,
-        saved:false,
-        kind:'generated',
+	        everSaved:false,
+	        saved:false,
+	        kind:'generated',
 	        voiceDraft:true,
 	        recording: false,
 	        hasStarted: false,
@@ -6188,7 +6189,7 @@ if ('serviceWorker' in navigator) {
     navigator.serviceWorker.addEventListener('controllerchange', () => {
       reloadForUpdateWhenIdle();
     });
-    navigator.serviceWorker.register('./sw.js?v=126', {updateViaCache:'none'}).then(registration => {
+    navigator.serviceWorker.register('./sw.js?v=127', {updateViaCache:'none'}).then(registration => {
       registration.update();
     }).catch(error => {
       console.warn('Service worker registration failed:', error);
