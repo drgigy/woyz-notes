@@ -329,6 +329,17 @@ function compactNoteText(text){
 
 const NOTE_SECTION_LOOKAHEAD = '(?:Patient Name|Age|UHID|Sex|Presenting Complaint|History of Present Illness|Past Medical or Surgical History|Allergies|Family History|Personal History|Examination Findings|Review of Investigations|Current Medications|Diagnosis|Treatment Plan|Advice|Instructions?|Follow[- ]?up|Prescription|Review Note(?:\\s*\\([^)]*\\))?)';
 
+function normalizeNumberedSectionHeadings(text){
+  return String(text || '')
+    .replace(/\r\n/g, '\n')
+    .replace(/(^|\n)\s*\d+[.)]\s*(Review of Investigations|Current Medications|Medications|Prescription|Rx|R\/x|Advice|Instructions?|Treatment Plan|Follow[- ]?up):\s*/gi, (match, leadingBreak, label) => {
+      const normalizedLabel = /^(?:Rx|R\/x)$/i.test(label.trim()) ? 'Prescription' : label.trim();
+      return `${leadingBreak}${leadingBreak ? '\n' : ''}${normalizedLabel}:\n`;
+    })
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
 function simpleRichNoteHtml(text){
   return String(text || '')
     .split('\n')
@@ -340,7 +351,7 @@ function simpleRichNoteHtml(text){
 }
 
 function richNoteHtml(text, {includeMalayalam = true} = {}){
-  const normalized = String(text || '').replace(/\r\n/g, '\n');
+  const normalized = normalizeNumberedSectionHeadings(text);
   const prescriptionPattern = new RegExp(`(^|\\n)(Prescription:)\\s*\\n([\\s\\S]*?)(?=\\n+${NOTE_SECTION_LOOKAHEAD}:|$)`, 'gi');
   let html = '';
   let lastIndex = 0;
@@ -444,7 +455,7 @@ function noteVisitType(note){
 }
 
 function prescriptionTextFromNote(text){
-  const normalized = String(text || '').replace(/\r\n/g, '\n');
+  const normalized = normalizeNumberedSectionHeadings(text);
   const sections = [];
   const pattern = /(?:^|\n)Prescription:\s*\n([\s\S]*?)(?=\n+(?:Patient Name|Age|UHID|Sex|Presenting Complaint|History of Present Illness|Past Medical or Surgical History|Allergies|Family History|Personal History|Examination Findings|Review of Investigations|Current Medications|Diagnosis|Treatment Plan|Advice|Instructions?|Follow[- ]?up|Review Note(?:\s*\([^)]*\))?):|$)/gi;
   for (const match of normalized.matchAll(pattern)){
@@ -477,8 +488,12 @@ function prescriptionRowsHtml(text, {includeMalayalam = true} = {}){
   let pendingNumber = null;
   const medicineStartPattern = /^(?:\d+[.)]\s*)?(?:Tablet|Cap|Capsule|Syrup|Inj|Injection)\b/i;
   const dosePattern = /\b\d+(?:\.\d+)?\s*(?:mg|mcg|g|ml|units?|iu)\b/i;
-  const isMedicineLine = line => medicineStartPattern.test(line) || dosePattern.test(line);
-  const isNumberedMedicineLine = line => /^\d+[.)]\s+/.test(line);
+  const instructionStartPattern = /^(?:take|inject|apply|use|instill|inhale|nebulize)\b/i;
+  const isMedicineLine = line => (medicineStartPattern.test(line) || dosePattern.test(line)) && !instructionStartPattern.test(line);
+  const isNumberedMedicineLine = line => {
+    const match = String(line || '').match(/^\d+[.)]\s+(.+)$/);
+    return Boolean(match && isMedicineLine(match[1]));
+  };
   const isMalayalamLine = line => /[\u0D00-\u0D7F]/.test(line);
   const isSectionHeading = line => /^(?:Patient Name|Age|UHID|Sex|Presenting Complaint|History of Present Illness|Past Medical or Surgical History|Allergies|Family History|Personal History|Examination Findings|Review of Investigations|Current Medications|Diagnosis|Treatment Plan|Advice|Instructions?|Follow[- ]?up|Review Note(?:\s*\([^)]*\))?):$/i.test(line);
   for (let index = 0; index < lines.length; index += 1){
@@ -504,13 +519,22 @@ function prescriptionRowsHtml(text, {includeMalayalam = true} = {}){
       if (local) index += 1;
       continue;
     }
-    if (!medicineMatch){
-      rows.push({number:`${rows.length + 1}.`, medicine:lines[index], english:'', local:''});
+    if (!medicineMatch || !isMedicineLine(medicineMatch[2])){
+      const text = medicineMatch ? medicineMatch[2].trim() : lines[index];
+      const row = rows[rows.length - 1];
+      if (row){
+        if (!row.english && !isMalayalamLine(text)) row.english = text;
+        else if (!row.local) row.local = text;
+        else row.english = row.english ? `${row.english} ${text}` : text;
+        pendingNumber = null;
+        continue;
+      }
+      rows.push({number:`${rows.length + 1}.`, medicine:text, english:'', local:''});
       pendingNumber = null;
       continue;
     }
-    const english = lines[index + 1] && !/^\d+[.)]\s+/.test(lines[index + 1]) ? lines[index + 1] : '';
-    const local = english && lines[index + 2] && !/^\d+[.)]\s+/.test(lines[index + 2]) ? lines[index + 2] : '';
+    const english = lines[index + 1] && !isNumberedMedicineLine(lines[index + 1]) ? lines[index + 1].replace(/^\d+[.)]\s*/, '') : '';
+    const local = english && lines[index + 2] && !isNumberedMedicineLine(lines[index + 2]) ? lines[index + 2].replace(/^\d+[.)]\s*/, '') : '';
     rows.push({number:`${rows.length + 1}.`, medicine:medicineMatch[2], english, local});
     pendingNumber = null;
     if (english) index += 1;
@@ -1387,7 +1411,7 @@ if ('serviceWorker' in navigator) {
       refreshingForUpdate = true;
       window.location.reload();
     });
-    navigator.serviceWorker.register('./sw.js?v=127', {updateViaCache:'none'}).then(registration => {
+    navigator.serviceWorker.register('./sw.js?v=128', {updateViaCache:'none'}).then(registration => {
       registration.update();
     }).catch(error => {
       console.warn('Service worker registration failed:', error);

@@ -2294,7 +2294,7 @@ const ambientSchemaForVisitType = visitType => {
 };
 const GEMINI_PROMPTS = {
   ambient:`You are a clinical note assistant helping a doctor create a concise medical visit note from ambient consultation audio. The recording may be a natural doctor-patient-attendant conversation, a formal dictation, or a mixture of both. Listen to and process the entire recording, not only sentences that sound like dictated note text. The doctor states the patient name, age, and UHID at the beginning; extract those identifiers exactly and treat the remaining recording as the consultation. Convert clearly spoken clinically relevant conversation into the correct note sections, including symptoms, duration, progression, negatives, past history, examination, medicines, investigation results, diagnosis, and advice when they are actually present in the audio. Correct spelling and grammar while keeping the original meaning. Do not add, infer, assume, recommend, or hallucinate clinical information. Do not remove, ignore, or over-compress clinically relevant details that are clearly present. If something is unclear, omit it. Use NIL when a whole field is unsupported. Translate Malayalam clinical content into professional clinical English and transliterate names into English. Preserve chronology, medicines, doses, investigations, findings, diagnoses, and advice exactly as spoken. Review of investigations is a fidelity-critical section: preserve every dictated or conversationally stated investigation name, modality, side, level, date/time reference, numeric value, unit, impression, and normal/abnormal qualifier exactly; never add, remove, summarize, shorten, combine, normalize, reinterpret, or make investigations more concise. Format Review of investigations as a numbered list whenever investigations are present, with each numbered investigation/report starting on a new line. If an investigation has multiple findings or sentences, put each finding on its own line below that numbered investigation without numbering the findings. If blood investigations are dictated or discussed, group all blood tests from the same date under one numbered item such as "Blood investigations on 12th January 2026:"; below that item, list each blood value on its own unnumbered line. Never number individual blood values. If blood reports are present from multiple dates, create one numbered "Blood investigations on [date]:" item for each date. Add standard conventional units for common blood values even when units are not dictated, while preserving dictated values exactly. Format Current medications as a numbered list, with each numbered medicine starting on a new line, preserving drug name, dose, route, frequency, and duration exactly as stated. Current medicines belong in currentMedication. Newly advised or changed medicines, investigations, referrals, and follow-up belong in treatmentPlan. In Treatment Plan, number only separate complete treatment actions. Keep each medicine with its full dose, route, timing, frequency, and duration on one numbered line; never split words such as oral, night, morning, bedtime, for 20 days, once daily, twice daily, SOS, or after food into separate numbered items. For OP visit notes only, generate a Prescription section only when the doctor explicitly dictates a prescription section or clearly says that the following medicines are prescription/Rx medicines. Medicines mentioned only under Current Medications, Treatment Plan, advice, or general treatment changes must stay in those sections and must not be duplicated into Prescription. If the doctor does not explicitly indicate prescription/Rx, return prescription as NIL. Inside prescription, use exactly this compact format for each medicine: numbered medicine line containing only Tablet/Cap/Syrup/Inj brand name dose, then one clear English patient instruction with timing, duration, and food or administration instruction without repeating the medicine name, then one natural Malayalam patient instruction for the same medicine without repeating the medicine name. Always include the Malayalam instruction line for every prescription medicine, written in simple patient-friendly Kerala Malayalam with natural wording, not literal machine translation. Do not write the word Malayalam before the Malayalam text. Do not translate medicine brand names into Malayalam. Keep medicine names and doses in English in the numbered medicine line only. Always write tablet medicines as Tablet, not Tab. Do not use internal labels like morning, noon, night, bedtime, Duration, or Instructions in prescription lines. Do not include patient demographics inside prescription. For IP visit notes, do not generate prescription and return NIL if a prescription field is requested. Return only the requested JSON object without markdown.`,
-  'Review dictation':`You are an expert medical transcription assistant. The doctor states the patient name, age, and UHID at the beginning; extract these identifiers into their JSON fields and do not repeat that opening identification in the text unless clinically necessary. Convert the remaining Malayalam, English, or Kerala Manglish dictation into complete professional clinical English suitable for a review note. Preserve every clearly dictated clinical fact, chronology, medicine, dose, route, frequency, duration, investigation, numeric value, unit, examination finding, assessment, advice, instruction, referral, and follow-up exactly as dictated. Do not summarize, shorten, condense, compress, omit, merge unrelated facts, or remove repeated clinically relevant details. Translate Malayalam clinical content and transliterate names into English. Correct grammar and punctuation, but never invent, infer, recommend, add, or remove information. If investigations are dictated, use the exact heading "Review of Investigations:" and format each investigation/report as a numbered item, with each report starting on a new line. If an investigation has multiple findings, put each finding on its own unnumbered line below that report. If blood investigations are dictated, group all blood tests from the same date under one numbered item and list each blood value below it on its own unnumbered line, adding standard conventional units when absent. If medicines are dictated, use the exact heading "Current Medications:" and list each medicine as a numbered item. If advice, instructions, consultation notes, or treatment changes are dictated, keep them under the dictated heading or a suitable clinical heading and list separate instructions one by one. Return only the requested JSON object.`,
+  'Review dictation':`You are an expert medical transcription assistant. The doctor states the patient name, age, and UHID at the beginning; extract these identifiers into their JSON fields and do not repeat that opening identification in the text unless clinically necessary. Convert the remaining Malayalam, English, or Kerala Manglish dictation into complete professional clinical English suitable for a review note. Preserve every clearly dictated clinical fact, chronology, medicine, dose, route, frequency, duration, investigation, numeric value, unit, examination finding, assessment, advice, instruction, referral, and follow-up exactly as dictated. Do not summarize, shorten, condense, compress, omit, merge unrelated facts, or remove repeated clinically relevant details. Translate Malayalam clinical content and transliterate names into English. Correct grammar and punctuation, but never invent, infer, recommend, add, or remove information. If investigations are dictated, use the exact heading "Review of Investigations:" and format each investigation/report as a numbered item, with each report starting on a new line. If an investigation has multiple findings, put each finding on its own unnumbered line below that report. If blood investigations are dictated, group all blood tests from the same date under one numbered item and list each blood value below it on its own unnumbered line, adding standard conventional units when absent. If existing/background medicines are dictated, use the exact heading "Current Medications:" and number only those current medicines. If the doctor explicitly dictates a prescription/Rx section, start a separate exact heading "Prescription:" and number only prescription medicines from 1 again. Never continue numbering from Current Medications into Prescription, Advice, Instructions, or Follow-up. If advice, instructions, consultation notes, or treatment changes are dictated, keep them under the dictated heading or a suitable clinical heading and number them separately from Prescription. Return only the requested JSON object.`,
   'Reply letter':`You are a clinical reply letter drafting assistant. The doctor states the patient name, age, and UHID at the beginning; extract these identifiers into their JSON fields and exclude the opening identification from the letter unless it belongs naturally in the clinical content. Create a clean reply letter from only the dictated audio. Correct spelling and grammar and make sentences complete. Do not add, infer, assume, hallucinate, recommend, or remove any clinical information. Use a polite professional letter style and keep the original meaning exactly. The text must begin exactly with "To," followed by the dictated recipient name, credentials, department, hospital, or address, each on its own line when dictated. Leave one blank line before the main paragraphs. Do not use a salutation or a Reply Letter heading. End with "Thank you" one blank line below the final paragraph. Do not include sender credentials, signature, or footer. If a detail is not dictated, omit it; do not write placeholders or "Not dictated". Return only the requested JSON object.`,
   'Medical certificate':`You are an expert medical certificate drafting assistant. The doctor states the patient name, age, and UHID at the beginning; extract them exactly into their JSON fields. Create a clean medical certificate from only the dictated audio. Correct spelling and grammar and make sentences complete. Do not add, infer, assume, hallucinate, recommend, or remove any clinical or administrative information. Use a simple certificate style. Use today's date only when no date is dictated. The certificateBody must begin with "This is to certify that" and contain one or more clear paragraphs. Include patient details only if dictated or provided in the JSON patient fields. If dates, rest period, diagnosis, fitness, restrictions, or purpose are dictated, include them exactly. If a detail is not dictated, omit it; do not write placeholders or "Not dictated". Do not include "To whomsoever it may concern", "Thank you", doctor credentials, or a signature in certificateBody. Return only the requested JSON object.`
 };
@@ -3496,6 +3496,17 @@ function compactNoteText(text){
 
 const NOTE_SECTION_LOOKAHEAD = '(?:Patient Name|Age|UHID|Sex|Presenting Complaint|History of Present Illness|Past Medical or Surgical History|Allergies|Family History|Personal History|Examination Findings|Review of Investigations|Current Medications|Diagnosis|Treatment Plan|Advice|Instructions?|Follow[- ]?up|Prescription|Review Note(?:\\s*\\([^)]*\\))?)';
 
+function normalizeNumberedSectionHeadings(text){
+  return String(text || '')
+    .replace(/\r\n/g, '\n')
+    .replace(/(^|\n)\s*\d+[.)]\s*(Review of Investigations|Current Medications|Medications|Prescription|Rx|R\/x|Advice|Instructions?|Treatment Plan|Follow[- ]?up):\s*/gi, (match, leadingBreak, label) => {
+      const normalizedLabel = /^(?:Rx|R\/x)$/i.test(label.trim()) ? 'Prescription' : label.trim();
+      return `${leadingBreak}${leadingBreak ? '\n' : ''}${normalizedLabel}:\n`;
+    })
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
 function simpleRichNoteHtml(text){
   return String(text || '')
     .split('\n')
@@ -3507,7 +3518,7 @@ function simpleRichNoteHtml(text){
 }
 
 function richNoteHtml(text, {includeMalayalam = prescriptionLayout().includeMalayalam !== false} = {}){
-  const normalized = String(text || '').replace(/\r\n/g, '\n');
+  const normalized = formatStoredReviewNotes(String(text || '')).replace(/\r\n/g, '\n');
   const prescriptionPattern = new RegExp(`(^|\\n)(Prescription:)\\s*\\n([\\s\\S]*?)(?=\\n+${NOTE_SECTION_LOOKAHEAD}:|$)`, 'gi');
   let html = '';
   let lastIndex = 0;
@@ -3584,8 +3595,12 @@ function prescriptionRowsHtml(text, {includeMalayalam = true} = {}){
   let pendingNumber = null;
   const medicineStartPattern = /^(?:\d+[.)]\s*)?(?:Tablet|Cap|Capsule|Syrup|Inj|Injection)\b/i;
   const dosePattern = /\b\d+(?:\.\d+)?\s*(?:mg|mcg|g|ml|units?|iu)\b/i;
-  const isMedicineLine = line => medicineStartPattern.test(line) || dosePattern.test(line);
-  const isNumberedMedicineLine = line => /^\d+[.)]\s+/.test(line);
+  const instructionStartPattern = /^(?:take|inject|apply|use|instill|inhale|nebulize)\b/i;
+  const isMedicineLine = line => (medicineStartPattern.test(line) || dosePattern.test(line)) && !instructionStartPattern.test(line);
+  const isNumberedMedicineLine = line => {
+    const match = String(line || '').match(/^\d+[.)]\s+(.+)$/);
+    return Boolean(match && isMedicineLine(match[1]));
+  };
   const isMalayalamLine = line => /[\u0D00-\u0D7F]/.test(line);
   const isSectionHeading = line => /^(?:Patient Name|Age|UHID|Sex|Presenting Complaint|History of Present Illness|Past Medical or Surgical History|Allergies|Family History|Personal History|Examination Findings|Review of Investigations|Current Medications|Diagnosis|Treatment Plan|Advice|Instructions?|Follow[- ]?up|Review Note(?:\s*\([^)]*\))?):$/i.test(line);
   for (let index = 0; index < lines.length; index += 1){
@@ -3611,13 +3626,22 @@ function prescriptionRowsHtml(text, {includeMalayalam = true} = {}){
       if (local) index += 1;
       continue;
     }
-    if (!medicineMatch){
+    if (!medicineMatch || !isMedicineLine(medicineMatch[2])){
+      const text = medicineMatch ? medicineMatch[2].trim() : lines[index];
+      const row = rows[rows.length - 1];
+      if (row){
+        if (!row.english && !isMalayalamLine(text)) row.english = text;
+        else if (!row.local) row.local = text;
+        else row.english = row.english ? `${row.english} ${text}` : text;
+        pendingNumber = null;
+        continue;
+      }
       rows.push({number:`${rows.length + 1}.`, medicine:lines[index], english:'', local:''});
       pendingNumber = null;
       continue;
     }
-    const english = lines[index + 1] && !/^\d+[.)]\s+/.test(lines[index + 1]) ? lines[index + 1] : '';
-    const local = english && lines[index + 2] && !/^\d+[.)]\s+/.test(lines[index + 2]) ? lines[index + 2] : '';
+    const english = lines[index + 1] && !isNumberedMedicineLine(lines[index + 1]) ? lines[index + 1].replace(/^\d+[.)]\s*/, '') : '';
+    const local = english && lines[index + 2] && !isNumberedMedicineLine(lines[index + 2]) ? lines[index + 2].replace(/^\d+[.)]\s*/, '') : '';
     rows.push({
       number:`${rows.length + 1}.`,
       medicine:medicineMatch[2],
@@ -4646,26 +4670,29 @@ async function sendContinuationAudioToGemini(audioBlob, apiKey, onRetry){
 }
 
 function formatContinuationText(text){
-	  const normalized = String(text || '')
-	    .replace(/\s*(Review of Investigations:\s*)/i, '\n\nReview of Investigations:\n')
-	    .replace(/\s*((?:Current )?Medications?:\s*)/i, '\n\nCurrent Medications:\n')
-	    .replace(/\s*((?:Prescription|Rx|R\/x):\s*)/i, '\n\nPrescription:\n')
-	    .replace(/\s*([A-Z][A-Za-z /-]*(?:Advice|Instructions?|Medications?|Investigations?|Treatment|Plan|Prescription|Rx|R\/x):\s*)/g, '\n\n$1\n')
-	    .replace(/([.!?])\s+([A-Z][A-Za-z /-]{2,80}:)/g, '$1\n\n$2')
-	    .replace(/\s+(\d+[.)]\s+)/g, '\n$1')
-	    .replace(/\n{3,}/g, '\n\n')
-	    .trim();
-	  return normalized.replace(
-	    /([A-Z][A-Za-z /-]*(?:Advice|Instructions?|Medications?|Investigations?|Treatment|Plan|Prescription|Rx|R\/x)):\s*\n([\s\S]*?)(?=\n\n[A-Z][A-Za-z /-]*(?:Advice|Instructions?|Medications?|Investigations?|Treatment|Plan|Prescription|Rx|R\/x):|$)/g,
-	    (match, label, value) => {
-	      const normalizedLabel = /^(?:Rx|R\/x)$/i.test(label.trim()) ? 'Prescription' : label;
-	      return `${normalizedLabel}:\n${formatSectionValue(normalizedLabel, value)}`;
-	    }
-	  ).trim();
-	}
+  const sectionBoundary = '(?:Review of Investigations|Current Medications|Medications|Prescription|Rx|R\\/x|Advice|Instructions?|Treatment Plan|Follow[- ]?up)';
+  const numberedHeadingPrefix = '\\s*(?:\\d+[.)]\\s*)?';
+  const normalized = String(text || '')
+    .replace(new RegExp(`${numberedHeadingPrefix}(Review of Investigations:\\s*)`, 'gi'), '\n\nReview of Investigations:\n')
+    .replace(new RegExp(`${numberedHeadingPrefix}(?:Current\\s+)?Medications?:\\s*`, 'gi'), '\n\nCurrent Medications:\n')
+    .replace(new RegExp(`${numberedHeadingPrefix}(?:Prescription|Rx|R\\/x):\\s*`, 'gi'), '\n\nPrescription:\n')
+    .replace(new RegExp(`${numberedHeadingPrefix}((?:Advice|Instructions?|Treatment Plan|Follow[- ]?up):\\s*)`, 'gi'), '\n\n$1\n')
+    .replace(/([.!?])\s+([A-Z][A-Za-z /-]{2,80}:)/g, '$1\n\n$2')
+    .replace(/\s+(\d+[.)]\s+)/g, '\n$1')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+  return normalized.replace(
+    new RegExp(`(${sectionBoundary}):\\s*\\n([\\s\\S]*?)(?=\\n\\n${sectionBoundary}:|$)`, 'gi'),
+    (match, label, value) => {
+      const normalizedLabel = /^(?:Rx|R\/x)$/i.test(label.trim()) ? 'Prescription' : label;
+      return `${normalizedLabel}:\n${formatSectionValue(normalizedLabel, value)}`;
+    }
+  ).trim();
+}
 
 function formatStoredReviewNotes(text){
-  const note = String(text || '').replace(
+  const normalizedText = normalizeNumberedSectionHeadings(text);
+  const note = normalizedText.replace(
     /(Review Note(?:\s*\([^)]*\))?:)\n([\s\S]*?)(?=\n\n(?:Patient Name|Presenting Complaint|History of Present Illness|Past Medical or Surgical History|Allergies|Family History|Personal History|Examination Findings|Review of Investigations|Current Medications|Diagnosis|Treatment Plan|Advice|Instructions?|Follow[- ]?up|Prescription|Review Note(?:\s*\([^)]*\))?):|$)/g,
     (match, heading, body) => `${heading}\n${formatContinuationText(body)}`
   );
@@ -4863,7 +4890,7 @@ function formatSectionValue(label, value){
   if (/Prescription/i.test(label)) return formatPrescriptionList(text);
   if (/Medications?/i.test(label)) return formatMedicationList(text);
   if (/Investigations?/i.test(label)) return formatInvestigationList(text);
-  if (/(Advice|Instructions?|Treatment|Plan)/i.test(label)) return formatInstructionList(text);
+  if (/(Advice|Instructions?|Treatment|Plan|Follow[- ]?up)/i.test(label)) return formatInstructionList(text);
   if (/^\s*\d+[.)]\s+/m.test(text)) return text;
   const items = text
     .split(/\n|;(?=\s*[A-Za-z0-9])/)
@@ -4880,7 +4907,23 @@ function formatPrescriptionList(text){
     .replace(/\n{3,}/g, '\n\n')
     .trim();
   if (!source || isNilLike(source)) return 'NIL';
-  return source;
+  const medicineStartPattern = /^(?:Tablet|Cap|Capsule|Syrup|Inj|Injection)\b/i;
+  const dosePattern = /\b\d+(?:\.\d+)?\s*(?:mg|mcg|g|ml|units?|iu)\b/i;
+  const instructionStartPattern = /^(?:take|inject|apply|use|instill|inhale|nebulize)\b/i;
+  const isMedicineLine = line => (medicineStartPattern.test(line) || dosePattern.test(line)) && !instructionStartPattern.test(line);
+  const rows = [];
+  source.split('\n').map(line => line.trim().replace(/^[-•]\s*/, '').replace(/^\d+[.)]\s*/, '')).filter(Boolean).forEach(line => {
+    if (isMedicineLine(line)){
+      rows.push({medicine:line, details:[]});
+      return;
+    }
+    if (!rows.length){
+      rows.push({medicine:line, details:[]});
+      return;
+    }
+    rows[rows.length - 1].details.push(line);
+  });
+  return rows.map((row, index) => [`${index + 1}. ${row.medicine}`, ...row.details].join('\n')).join('\n');
 }
 
 function formatInstructionList(text){
@@ -5024,7 +5067,10 @@ function addStandardBloodUnit(line){
 
 function formatMedicationList(text){
   const medicineStart = '(?:Tab\\.?|Tablet|Cap\\.?|Capsule|Inj\\.?|Injection|Syp\\.?|Syrup|Drops?|Patch|Cream|Ointment|Nebulization|Inhaler)';
-  const source = stripExistingListNumbers(text);
+  const nestedSectionHeading = /^(?:Patient Name|Age|UHID|Sex|Presenting Complaint|History of Present Illness|Past Medical or Surgical History|Allergies|Family History|Personal History|Examination Findings|Review of Investigations|Current Medications|Diagnosis|Treatment Plan|Advice|Instructions?|Follow[- ]?up|Prescription|Review Note(?:\s*\([^)]*\))?):$/i;
+  const sourceLines = stripExistingListNumbers(text).split('\n');
+  const nextHeadingIndex = sourceLines.findIndex((line, index) => index > 0 && nestedSectionHeading.test(line));
+  const source = (nextHeadingIndex >= 0 ? sourceLines.slice(0, nextHeadingIndex) : sourceLines).join('\n');
   const normalized = source
     .replace(new RegExp(`[,;]\\s+(?=${medicineStart}(?:\\s|$))`, 'gi'), '\n')
     .replace(new RegExp(`\\.\\s+(?=${medicineStart}(?:\\s|$))`, 'gi'), '\n')
@@ -6189,7 +6235,7 @@ if ('serviceWorker' in navigator) {
     navigator.serviceWorker.addEventListener('controllerchange', () => {
       reloadForUpdateWhenIdle();
     });
-    navigator.serviceWorker.register('./sw.js?v=127', {updateViaCache:'none'}).then(registration => {
+    navigator.serviceWorker.register('./sw.js?v=128', {updateViaCache:'none'}).then(registration => {
       registration.update();
     }).catch(error => {
       console.warn('Service worker registration failed:', error);
