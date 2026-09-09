@@ -5150,16 +5150,27 @@ function selectExistingDraftRecord(record){
   return true;
 }
 
-function selectExistingLocalDraft({visitType = selectedVisitType, fallbackToAny = true} = {}){
-  const ownDrafts = records.filter(record => record.isDraft && noteOwnerUid(record) === currentUser?.uid);
+function isManualDraftRecord(record){
+  return Boolean(
+    record &&
+    record.voiceDraft !== true &&
+    (record.noteType === 'manual' || record.selectedMode === 'Manual note' || record.heading === 'Manual note draft')
+  );
+}
+
+function selectExistingLocalDraft({visitType = selectedVisitType, fallbackToAny = true, predicate = null} = {}){
+  const ownDrafts = records.filter(record => record.isDraft && noteOwnerUid(record) === currentUser?.uid && (!predicate || predicate(record)));
   const draft = ownDrafts.find(record => noteVisitType(record) === visitType) || (fallbackToAny ? ownDrafts[0] : null);
   return selectExistingDraftRecord(draft);
 }
 
-async function existingDraftSnapshotForCurrentUser(){
+async function existingDraftSnapshotForCurrentUser({visitType = selectedVisitType, predicate = null} = {}){
   const snapshot = await getDocs(query(userNotesCollection(),where('isDraft','==',true)));
   if (snapshot.empty) return null;
-  return snapshot.docs.find(docSnap => noteVisitType(noteFromSnapshot(docSnap,currentUser.uid)) === selectedVisitType) || snapshot.docs[0];
+  const drafts = snapshot.docs
+    .map(docSnap => ({docSnap, record:noteFromSnapshot(docSnap,currentUser.uid)}))
+    .filter(item => !predicate || predicate(item.record));
+  return drafts.find(item => noteVisitType(item.record) === visitType)?.docSnap || drafts[0]?.docSnap || null;
 }
 
 async function withDraftCreationLock(task){
@@ -5192,7 +5203,7 @@ async function createVoiceDraft(mode = null){
       subscribeToSelectedDate();
     }
     try{
-      if (selectExistingLocalDraft({visitType:requestedVisitType,fallbackToAny:false})){
+      if (selectExistingLocalDraft({visitType:requestedVisitType,fallbackToAny:false,predicate:record => record.voiceDraft === true})){
         if (records[activeIndex]?.voiceDraft) openNewVoiceDock();
         return;
       }
@@ -5251,8 +5262,8 @@ async function createManualDraft(){
       updateSearchScopeToggle();
       subscribeToSelectedDate();
     }
-    if (selectExistingLocalDraft()) return;
-    const existingDraft = await existingDraftSnapshotForCurrentUser();
+    if (selectExistingLocalDraft({predicate:isManualDraftRecord})) return;
+    const existingDraft = await existingDraftSnapshotForCurrentUser({predicate:isManualDraftRecord});
     if (existingDraft){
       selectExistingDraftSnapshot(existingDraft);
       return;
@@ -5262,9 +5273,10 @@ async function createManualDraft(){
     const now = new Date();
     const createdAt = now.toLocaleDateString('en-GB', {day:'2-digit', month:'short', year:'numeric'}) + ', ' + now.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
     const selectedDateString = dateInputValue(selectedVisitDate);
-    const newDraft = await addDoc(userNotesCollection(),{
+    const newDraftRef = doc(userNotesCollection());
+    const draftData = {
       heading: 'Manual note draft',
-      createdAt:serverTimestamp(),
+      createdAt:null,
       createdAtLabel:createdAt,
       visitDate:selectedDateString,
       visitType:selectedVisitType,
@@ -5278,8 +5290,13 @@ async function createManualDraft(){
       status:'Type your note',
       transcription:MANUAL_NOTE_TEMPLATE,
       patientData:{name:'NIL',age:'NIL',uhid:'NIL',sex:'NIL'}
+    };
+    pendingSelectId = newDraftRef.id;
+    selectLocalDraftFromSnapshot({id:newDraftRef.id,data:()=>draftData});
+    setDoc(newDraftRef,{...draftData,createdAt:serverTimestamp()},{merge:true}).catch(error => {
+      console.error('Manual draft save failed:', error);
+      showToast('Manual note opened, but saving is pending.');
     });
-    pendingSelectId = newDraft.id;
   });
 }
 
@@ -6235,7 +6252,7 @@ if ('serviceWorker' in navigator) {
     navigator.serviceWorker.addEventListener('controllerchange', () => {
       reloadForUpdateWhenIdle();
     });
-    navigator.serviceWorker.register('./sw.js?v=128', {updateViaCache:'none'}).then(registration => {
+    navigator.serviceWorker.register('./sw.js?v=129', {updateViaCache:'none'}).then(registration => {
       registration.update();
     }).catch(error => {
       console.warn('Service worker registration failed:', error);
