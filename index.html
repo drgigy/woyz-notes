@@ -2346,6 +2346,7 @@ let latestDateLookupInProgress = false;
 let dateSubscriptionRequestId = 0;
 let saveFeedbackTimer = null;
 let saveFeedbackUntil = 0;
+let sidebarIdentityRefreshTimer = null;
 let templateCloseTimer = null;
 let mmseSelections = new Set();
 let lastEditorSelectionRange = null;
@@ -2455,7 +2456,7 @@ function renderTodayEntries(){
     btn.className = 'entry' + (i === activeIndex ? ' active' : '');
     const serialNumber = records.length - i;
     const generatedEntry = r.kind === 'generated' && r.everSaved;
-    const namedDraft = (r.isDraft || generatedEntry) && r.everSaved && r.patientData?.name && r.patientData.name !== 'NIL';
+    const namedDraft = (r.isDraft || generatedEntry) && r.patientData?.name && r.patientData.name !== 'NIL';
     const manualNote = r.noteType === 'manual' || r.selectedMode === 'Manual note';
     const modeSuffix = r.everSaved && ['Reply letter','Medical certificate'].includes(r.selectedMode) ? ` (${r.selectedMode})` : '';
     const draftEntryName = namedDraft ? `${r.patientData.name}${modeSuffix}` : `${manualNote ? 'Manual note' : 'Visit Note'} draft${modeSuffix}`;
@@ -2853,6 +2854,24 @@ function markRecordDirty(record,{generated = false} = {}){
   });
 }
 
+function patientDataChanged(previous = {}, next = {}){
+  return ['name','age','uhid','sex'].some(field => String(previous?.[field] || '') !== String(next?.[field] || ''));
+}
+
+function refreshActivePatientIdentityFromText(record, text, {immediate = false} = {}){
+  if (!record || record.voiceDraft || record.transcribing) return;
+  const nextPatientData = extractPatientFromNote(text, record.patientData);
+  if (!patientDataChanged(record.patientData, nextPatientData)) return;
+  record.patientData = nextPatientData;
+  markRecordDirty(record);
+  clearTimeout(sidebarIdentityRefreshTimer);
+  const refresh = () => {
+    if (records[activeIndex] === record) renderEntries();
+  };
+  if (immediate) refresh();
+  else sidebarIdentityRefreshTimer = setTimeout(refresh, 250);
+}
+
 function clearRecordDirty(record){
   const key = recordLocalKey(record);
   if (key) localDirtyRecords.delete(key);
@@ -2880,6 +2899,7 @@ function captureActiveEditorState(){
   const text = editorPlainText(editor);
   if (text !== (record.transcription || '')){
     record.transcription = text;
+    refreshActivePatientIdentityFromText(record, text, {immediate:true});
     record.saved = false;
     markRecordDirty(record);
   }
@@ -3871,6 +3891,7 @@ function renderGeneratedNote(draft){
     });
     editor.addEventListener('input', () => {
       draft.transcription = editorPlainText(editor);
+      refreshActivePatientIdentityFromText(draft, draft.transcription);
       draft.saved = false;
       markRecordDirty(draft);
       clearTimeout(saveFeedbackTimer);
@@ -6252,7 +6273,7 @@ if ('serviceWorker' in navigator) {
     navigator.serviceWorker.addEventListener('controllerchange', () => {
       reloadForUpdateWhenIdle();
     });
-    navigator.serviceWorker.register('./sw.js?v=129', {updateViaCache:'none'}).then(registration => {
+    navigator.serviceWorker.register('./sw.js?v=130', {updateViaCache:'none'}).then(registration => {
       registration.update();
     }).catch(error => {
       console.warn('Service worker registration failed:', error);
