@@ -332,7 +332,7 @@ const NOTE_SECTION_LOOKAHEAD = '(?:Patient Name|Age|UHID|Sex|Presenting Complain
 function normalizeNumberedSectionHeadings(text){
   return String(text || '')
     .replace(/\r\n/g, '\n')
-    .replace(/(^|\n)\s*\d+[.)]\s*(Review of Investigations|Current Medications|Medications|Prescription|Rx|R\/x|Advice|Instructions?|Treatment Plan|Follow[- ]?up):\s*/gi, (match, leadingBreak, label) => {
+    .replace(/(^|\n)\s*\d+[.)]\s*(Review Note(?:\s*\([^)]*\))?|Review of Investigations|Current Medications|Medications|Prescription|Rx|R\/x|Advice|Instructions?|Treatment Plan|Follow[- ]?up):\s*/gi, (match, leadingBreak, label) => {
       const normalizedLabel = /^(?:Rx|R\/x)$/i.test(label.trim()) ? 'Prescription' : label.trim();
       return `${leadingBreak}${leadingBreak ? '\n' : ''}${normalizedLabel}:\n`;
     })
@@ -457,7 +457,7 @@ function noteVisitType(note){
 function prescriptionTextFromNote(text){
   const normalized = normalizeNumberedSectionHeadings(text);
   const sections = [];
-  const pattern = /(?:^|\n)Prescription:\s*\n([\s\S]*?)(?=\n+(?:Patient Name|Age|UHID|Sex|Presenting Complaint|History of Present Illness|Past Medical or Surgical History|Allergies|Family History|Personal History|Examination Findings|Review of Investigations|Current Medications|Diagnosis|Treatment Plan|Advice|Instructions?|Follow[- ]?up|Review Note(?:\s*\([^)]*\))?):|$)/gi;
+  const pattern = /(?:^|\n)Prescription:[ \t]*\n([\s\S]*?)(?=\n+(?:Patient Name|Age|UHID|Sex|Presenting Complaint|History of Present Illness|Past Medical or Surgical History|Allergies|Family History|Personal History|Examination Findings|Review of Investigations|Current Medications|Diagnosis|Treatment Plan|Advice|Instructions?|Follow[- ]?up|Review Note(?:\s*\([^)]*\))?):|$)/gi;
   for (const match of normalized.matchAll(pattern)){
     const prescription = String(match[1] || '').trim();
     if (prescription && !isNilLike(prescription)) sections.push(prescription);
@@ -1411,7 +1411,7 @@ if ('serviceWorker' in navigator) {
       refreshingForUpdate = true;
       window.location.reload();
     });
-    navigator.serviceWorker.register('./sw.js?v=131', {updateViaCache:'none'}).then(registration => {
+    navigator.serviceWorker.register('./sw.js?v=132', {updateViaCache:'none'}).then(registration => {
       registration.update();
     }).catch(error => {
       console.warn('Service worker registration failed:', error);
