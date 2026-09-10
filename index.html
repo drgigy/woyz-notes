@@ -6210,7 +6210,7 @@ saveDraftBtn.addEventListener('click', async () => {
 function extractPatientFromNote(text, fallback = {}){
   const find = pattern => String(text || '').match(pattern)?.[1]?.trim();
   return {
-    name:find(/^Patient Name:\s*(.+)$/im) || fallback?.name || 'NIL',
+    name:find(/^(?:Patient\s+)?Name:\s*([^\n·]+)/im) || fallback?.name || 'NIL',
     age:find(/^Age:\s*(.+)$/im) || fallback?.age || 'NIL',
     uhid:find(/^UHID:\s*(.+)$/im) || fallback?.uhid || 'NIL',
     sex:find(/^Sex:\s*(.+)$/im) || fallback?.sex || 'NIL'
@@ -6273,7 +6273,7 @@ if ('serviceWorker' in navigator) {
     navigator.serviceWorker.addEventListener('controllerchange', () => {
       reloadForUpdateWhenIdle();
     });
-    navigator.serviceWorker.register('./sw.js?v=130', {updateViaCache:'none'}).then(registration => {
+    navigator.serviceWorker.register('./sw.js?v=131', {updateViaCache:'none'}).then(registration => {
       registration.update();
     }).catch(error => {
       console.warn('Service worker registration failed:', error);
