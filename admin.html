@@ -121,6 +121,13 @@
   .note-editor{ width:100%; min-height:calc(100vh - 190px); border:0; outline:none; resize:vertical; background:#fff; color:#26302B; font:16px/1.55 'Inter',system-ui,sans-serif; padding:0; white-space:pre-wrap; }
   .note-editor p{ margin:0 0 10px; }
   .note-editor strong{ font-weight:800; color:#1E2521; }
+  .note-editor .review-note-divider{
+    width:50%;
+    height:1px;
+    border:0;
+    border-top:1.5px solid #C9D5CF;
+    margin:22px 0 14px;
+  }
   .note-editor .rx-table{
     display:grid;
     gap:12px;
@@ -345,7 +352,8 @@ function simpleRichNoteHtml(text){
     .split('\n')
     .map(line => {
       const escaped = escapeHtml(line);
-      return escaped.replace(/^([^:<\n]{2,90}:)(\s*)/, '<strong>$1</strong>$2');
+      const formatted = escaped.replace(/^([^:<\n]{2,90}:)(\s*)/, '<strong>$1</strong>$2');
+      return /^Review Note(?:\s*\([^)]*\))?:$/i.test(line.trim()) ? `<hr class="review-note-divider">${formatted}` : formatted;
     })
     .join('<br>');
 }
@@ -1176,6 +1184,13 @@ printBtn.addEventListener('click', () => {
     gap:1mm;
     min-width:0;
   }
+  .review-note-divider{
+    width:50%;
+    height:1px;
+    border:0;
+    border-top:1.5px solid #999;
+    margin:7mm 0 4mm;
+  }
   h1{
     margin:0 0 10px;
     font-size:18pt;
@@ -1411,7 +1426,7 @@ if ('serviceWorker' in navigator) {
       refreshingForUpdate = true;
       window.location.reload();
     });
-    navigator.serviceWorker.register('./sw.js?v=132', {updateViaCache:'none'}).then(registration => {
+    navigator.serviceWorker.register('./sw.js?v=133', {updateViaCache:'none'}).then(registration => {
       registration.update();
     }).catch(error => {
       console.warn('Service worker registration failed:', error);

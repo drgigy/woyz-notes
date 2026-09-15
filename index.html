@@ -386,6 +386,14 @@
   .generated-note-title{ margin:0; font:600 27px 'Fraunces',serif; }
   .note-editor{ width:100%; min-height:calc(100vh - 190px); overflow:visible; resize:none; border:0; background:#fff; padding:0; color:var(--ink); font:15px/1.55 'Inter',sans-serif; outline:none; white-space:pre-wrap; caret-color:var(--teal); }
   .note-editor strong{ font-weight:800; }
+  .note-editor .review-note-divider,
+  .timeline-note .review-note-divider{
+    width:50%;
+    height:1px;
+    border:0;
+    border-top:1.5px solid #C9D5CF;
+    margin:22px 0 14px;
+  }
   .note-editor .rx-table,
   .timeline-note .rx-table{
     display:grid;
@@ -3532,7 +3540,8 @@ function simpleRichNoteHtml(text){
     .split('\n')
     .map(line => {
       const escaped = escapeHtml(line);
-      return escaped.replace(/^([^:<\n]{2,90}:)(\s*)/, '<strong>$1</strong>$2');
+      const formatted = escaped.replace(/^([^:<\n]{2,90}:)(\s*)/, '<strong>$1</strong>$2');
+      return /^Review Note(?:\s*\([^)]*\))?:$/i.test(line.trim()) ? `<hr class="review-note-divider">${formatted}` : formatted;
     })
     .join('<br>');
 }
@@ -5214,13 +5223,13 @@ function selectExistingLocalDraft({visitType = selectedVisitType, fallbackToAny 
   return selectExistingDraftRecord(draft);
 }
 
-async function existingDraftSnapshotForCurrentUser({visitType = selectedVisitType, predicate = null} = {}){
+async function existingDraftSnapshotForCurrentUser({visitType = selectedVisitType, fallbackToAny = true, predicate = null} = {}){
   const snapshot = await getDocs(query(userNotesCollection(),where('isDraft','==',true)));
   if (snapshot.empty) return null;
   const drafts = snapshot.docs
     .map(docSnap => ({docSnap, record:noteFromSnapshot(docSnap,currentUser.uid)}))
     .filter(item => !predicate || predicate(item.record));
-  return drafts.find(item => noteVisitType(item.record) === visitType)?.docSnap || drafts[0]?.docSnap || null;
+  return drafts.find(item => noteVisitType(item.record) === visitType)?.docSnap || (fallbackToAny ? drafts[0]?.docSnap : null) || null;
 }
 
 async function withDraftCreationLock(task){
@@ -5312,8 +5321,8 @@ async function createManualDraft(){
       updateSearchScopeToggle();
       subscribeToSelectedDate();
     }
-    if (selectExistingLocalDraft({predicate:isManualDraftRecord})) return;
-    const existingDraft = await existingDraftSnapshotForCurrentUser({predicate:isManualDraftRecord});
+    if (selectExistingLocalDraft({visitType:selectedVisitType,fallbackToAny:false,predicate:isManualDraftRecord})) return;
+    const existingDraft = await existingDraftSnapshotForCurrentUser({visitType:selectedVisitType,fallbackToAny:false,predicate:isManualDraftRecord});
     if (existingDraft){
       selectExistingDraftSnapshot(existingDraft);
       return;
@@ -5714,6 +5723,13 @@ printBtn.addEventListener('click', () => {
     display:grid;
     gap:1mm;
     min-width:0;
+  }
+  .review-note-divider{
+    width:50%;
+    height:1px;
+    border:0;
+    border-top:1.5px solid #999;
+    margin:7mm 0 4mm;
   }
   h1{
     margin:0 0 10px;
@@ -6302,7 +6318,7 @@ if ('serviceWorker' in navigator) {
     navigator.serviceWorker.addEventListener('controllerchange', () => {
       reloadForUpdateWhenIdle();
     });
-    navigator.serviceWorker.register('./sw.js?v=132', {updateViaCache:'none'}).then(registration => {
+    navigator.serviceWorker.register('./sw.js?v=133', {updateViaCache:'none'}).then(registration => {
       registration.update();
     }).catch(error => {
       console.warn('Service worker registration failed:', error);
