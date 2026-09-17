@@ -2533,9 +2533,10 @@ function renderTodayEntries(){
 
 function opPatientGroups(){
   const queryText = recordSearchTerm.trim().toLowerCase();
+  const selectedDate = dateInputValue(selectedVisitDate);
   const groups = new Map();
   allRecords
-    .filter(record => noteVisitType(record) === 'OP' && !record.isDraft && !record.isDeleted)
+    .filter(record => noteVisitType(record) === 'OP' && !record.isDraft && !record.isDeleted && record.visitDate === selectedDate)
     .forEach(record => {
       if (queryText && !recordMatchesSearch(record)) return;
       const key = patientSearchKey(record);
@@ -2545,8 +2546,9 @@ function opPatientGroups(){
       groups.set(key, existing);
     });
   return Array.from(groups.values()).map(group => {
+    group.todayRecords = sortRecordsNewestFirst(group.records);
     group.records = opTimelineRecordsForKey(group.key);
-    group.latest = latestOpTimelineRecordForGroup(group.records);
+    group.latest = latestOpTimelineRecordForGroup(group.todayRecords);
     return group;
   }).sort((a,b) => recordSortTime(b.latest) - recordSortTime(a.latest));
 }
@@ -2600,7 +2602,7 @@ function renderOpPatientEntries(){
       <span class="entry-avatar">${escapeHtml(serialNumber)}</span>
       <span class="entry-text">
         <div class="entry-name">${escapeHtml(displayPatientName(latest))}</div>
-        <div class="entry-uhid">${escapeHtml(`${patientMetaLine(latest)} · ${group.records.length} entr${group.records.length === 1 ? 'y' : 'ies'}`)}</div>
+        <div class="entry-uhid">${escapeHtml(`${patientMetaLine(latest)} · ${group.todayRecords.length} today · ${group.records.length} total`)}</div>
       </span>
       <span class="entry-owner">${escapeHtml(ownerCode)}</span>
     `;
