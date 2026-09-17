@@ -914,7 +914,8 @@
   .timeline-menu{
     position:absolute;
     top:calc(100% + 8px);
-    left:0;
+    left:auto;
+    right:0;
     min-width:170px;
     max-width:min(330px,80vw);
     background:var(--panel);
@@ -926,7 +927,7 @@
     z-index:25;
   }
   .timeline-menu{
-    min-width:260px;
+    min-width:330px;
     max-height:min(430px,70vh);
     overflow:auto;
   }
@@ -960,6 +961,18 @@
   .timeline-item.active,
   .template-item:hover,
   .timeline-item:hover{ background:var(--teal); border-color:var(--teal); color:#fff; }
+  .timeline-item.review-entry{
+    width:calc(100% - 16px);
+    margin-left:16px;
+    border-left:4px solid #9EC9BD;
+    background:#F8FBFA;
+  }
+  .timeline-item.review-entry.active,
+  .timeline-item.review-entry:hover{
+    background:var(--teal);
+    border-color:var(--teal);
+    color:#fff;
+  }
   .timeline-item-meta{ display:block; margin-top:4px; color:inherit; opacity:.72; font:700 11px 'IBM Plex Mono',monospace; }
   .date-nav{ order:3; margin-left:0; }
   .delete-btn{ order:4; }
@@ -2391,6 +2404,7 @@ let allOwnerRecords = new Map();
 let selectedTimelineKey = null;
 let selectedOpTimelineKey = null;
 let selectedOpTimelineEntryId = 'all';
+let selectedOpTimelineReviewIndex = null;
 let pendingSelectId = null;
 let pendingNewVoiceDockId = null;
 let draftCreationPromise = null;
@@ -2614,6 +2628,7 @@ function renderOpPatientEntries(){
       <span class="entry-owner">${escapeHtml(ownerCode)}</span>
     `;
     btn.addEventListener('click', () => {
+      selectedOpTimelineReviewIndex = null;
       renderOpPatientTimeline(group.key, preferredOpTimelineEntryId(group.key, latest));
       renderEntries();
       closeMobileSidebar();
@@ -2703,6 +2718,30 @@ function opTimelineEntryMeta(record){
   const timeText = record?.createdAt ? String(record.createdAt).split(',').slice(1).join(',').trim() : '';
   const ownerCode = ownerInitials(noteOwnerUid(record));
   return [timeText, ownerCode].filter(Boolean).join(' · ');
+}
+
+function reviewNoteTimelineEntriesForRecord(record){
+  const text = formatStoredReviewNotes(record?.transcription || '').replace(/\r\n/g, '\n');
+  const pattern = /(^|\n)(Review Note(?:\s*\([^)]*\))?:)\s*\n([\s\S]*?)(?=\n+Review Note(?:\s*\([^)]*\))?:|$)/gi;
+  return Array.from(text.matchAll(pattern)).map((match, index) => {
+    const heading = match[2].trim();
+    const body = String(match[3] || '').trim();
+    const timestampLabel = heading.match(/^Review Note\s*\(([^)]*)\):$/i)?.[1] || '';
+    const blockText = `${heading}\n${body}`;
+    const rxSuffix = prescriptionTextFromNote(blockText) ? ' (Rx)' : '';
+    const labelDate = timestampLabel || formatVisitDateLabel(record?.visitDate || dateInputValue(selectedVisitDate));
+    return {
+      index,
+      heading,
+      body,
+      label:`Review Note${rxSuffix} - ${labelDate}`,
+      meta:[`Review ${index + 1}`, opTimelineEntryMeta(record)].filter(Boolean).join(' · ')
+    };
+  });
+}
+
+function opTimelineVisibleEntryCount(recordsForTimeline){
+  return recordsForTimeline.reduce((total, record) => total + 1 + reviewNoteTimelineEntriesForRecord(record).length, 0);
 }
 
 function selectedOpTimelineRecords(){
@@ -2884,8 +2923,13 @@ function renderOpPatientTimeline(key, entryId = selectedOpTimelineEntryId || 'al
   selectedOpTimelineEntryId = entryId === 'all' && timelineRecords.length === 1
     ? timelineRecords[0].firestoreId
     : (entryId === 'all' ? 'all' : entryId);
+  if (selectedOpTimelineEntryId === 'all') selectedOpTimelineReviewIndex = null;
   const selectedRecord = selectedOpTimelineRecord();
   if (selectedRecord){
+    const reviewEntries = reviewNoteTimelineEntriesForRecord(selectedRecord);
+    if (selectedOpTimelineReviewIndex !== null && !reviewEntries[selectedOpTimelineReviewIndex]){
+      selectedOpTimelineReviewIndex = null;
+    }
     topbarName.textContent = displayPatientName(selectedRecord);
     const selectedIdentity = patientIdentity(selectedRecord);
     topbarUhid.textContent = 'UHID ' + (anonymizeEnabled ? 'hidden' : (selectedIdentity.uhid || 'NIL'));
@@ -2895,6 +2939,7 @@ function renderOpPatientTimeline(key, entryId = selectedOpTimelineEntryId || 'al
     deleteBtn.classList.toggle('visible', canDeleteRecord(selectedRecord));
     dischargeBtn.classList.remove('visible');
     renderGeneratedNote(selectedRecord);
+    if (selectedOpTimelineReviewIndex !== null) focusReviewNoteInEditor(selectedOpTimelineReviewIndex);
     renderTimelineMenu();
     updateContinueNoteButton();
     updatePrescriptionPrintButton();
@@ -2914,6 +2959,7 @@ function renderOpPatientTimeline(key, entryId = selectedOpTimelineEntryId || 'al
   updateContinueNoteButton();
   renderTimelineMenu();
   updatePrescriptionPrintButton();
+  const visibleEntryCount = opTimelineVisibleEntryCount(timelineRecords);
   const renderedNotes = recordsToRender.map(record => {
     const displayText = anonymizeTextForRecord(displayNoteTextForRecord(record, record.transcription || ''), record);
     return `
@@ -2932,13 +2978,14 @@ function renderOpPatientTimeline(key, entryId = selectedOpTimelineEntryId || 'al
           <div class="timeline-meta">${escapeHtml(patientMetaLine(latest))}</div>
         </div>
       </div>
-      <div class="timeline-count">${selectedRecord ? escapeHtml(opTimelineEntryLabel(selectedRecord)) : `${timelineRecords.length} entr${timelineRecords.length === 1 ? 'y' : 'ies'} · All entries`}</div>
+      <div class="timeline-count">${selectedRecord ? escapeHtml(opTimelineEntryLabel(selectedRecord)) : `${visibleEntryCount} entr${visibleEntryCount === 1 ? 'y' : 'ies'} · All entries`}</div>
       ${renderedNotes}
     </div>`;
   mainScroll.querySelectorAll('[data-timeline-note]').forEach(entry => {
     const openEntry = () => {
       const noteId = entry.dataset.timelineNote;
       if (!noteId || !selectedOpTimelineKey) return;
+      selectedOpTimelineReviewIndex = null;
       renderOpPatientTimeline(selectedOpTimelineKey, noteId);
       renderEntries();
     };
@@ -2955,6 +3002,7 @@ function openOpTimelineForRecord(record, entryId = null){
   if (!record || noteVisitType(record) !== 'OP' || record.isDraft) return false;
   const key = patientSearchKey(record);
   if (!key) return false;
+  selectedOpTimelineReviewIndex = null;
   renderOpPatientTimeline(key, entryId || preferredOpTimelineEntryId(key, record));
   renderEntries();
   return true;
@@ -2983,17 +3031,25 @@ function renderTimelineMenu(){
   }
   const timelineRecords = selectedOpTimelineRecords();
   const allActive = selectedOpTimelineEntryId === 'all';
+  const visibleEntryCount = opTimelineVisibleEntryCount(timelineRecords);
   timelineMenu.innerHTML = `
     <button class="timeline-item ${allActive ? 'active' : ''}" type="button" data-timeline-entry="all">
       All Entries
-      <span class="timeline-item-meta">${timelineRecords.length} entr${timelineRecords.length === 1 ? 'y' : 'ies'}</span>
+      <span class="timeline-item-meta">${visibleEntryCount} entr${visibleEntryCount === 1 ? 'y' : 'ies'}</span>
     </button>
     ${timelineRecords.map(record => {
-      const active = selectedOpTimelineEntryId === record.firestoreId;
+      const active = selectedOpTimelineEntryId === record.firestoreId && selectedOpTimelineReviewIndex === null;
+      const reviewEntries = reviewNoteTimelineEntriesForRecord(record).map(review => {
+        const reviewActive = selectedOpTimelineEntryId === record.firestoreId && selectedOpTimelineReviewIndex === review.index;
+        return `<button class="timeline-item review-entry ${reviewActive ? 'active' : ''}" type="button" data-timeline-entry="${escapeHtml(record.firestoreId)}" data-timeline-review="${review.index}">
+          ${escapeHtml(review.label)}
+          <span class="timeline-item-meta">${escapeHtml(review.meta)}</span>
+        </button>`;
+      }).join('');
       return `<button class="timeline-item ${active ? 'active' : ''}" type="button" data-timeline-entry="${escapeHtml(record.firestoreId)}">
         ${escapeHtml(opTimelineEntryLabel(record))}
         <span class="timeline-item-meta">${escapeHtml(opTimelineEntryMeta(record))}</span>
-      </button>`;
+      </button>${reviewEntries}`;
     }).join('')}
   `;
 }
@@ -4274,6 +4330,15 @@ function focusEditorEnd(editor){
   const selection = window.getSelection();
   selection.removeAllRanges();
   selection.addRange(range);
+}
+
+function focusReviewNoteInEditor(reviewIndex){
+  const editor = document.getElementById('generatedNoteEditor');
+  if (!editor) return;
+  const marker = editor.querySelectorAll('.review-note-divider')[reviewIndex];
+  if (!marker) return;
+  marker.scrollIntoView({block:'center', behavior:'smooth'});
+  editor.focus();
 }
 
 function captureEditorSelection(){
@@ -6526,6 +6591,7 @@ timelineMenu.addEventListener('click', event => {
   const button = event.target.closest('[data-timeline-entry]');
   if (!button || !selectedOpTimelineKey) return;
   const entryId = button.dataset.timelineEntry || 'all';
+  selectedOpTimelineReviewIndex = button.dataset.timelineReview !== undefined ? Number(button.dataset.timelineReview) : null;
   closeTimelineMenu();
   renderOpPatientTimeline(selectedOpTimelineKey, entryId);
   renderEntries();
@@ -6861,7 +6927,7 @@ if ('serviceWorker' in navigator) {
     navigator.serviceWorker.addEventListener('controllerchange', () => {
       reloadForUpdateWhenIdle();
     });
-    navigator.serviceWorker.register('./sw.js?v=143', {updateViaCache:'none'}).then(registration => {
+    navigator.serviceWorker.register('./sw.js?v=144', {updateViaCache:'none'}).then(registration => {
       registration.update();
     }).catch(error => {
       console.warn('Service worker registration failed:', error);
