@@ -883,12 +883,14 @@
     background:#B93B28;
     border-color:#B93B28;
   }
-  .template-wrap{
+  .template-wrap,
+  .timeline-menu-wrap{
     position:relative;
     order:2;
     flex:0 0 auto;
   }
-  .template-wrap::after{
+  .template-wrap::after,
+  .timeline-menu-wrap::after{
     content:'';
     position:absolute;
     left:0;
@@ -897,17 +899,24 @@
     height:10px;
   }
   .template-btn{ width:108px; }
+  .timeline-btn{ width:108px; display:none; }
+  .timeline-btn.visible{ display:inline-flex; }
   .template-wrap:hover .template-btn,
-  .template-wrap:focus-within .template-btn{
+  .template-wrap:focus-within .template-btn,
+  .timeline-menu-wrap:hover .timeline-btn,
+  .timeline-menu-wrap:focus-within .timeline-btn,
+  .timeline-btn.active{
     background:var(--teal-deep);
     border-color:var(--teal-deep);
     color:#fff;
   }
-  .template-menu{
+  .template-menu,
+  .timeline-menu{
     position:absolute;
     top:calc(100% + 8px);
     left:0;
     min-width:170px;
+    max-width:min(330px,80vw);
     background:var(--panel);
     border:1px solid var(--border);
     border-radius:12px;
@@ -916,13 +925,22 @@
     display:none;
     z-index:25;
   }
+  .timeline-menu{
+    min-width:260px;
+    max-height:min(430px,70vh);
+    overflow:auto;
+  }
   .template-wrap:hover .template-menu,
   .template-wrap:focus-within .template-menu,
-  .template-menu.open{
+  .template-menu.open,
+  .timeline-menu-wrap:hover .timeline-menu,
+  .timeline-menu-wrap:focus-within .timeline-menu,
+  .timeline-menu.open{
     display:grid;
     gap:6px;
   }
-  .template-item{
+  .template-item,
+  .timeline-item{
     width:100%;
     min-height:42px;
     border:1px solid #C9E1D9;
@@ -934,13 +952,21 @@
     font:800 12.5px 'Inter',sans-serif;
     cursor:pointer;
   }
-  .template-item:hover{ background:var(--teal); border-color:var(--teal); color:#fff; }
+  .timeline-item{
+    min-height:48px;
+    text-align:left;
+    line-height:1.25;
+  }
+  .timeline-item.active,
+  .template-item:hover,
+  .timeline-item:hover{ background:var(--teal); border-color:var(--teal); color:#fff; }
+  .timeline-item-meta{ display:block; margin-top:4px; color:inherit; opacity:.72; font:700 11px 'IBM Plex Mono',monospace; }
   .date-nav{ order:3; margin-left:0; }
   .delete-btn{ order:4; }
   .btn-copy{ order:5; }
   .print-wrap{ order:6; }
   .save-draft-btn{ order:8; }
-  .trash-shortcut-btn{ order:9; flex-shrink:0; }
+  .timeline-menu-wrap{ order:9; flex-shrink:0; }
   /* ---------- SETTINGS ---------- */
   .settings-wrap{ order:10; position:relative; flex-shrink:0; }
   .settings-wrap::after{
@@ -1187,7 +1213,7 @@
     .btn-copy{ order:5; }
     .print-wrap{ order:6; }
     .save-draft-btn{ order:8; }
-    .trash-shortcut-btn{ order:9; }
+    .timeline-menu-wrap{ order:9; }
     .settings-wrap{ order:10; }
     .topbar-mode-btn{
       flex:0 0 96px;
@@ -1228,7 +1254,7 @@
       border-color:var(--red);
       color:#fff;
     }
-    .settings-btn,.trash-shortcut-btn{ width:34px; height:34px; }
+    .settings-btn{ width:34px; height:34px; }
   }
 
   @media (min-width:1181px) and (max-width:1800px){
@@ -1411,7 +1437,7 @@
     .btn-copy{ order:5; }
     .print-wrap{ order:6; }
     .save-draft-btn{ order:8; }
-    .trash-shortcut-btn{ order:9; }
+    .timeline-menu-wrap{ order:9; }
     .settings-wrap{ order:10; margin-left:0; }
     .date-today{ min-width:68px; }
     .date-input{ width:112px; }
@@ -1552,7 +1578,7 @@
       border-bottom:1px solid #E6E8E4;
       background:#fff;
     }
-    .settings-wrap,.trash-shortcut-btn{
+    .settings-wrap,.timeline-menu-wrap{
       display:none;
     }
     .app.sidebar-open .settings-wrap{
@@ -1864,11 +1890,10 @@
       <button class="btn save-draft-btn" id="saveDraftBtn" aria-label="Save note">
         <span>Save</span>
       </button>
-      <button class="trash-shortcut-btn" id="topbarTrashBtn" type="button" aria-label="Open Trash" title="Trash">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-          <path d="M3 6h18M8 6V4.5A1.5 1.5 0 0 1 9.5 3h5A1.5 1.5 0 0 1 16 4.5V6m2 0-.8 13.1A2 2 0 0 1 15.2 21H8.8a2 2 0 0 1-2-1.9L6 6m4 4v7m4-7v7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
-        </svg>
-      </button>
+      <div class="timeline-menu-wrap" id="timelineMenuWrap">
+        <button class="topbar-mode-btn timeline-btn" id="timelineBtn" type="button" aria-haspopup="true" aria-expanded="false">Timeline</button>
+        <div class="timeline-menu" id="timelineMenu"></div>
+      </div>
       <div class="settings-wrap">
         <button class="settings-btn" id="settingsBtn" aria-label="Settings" aria-haspopup="true" aria-expanded="false">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z" stroke="currentColor" stroke-width="1.7"/><path d="M19.4 13.5a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V19.5a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1.08-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H4.5a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1.08 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H10.5a1.65 1.65 0 0 0 1-1.51V4.5a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V10.5a1.65 1.65 0 0 0 1.51 1H19.5a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>
@@ -2184,7 +2209,9 @@ const deleteBtn = document.getElementById('deleteBtn');
 const printWrap = document.getElementById('printWrap');
 const printMenuBtn = document.getElementById('printMenuBtn');
 const printMenu = document.getElementById('printMenu');
-const topbarTrashBtn = document.getElementById('topbarTrashBtn');
+const timelineMenuWrap = document.getElementById('timelineMenuWrap');
+const timelineBtn = document.getElementById('timelineBtn');
+const timelineMenu = document.getElementById('timelineMenu');
 const dischargeBtn = document.getElementById('dischargeBtn');
 const saveDraftBtn = document.getElementById('saveDraftBtn');
 const signoutBtn = document.getElementById('signoutBtn');
@@ -2355,6 +2382,8 @@ let searchScope = 'today';
 let allRecords = [];
 let allOwnerRecords = new Map();
 let selectedTimelineKey = null;
+let selectedOpTimelineKey = null;
+let selectedOpTimelineEntryId = 'all';
 let pendingSelectId = null;
 let pendingNewVoiceDockId = null;
 let draftCreationPromise = null;
@@ -2369,6 +2398,7 @@ let lastEditorSelectionRange = null;
 let localDirtyRecords = new Map();
 let settingsCloseTimer = null;
 let printCloseTimer = null;
+let timelineCloseTimer = null;
 let anonymizeEnabled = localStorage.getItem(ANONYMIZE_STORAGE) === 'true';
 let continuationState = {
   open:false,
@@ -2459,6 +2489,10 @@ function renderEntries(){
 }
 
 function renderTodayEntries(){
+  if (selectedVisitType === 'OP'){
+    renderOpPatientEntries();
+    return;
+  }
   entryList.innerHTML = '';
   const visibleRecords = records
     .map((record, index) => ({record, index}))
@@ -2497,6 +2531,88 @@ function renderTodayEntries(){
   });
 }
 
+function opPatientGroups(){
+  const queryText = recordSearchTerm.trim().toLowerCase();
+  const groups = new Map();
+  allRecords
+    .filter(record => noteVisitType(record) === 'OP' && !record.isDraft && !record.isDeleted)
+    .forEach(record => {
+      if (queryText && !recordMatchesSearch(record)) return;
+      const key = patientSearchKey(record);
+      if (!key) return;
+      const existing = groups.get(key) || {key, records:[]};
+      existing.records.push(record);
+      groups.set(key, existing);
+    });
+  return Array.from(groups.values()).map(group => {
+    group.records = opTimelineRecordsForKey(group.key);
+    group.latest = latestOpTimelineRecordForGroup(group.records);
+    return group;
+  }).sort((a,b) => recordSortTime(b.latest) - recordSortTime(a.latest));
+}
+
+function latestOpTimelineRecordForGroup(groupRecords){
+  return [...(groupRecords || [])].sort((a,b) => recordSortTime(b) - recordSortTime(a))[0] || null;
+}
+
+function renderOpPatientEntries(){
+  entryList.innerHTML = '';
+  const draftItems = records
+    .map((record, index) => ({record, index}))
+    .filter(item => item.record.isDraft && recordMatchesSearch(item.record));
+  const groups = opPatientGroups();
+  if (!draftItems.length && !groups.length){
+    entryList.innerHTML = `<div class="empty-sub" style="padding:10px 8px;">${recordSearchTerm ? 'No matching OP patients.' : 'No OP notes saved for this date.'}</div>`;
+    return;
+  }
+  draftItems.forEach(({record:r, index:i}) => {
+    const btn = document.createElement('button');
+    btn.className = 'entry' + (i === activeIndex ? ' active' : '');
+    const serialNumber = records.length - i;
+    const namedDraft = r.patientData?.name && r.patientData.name !== 'NIL';
+    const entryName = namedDraft ? r.patientData.name : 'Visit Note draft';
+    const ownerCode = ownerInitials(noteOwnerUid(r)) || (namedDraft ? initials(r.patientData.name) : 'D');
+    btn.innerHTML = `
+      <span class="entry-avatar">${escapeHtml(serialNumber)}</span>
+      <span class="entry-text">
+        <div class="entry-name">${escapeHtml(entryName)}</div>
+        <div class="entry-uhid">${escapeHtml(compactPatientMetaText(namedDraft ? patientMetaLine(r) : r.createdAt))}</div>
+      </span>
+      <span class="entry-owner">${escapeHtml(ownerCode)}</span>
+    `;
+    btn.addEventListener('click', () => {
+      selectedOpTimelineKey = null;
+      selectedOpTimelineEntryId = 'all';
+      selectEntry(i);
+      closeMobileSidebar();
+    });
+    entryList.appendChild(btn);
+  });
+  groups.forEach((group, index) => {
+    const latest = group.latest || group.records[0];
+    if (!latest) return;
+    const identity = patientIdentity(latest);
+    const btn = document.createElement('button');
+    btn.className = 'entry' + (group.key === selectedOpTimelineKey ? ' active' : '');
+    const serialNumber = groups.length - index;
+    const ownerCode = ownerInitials(noteOwnerUid(latest)) || initials(identity.name);
+    btn.innerHTML = `
+      <span class="entry-avatar">${escapeHtml(serialNumber)}</span>
+      <span class="entry-text">
+        <div class="entry-name">${escapeHtml(displayPatientName(latest))}</div>
+        <div class="entry-uhid">${escapeHtml(`${patientMetaLine(latest)} · ${group.records.length} entr${group.records.length === 1 ? 'y' : 'ies'}`)}</div>
+      </span>
+      <span class="entry-owner">${escapeHtml(ownerCode)}</span>
+    `;
+    btn.addEventListener('click', () => {
+      renderOpPatientTimeline(group.key, 'all');
+      renderEntries();
+      closeMobileSidebar();
+    });
+    entryList.appendChild(btn);
+  });
+}
+
 renderEntries();
 
 function patientSearchKey(record){
@@ -2525,6 +2641,65 @@ function sortRecordsNewestFirst(items){
 function timelineRecordsForKey(key){
   if (!key) return [];
   return sortRecordsNewestFirst(allRecords.filter(record => patientSearchKey(record) === key && !record.isDraft && !record.isDeleted));
+}
+
+function opTimelineRecordsForKey(key){
+  const recordsForPatient = timelineRecordsForKey(key).filter(record => noteVisitType(record) === 'OP');
+  const firstVisit = [...recordsForPatient]
+    .filter(record => opTimelineKind(record) === 'Visit Note')
+    .sort((a,b) => recordSortTime(a) - recordSortTime(b))[0] || null;
+  const rest = recordsForPatient
+    .filter(record => record !== firstVisit)
+    .sort((a,b) => recordSortTime(b) - recordSortTime(a));
+  return firstVisit ? [firstVisit, ...rest] : rest;
+}
+
+function recordSortTime(record){
+  return record?.createdAtValue?.toMillis?.() || dateValueFromRecord(record) || 0;
+}
+
+function dateValueFromRecord(record){
+  const [year, month, day] = String(record?.visitDate || '').split('-').map(Number);
+  return year && month && day ? new Date(year, month - 1, day).getTime() : 0;
+}
+
+function recordHasPrescription(record){
+  return Boolean(prescriptionTextFromNote(record?.transcription || ''));
+}
+
+function opTimelineKind(record){
+  const mode = String(record?.selectedMode || record?.heading || '').toLowerCase();
+  if (mode.includes('reply letter')) return 'Letter';
+  if (mode.includes('certificate')) return 'Certificate';
+  if (mode.includes('review note')) return 'Review Note';
+  return 'Visit Note';
+}
+
+function opTimelineEntryLabel(record){
+  const kind = opTimelineKind(record);
+  const rxSuffix = recordHasPrescription(record) ? ' (Rx)' : '';
+  return `${kind}${rxSuffix} - ${formatVisitDateLabel(record?.visitDate || dateInputValue(selectedVisitDate))}`;
+}
+
+function opTimelineEntryMeta(record){
+  const timeText = record?.createdAt ? String(record.createdAt).split(',').slice(1).join(',').trim() : '';
+  const ownerCode = ownerInitials(noteOwnerUid(record));
+  return [timeText, ownerCode].filter(Boolean).join(' · ');
+}
+
+function selectedOpTimelineRecords(){
+  return opTimelineRecordsForKey(selectedOpTimelineKey);
+}
+
+function selectedOpTimelineRecord(){
+  if (!selectedOpTimelineKey || selectedOpTimelineEntryId === 'all') return null;
+  return selectedOpTimelineRecords().find(record => record.firestoreId === selectedOpTimelineEntryId) || null;
+}
+
+function latestOpTimelineRecord(predicate = () => true){
+  return selectedOpTimelineRecords()
+    .filter(predicate)
+    .sort((a,b) => recordSortTime(b) - recordSortTime(a))[0] || null;
 }
 
 function groupedPatientSearchResults(){
@@ -2661,6 +2836,79 @@ function renderPatientTimeline(key){
   document.getElementById('addTimelinePatientTodayBtn')?.addEventListener('click', () => addTimelinePatientToToday(latest));
 }
 
+function renderOpPatientTimeline(key, entryId = selectedOpTimelineEntryId || 'all'){
+  const timelineRecords = opTimelineRecordsForKey(key);
+  if (!timelineRecords.length){
+    showEmptyDate('No OP entries found for this patient.');
+    return;
+  }
+  activeIndex = null;
+  selectedOpTimelineKey = key;
+  selectedOpTimelineEntryId = entryId === 'all' ? 'all' : entryId;
+  const selectedRecord = selectedOpTimelineRecord();
+  const recordsToRender = selectedRecord ? [selectedRecord] : timelineRecords;
+  const latest = timelineRecords[0];
+  const identity = patientIdentity(latest);
+  topbarName.textContent = displayPatientName(latest);
+  topbarUhid.textContent = 'UHID ' + (anonymizeEnabled ? 'hidden' : (identity.uhid || 'NIL'));
+  topbarAge.textContent = identity.age + ' yrs';
+  topbarPatient.classList.add('visible');
+  copyBtn.style.display = recordsToRender.length === 1 ? 'flex' : 'none';
+  saveDraftBtn.classList.remove('visible');
+  deleteBtn.classList.remove('visible');
+  dischargeBtn.classList.remove('visible');
+  updateContinueNoteButton();
+  renderTimelineMenu();
+  updatePrescriptionPrintButton();
+  const renderedNotes = recordsToRender.map(record => {
+    const displayText = anonymizeTextForRecord(displayNoteTextForRecord(record, record.transcription || ''), record);
+    return `
+      <article class="timeline-entry">
+        <h2 class="timeline-entry-title">${escapeHtml(timelineTitleForRecord(record))}</h2>
+        <div class="timeline-note">${richNoteHtml(displayText)}</div>
+      </article>
+    `;
+  }).join('');
+  mainScroll.innerHTML = `
+    <div class="timeline-wrap">
+      <div class="timeline-header">
+        <div>
+          <div class="timeline-kicker">OP Timeline</div>
+          <h1 class="timeline-title">${escapeHtml(displayPatientName(latest))}</h1>
+          <div class="timeline-meta">${escapeHtml(patientMetaLine(latest))}</div>
+        </div>
+      </div>
+      <div class="timeline-count">${selectedRecord ? escapeHtml(opTimelineEntryLabel(selectedRecord)) : `${timelineRecords.length} entr${timelineRecords.length === 1 ? 'y' : 'ies'} · All entries`}</div>
+      ${renderedNotes}
+    </div>`;
+}
+
+function renderTimelineMenu(){
+  if (!timelineBtn || !timelineMenu) return;
+  const isOpTimeline = selectedVisitType === 'OP' && Boolean(selectedOpTimelineKey);
+  timelineBtn.classList.toggle('visible', isOpTimeline);
+  if (!isOpTimeline){
+    timelineMenu.innerHTML = '';
+    closeTimelineMenu();
+    return;
+  }
+  const timelineRecords = selectedOpTimelineRecords();
+  const allActive = selectedOpTimelineEntryId === 'all';
+  timelineMenu.innerHTML = `
+    <button class="timeline-item ${allActive ? 'active' : ''}" type="button" data-timeline-entry="all">
+      All Entries
+      <span class="timeline-item-meta">${timelineRecords.length} entr${timelineRecords.length === 1 ? 'y' : 'ies'}</span>
+    </button>
+    ${timelineRecords.map(record => {
+      const active = selectedOpTimelineEntryId === record.firestoreId;
+      return `<button class="timeline-item ${active ? 'active' : ''}" type="button" data-timeline-entry="${escapeHtml(record.firestoreId)}">
+        ${escapeHtml(opTimelineEntryLabel(record))}
+        <span class="timeline-item-meta">${escapeHtml(opTimelineEntryMeta(record))}</span>
+      </button>`;
+    }).join('')}
+  `;
+}
+
 async function addTimelinePatientToToday(sourceRecord){
   if (!currentUser || !sourceRecord) return;
   const sourceVisitType = noteVisitType(sourceRecord);
@@ -2793,7 +3041,7 @@ function patientDataWithFallback(primary = {}, fallback = {}){
 }
 
 function selectedPatientDataForNewDraft(){
-  const record = activeIndex !== null ? records[activeIndex] : null;
+  const record = activeIndex !== null ? records[activeIndex] : (selectedOpTimelineRecord() || latestOpTimelineRecord());
   if (!record || record.voiceDraft) return {name:'NIL',age:'NIL',uhid:'NIL',sex:'NIL'};
   return patientDataWithFallback(patientIdentity(record));
 }
@@ -3029,6 +3277,8 @@ function updateSearchScopeToggle(){
 function setSearchScope(scope){
   searchScope = scope === 'all' ? 'all' : 'today';
   selectedTimelineKey = null;
+  selectedOpTimelineKey = null;
+  selectedOpTimelineEntryId = 'all';
   updateSearchScopeToggle();
   renderEntries();
   if (searchScope === 'today'){
@@ -3057,11 +3307,14 @@ function refreshAnonymizedView(){
   updateAnonymizeToggle();
   renderEntries();
   if (searchScope === 'all' && selectedTimelineKey) renderPatientTimeline(selectedTimelineKey);
+  else if (selectedVisitType === 'OP' && selectedOpTimelineKey) renderOpPatientTimeline(selectedOpTimelineKey, selectedOpTimelineEntryId);
   else if (activeIndex !== null && records[activeIndex]) selectEntry(activeIndex);
 }
 
 function setVisitType(type){
   selectedVisitType = type === 'IP' ? 'IP' : 'OP';
+  selectedOpTimelineKey = null;
+  selectedOpTimelineEntryId = 'all';
   updateVisitToggle();
   if (searchScope === 'all'){
     searchScope = 'today';
@@ -3097,6 +3350,10 @@ function subscribeToSelectedDate({allowLatestDateFallback = false} = {}){
     });
     renderEntries();
     if (searchScope === 'all') return;
+    if (selectedVisitType === 'OP' && selectedOpTimelineKey){
+      renderOpPatientTimeline(selectedOpTimelineKey, selectedOpTimelineEntryId);
+      return;
+    }
     const targetId = pendingSelectId || previousId;
     const targetIndex = targetId ? records.findIndex(record => `${noteOwnerUid(record)}:${record.firestoreId}` === targetId || record.firestoreId === targetId) : -1;
     pendingSelectId = null;
@@ -3167,12 +3424,16 @@ function subscribeToAllRecords(){
       if (searchScope === 'all'){
         renderEntries();
         if (selectedTimelineKey) renderPatientTimeline(selectedTimelineKey);
+      }else if (selectedVisitType === 'OP'){
+        renderEntries();
+        if (selectedOpTimelineKey) renderOpPatientTimeline(selectedOpTimelineKey, selectedOpTimelineEntryId);
       }
     }, error => {
       console.error('Unable to load all notes:', error);
       allOwnerRecords.set(ownerUid, []);
       allRecords = Array.from(allOwnerRecords.values()).flat();
       if (searchScope === 'all') renderEntries();
+      else if (selectedVisitType === 'OP') renderEntries();
     });
     allNotesUnsubscribes.push(unsubscribe);
   });
@@ -3228,6 +3489,7 @@ function showEmptyDate(message = 'No notes saved for this date.'){
   saveDraftBtn.classList.remove('visible');
   deleteBtn.classList.remove('visible');
   dischargeBtn.classList.remove('visible');
+  renderTimelineMenu();
   mainScroll.innerHTML = `<div class="empty-state"><div class="empty-title">No notes</div><div class="empty-sub">${escapeHtml(message)}</div></div>`;
 }
 
@@ -3406,6 +3668,8 @@ function removeNilSectionsForCopy(text){
 
 function selectEntry(i,{preserveDirtyEditor = false} = {}){
   activeIndex = i;
+  selectedOpTimelineKey = null;
+  selectedOpTimelineEntryId = 'all';
   const r = records[i];
   const isVoiceDraftRecord = r.voiceDraft === true;
   const isGeneratedRecord = !isVoiceDraftRecord && (Boolean(r.transcription) || r.kind === 'generated');
@@ -3419,6 +3683,7 @@ function selectEntry(i,{preserveDirtyEditor = false} = {}){
   topbarPatient.classList.add('visible');
   copyBtn.style.display = (!r.isDraft || r.transcription) ? 'flex' : 'none';
   updatePrescriptionPrintButton();
+  renderTimelineMenu();
   deleteBtn.classList.toggle('visible', canDeleteRecord(r));
   updateDischargeButton(r);
   saveDraftBtn.classList.toggle('visible', Boolean((r.isDraft && !isVoiceDraftRecord) || isGeneratedRecord));
@@ -3640,6 +3905,23 @@ function currentRecordSourceText(record){
   return editorPlainText(editor) || record.transcription || (record.isDraft ? '' : noteText(record));
 }
 
+function currentPrintVisitRecord(){
+  if (selectedVisitType === 'OP' && selectedOpTimelineKey){
+    return selectedOpTimelineRecord() || latestOpTimelineRecord(record => opTimelineKind(record) === 'Visit Note') || latestOpTimelineRecord();
+  }
+  return activeIndex !== null ? records[activeIndex] : null;
+}
+
+function currentPrintPrescriptionRecord(){
+  if (selectedVisitType === 'OP' && selectedOpTimelineKey){
+    const selectedRecord = selectedOpTimelineRecord();
+    if (selectedRecord) return recordHasPrescription(selectedRecord) ? selectedRecord : null;
+    return latestOpTimelineRecord(recordHasPrescription);
+  }
+  const record = activeIndex !== null ? records[activeIndex] : null;
+  return record && recordHasPrescription(record) ? record : null;
+}
+
 function prescriptionTextFromNote(text){
   const note = formatStoredReviewNotes(String(text || ''));
   const sections = [];
@@ -3651,15 +3933,32 @@ function prescriptionTextFromNote(text){
   return sections.join('\n');
 }
 
+function noteSectionText(text, label){
+  const note = formatStoredReviewNotes(String(text || ''));
+  const escapedLabel = escapeRegExp(label);
+  const pattern = new RegExp(`(?:^|\\n)(${escapedLabel}:)[ \\t]*\\n([\\s\\S]*?)(?=\\n+(?:${NOTE_SECTION_LOOKAHEAD}):|$)`, 'i');
+  const match = note.match(pattern);
+  const body = String(match?.[2] || '').trim();
+  return body && !isNilLike(body) ? `${match[1]}\n${body}` : '';
+}
+
+function treatmentPlanAndPrescriptionText(text){
+  return [
+    noteSectionText(text, 'Treatment Plan'),
+    noteSectionText(text, 'Prescription')
+  ].filter(Boolean).join('\n\n');
+}
+
 function activePrescriptionText(){
-  if (activeIndex === null) return '';
-  const record = records[activeIndex];
+  const record = currentPrintPrescriptionRecord();
   if (!record || noteVisitType(record) !== 'OP') return '';
-  return prescriptionTextFromNote(currentRecordSourceText(record));
+  const sourceText = record === records[activeIndex] ? currentRecordSourceText(record) : (record.transcription || '');
+  return prescriptionTextFromNote(sourceText);
 }
 
 function hasPrintableActiveRecord(){
-  return activeIndex !== null && Boolean(records[activeIndex]) && (!records[activeIndex].isDraft || records[activeIndex].transcription);
+  const record = currentPrintVisitRecord();
+  return Boolean(record) && (!record.isDraft || record.transcription);
 }
 
 function hidePrintMenuState(){
@@ -3682,7 +3981,7 @@ function updatePrescriptionPrintButton(){
   const prescription = hasPrintableRecord ? activePrescriptionText() : '';
   rxPrintBtn.classList.toggle('visible', hasPrintableRecord);
   rxPrintBtn.disabled = !prescription;
-  rxPrintBtn.title = prescription ? 'Print Prescription' : 'No prescription found in this note';
+  rxPrintBtn.title = prescription ? 'Print Prescription' : 'No prescription found in selected entry';
   updatePrintMenuState();
 }
 
@@ -5319,7 +5618,7 @@ async function createVoiceDraft(mode = null){
     const requestedVisitType = selectedVisitType === 'IP' ? 'IP' : 'OP';
     const requestedDateString = dateInputValue(selectedVisitDate);
     const shouldPrefillPatient = ['Medical certificate','Reply letter'].includes(selectedMode);
-    const sourceRecord = shouldPrefillPatient && activeIndex !== null ? records[activeIndex] : null;
+    const sourceRecord = shouldPrefillPatient ? (activeIndex !== null ? records[activeIndex] : (selectedOpTimelineRecord() || latestOpTimelineRecord())) : null;
     const sourcePatientData = shouldPrefillPatient ? selectedPatientDataForNewDraft() : {name:'NIL',age:'NIL',uhid:'NIL',sex:'NIL'};
     const sourceKey = sourceRecord && !sourceRecord.voiceDraft ? patientSearchKey(sourceRecord) : null;
     openPreparingNewVoiceDock(selectedMode);
@@ -5720,9 +6019,9 @@ document.addEventListener('click', event => {
 document.addEventListener('selectionchange', captureEditorSelection);
 
 copyBtn.addEventListener('click', async () => {
-  if (activeIndex === null) return;
-  const activeRecord = records[activeIndex];
-  const sourceText = currentRecordSourceText(activeRecord);
+  const activeRecord = selectedOpTimelineRecord() || (activeIndex !== null ? records[activeIndex] : null);
+  if (!activeRecord) return;
+  const sourceText = activeRecord === records[activeIndex] ? currentRecordSourceText(activeRecord) : (activeRecord.transcription || '');
   const rawText = anonymizeTextForRecord(displayNoteTextForRecord(activeRecord, sourceText), activeRecord);
   const text = removeNilSectionsForCopy(rawText);
   try{
@@ -5738,9 +6037,9 @@ copyBtn.addEventListener('click', async () => {
 
 printBtn.addEventListener('click', () => {
   closePrintMenu();
-  if (activeIndex === null) return;
-  const activeRecord = records[activeIndex];
-  const sourceText = currentRecordSourceText(activeRecord);
+  const activeRecord = currentPrintVisitRecord();
+  if (!activeRecord) return;
+  const sourceText = activeRecord === records[activeIndex] ? currentRecordSourceText(activeRecord) : (activeRecord.transcription || '');
   const note = anonymizeTextForRecord(displayNoteTextForRecord(activeRecord, sourceText), activeRecord);
   if (!note) return;
   const printWindow = createPrintWindow();
@@ -5829,10 +6128,12 @@ printBtn.addEventListener('click', () => {
 
 rxPrintBtn.addEventListener('click', () => {
   closePrintMenu();
-  if (activeIndex === null) return;
-  const activeRecord = records[activeIndex];
+  const activeRecord = currentPrintPrescriptionRecord();
+  if (!activeRecord) return;
   const prescription = activePrescriptionText();
   if (!prescription) return;
+  const sourceText = activeRecord === records[activeIndex] ? currentRecordSourceText(activeRecord) : (activeRecord.transcription || '');
+  const treatmentPlan = noteSectionText(sourceText, 'Treatment Plan');
   const identity = patientIdentity(activeRecord);
   const ageLabel = /^nil$/i.test(identity.age) ? 'NIL' : `${identity.age} years`;
   const patientLine = [
@@ -5898,6 +6199,12 @@ rxPrintBtn.addEventListener('click', () => {
     font-weight:700;
     margin:0 0 13px;
   }
+  .rx-treatment{
+    margin:0 0 9mm;
+    padding-bottom:5mm;
+    border-bottom:1px solid #ddd;
+    white-space:pre-wrap;
+  }
   .rx-table{
     display:grid;
     gap:11px;
@@ -5960,6 +6267,7 @@ rxPrintBtn.addEventListener('click', () => {
       <div class="rx">
         <h1>${escapeHtml(displayPatientName(activeRecord))}</h1>
         <div class="patient-line">${escapeHtml(patientLine)}</div>
+        ${treatmentPlan ? `<section class="rx-treatment">${richNoteHtml(anonymizeTextForRecord(treatmentPlan, activeRecord), {includeMalayalam:false})}</section>` : ''}
         <div class="rx-heading">Rx / ADVICE</div>
         <div class="rx-table">${prescriptionRowsHtml(prescription, {includeMalayalam:layout.includeMalayalam !== false})}</div>
         ${layout.signature.enabled !== false && layout.signature.text ? `<section class="rx-print-signature ${layoutBlockClass(layout.signature)}">${printBlockHtml(layout.signature, {firstLineStrong:true})}</section>` : ''}
@@ -6049,6 +6357,27 @@ function scheduleCloseTemplateMenu(){
   templateCloseTimer = setTimeout(closeTemplateMenu, 900);
 }
 
+function closeTimelineMenu(){
+  clearTimeout(timelineCloseTimer);
+  timelineMenu?.classList.remove('open');
+  timelineBtn?.classList.remove('active');
+  timelineBtn?.setAttribute('aria-expanded', 'false');
+}
+
+function openTimelineMenu(){
+  if (!timelineBtn?.classList.contains('visible')) return;
+  clearTimeout(timelineCloseTimer);
+  renderTimelineMenu();
+  timelineMenu.classList.add('open');
+  timelineBtn.classList.add('active');
+  timelineBtn.setAttribute('aria-expanded', 'true');
+}
+
+function scheduleCloseTimelineMenu(){
+  clearTimeout(timelineCloseTimer);
+  timelineCloseTimer = setTimeout(closeTimelineMenu, 900);
+}
+
 function closePrintMenu(){
   clearTimeout(printCloseTimer);
   printMenu.classList.remove('open');
@@ -6077,6 +6406,24 @@ templateBtn.addEventListener('click', event => {
   templateBtn.setAttribute('aria-expanded', String(isOpen));
 });
 
+timelineBtn.addEventListener('click', event => {
+  event.stopPropagation();
+  clearTimeout(timelineCloseTimer);
+  renderTimelineMenu();
+  const isOpen = timelineMenu.classList.toggle('open');
+  timelineBtn.classList.toggle('active', isOpen);
+  timelineBtn.setAttribute('aria-expanded', String(isOpen));
+});
+
+timelineMenu.addEventListener('click', event => {
+  const button = event.target.closest('[data-timeline-entry]');
+  if (!button || !selectedOpTimelineKey) return;
+  const entryId = button.dataset.timelineEntry || 'all';
+  closeTimelineMenu();
+  renderOpPatientTimeline(selectedOpTimelineKey, entryId);
+  renderEntries();
+});
+
 printMenuBtn.addEventListener('click', event => {
   event.stopPropagation();
   clearTimeout(printCloseTimer);
@@ -6095,6 +6442,8 @@ settingsBtn.addEventListener('click', (e) => {
 
 templateWrap.addEventListener('pointerenter', openTemplateMenu);
 templateWrap.addEventListener('pointerleave', scheduleCloseTemplateMenu);
+timelineMenuWrap.addEventListener('pointerenter', openTimelineMenu);
+timelineMenuWrap.addEventListener('pointerleave', scheduleCloseTimelineMenu);
 printWrap.addEventListener('pointerenter', openPrintMenu);
 printWrap.addEventListener('pointerleave', scheduleClosePrintMenu);
 settingsWrap.addEventListener('pointerenter', openSettings);
@@ -6106,6 +6455,9 @@ document.addEventListener('click', (e) => {
   }
   if (!templateMenu.contains(e.target) && e.target !== templateBtn){
     closeTemplateMenu();
+  }
+  if (!timelineMenu.contains(e.target) && e.target !== timelineBtn){
+    closeTimelineMenu();
   }
   if (!printMenu.contains(e.target) && e.target !== printMenuBtn){
     closePrintMenu();
@@ -6227,7 +6579,6 @@ layoutSaveBtn.addEventListener('click', async () => {
   }
 });
 trashBtn.addEventListener('click', openTrashModal);
-topbarTrashBtn.addEventListener('click', openTrashModal);
 trashCloseBtn.addEventListener('click', closeTrashModal);
 trashDoneBtn.addEventListener('click', closeTrashModal);
 trashModal.addEventListener('click', event => { if (event.target === trashModal) closeTrashModal(); });
