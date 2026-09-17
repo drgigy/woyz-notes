@@ -2894,6 +2894,15 @@ function renderOpPatientTimeline(key, entryId = selectedOpTimelineEntryId || 'al
     </div>`;
 }
 
+function openOpTimelineForRecord(record, entryId = 'all'){
+  if (!record || noteVisitType(record) !== 'OP' || record.isDraft) return false;
+  const key = patientSearchKey(record);
+  if (!key) return false;
+  renderOpPatientTimeline(key, entryId);
+  renderEntries();
+  return true;
+}
+
 function renderTimelineMenu(){
   if (!timelineBtn || !timelineMenu) return;
   const isOpTimeline = selectedVisitType === 'OP' && Boolean(selectedOpTimelineKey);
@@ -3369,13 +3378,20 @@ function subscribeToSelectedDate({allowLatestDateFallback = false} = {}){
     const targetIndex = targetId ? records.findIndex(record => `${noteOwnerUid(record)}:${record.firestoreId}` === targetId || record.firestoreId === targetId) : -1;
     pendingSelectId = null;
     if (targetIndex >= 0){
+      if (selectedVisitType === 'OP' && openOpTimelineForRecord(records[targetIndex], 'all')) return;
       selectEntry(targetIndex,{preserveDirtyEditor:true});
       if (pendingNewVoiceDockId && records[activeIndex]?.firestoreId === pendingNewVoiceDockId){
         pendingNewVoiceDockId = null;
         openNewVoiceDock();
       }
     }
-    else if (records.length) selectEntry(0);
+    else if (records.length){
+      if (selectedVisitType === 'OP'){
+        const firstSavedOpRecord = records.find(record => !record.isDraft && noteVisitType(record) === 'OP');
+        if (openOpTimelineForRecord(firstSavedOpRecord, 'all')) return;
+      }
+      selectEntry(0);
+    }
     else if (allowLatestDateFallback && receivedOwners >= owners.length && !latestDateLookupInProgress){
       latestDateLookupInProgress = true;
       try{
