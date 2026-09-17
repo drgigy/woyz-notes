@@ -2686,24 +2686,83 @@ function ipTimelineRecordsForKey(key){
   return timelineRecordsForKey(key).filter(record => noteVisitType(record) === 'IP');
 }
 
+function reviewDateFromTimestampLabel(label, fallbackDate){
+  const match = String(label || '').match(/(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})/);
+  if (!match) return fallbackDate;
+  const day = match[1].padStart(2, '0');
+  const month = match[2].padStart(2, '0');
+  return `${match[3]}-${month}-${day}`;
+}
+
+function reviewTimestampMillis(label, fallbackDate, index = 0){
+  const date = reviewDateFromTimestampLabel(label, fallbackDate);
+  const [year, month, day] = String(date || '').split('-').map(Number);
+  if (!year || !month || !day) return 0;
+  const timeMatch = String(label || '').match(/(\d{1,2}):(\d{2})\s*(AM|PM)?/i);
+  let hours = 0;
+  let minutes = 0;
+  if (timeMatch){
+    hours = Number(timeMatch[1]) || 0;
+    minutes = Number(timeMatch[2]) || 0;
+    const meridiem = String(timeMatch[3] || '').toUpperCase();
+    if (meridiem === 'PM' && hours < 12) hours += 12;
+    if (meridiem === 'AM' && hours === 12) hours = 0;
+  }
+  return new Date(year, month - 1, day, hours, minutes).getTime() + index;
+}
+
+function stripReviewSectionsFromText(text){
+  return String(text || '').replace(/\r\n/g, '\n').split(/(?:^|\n+)Review Note(?:\s*\([^)]*\))?:/i)[0].trim();
+}
+
+function ipTimelineSectionsForRecord(record){
+  const recordDate = record.visitDate || record.admissionDate || dateInputValue(selectedVisitDate);
+  const sections = [];
+  const baseText = stripReviewSectionsFromText(displayNoteTextForRecord(record, record.transcription || ''));
+  if (baseText){
+    sections.push({
+      type:'visit',
+      date:recordDate,
+      record,
+      title:timelineTitleForRecord(record),
+      text:baseText,
+      sortTime:recordSortTime(record)
+    });
+  }
+  reviewNoteTimelineEntriesForRecord(record).forEach(review => {
+    const reviewDate = reviewDateFromTimestampLabel(review.timestampLabel, recordDate);
+    sections.push({
+      type:'review',
+      date:reviewDate,
+      record,
+      reviewIndex:review.index,
+      title:review.label,
+      text:`${review.heading}\n${review.body}`.trim(),
+      sortTime:reviewTimestampMillis(review.timestampLabel, reviewDate, review.index) || recordSortTime(record) + review.index + 1
+    });
+  });
+  return sections;
+}
+
 function ipTimelineDateGroupsForKey(key){
   const groups = new Map();
   ipTimelineRecordsForKey(key).forEach(record => {
-    const date = record.visitDate || record.admissionDate || dateInputValue(selectedVisitDate);
-    const existing = groups.get(date) || {date, records:[]};
-    existing.records.push(record);
-    groups.set(date, existing);
+    ipTimelineSectionsForRecord(record).forEach(section => {
+      const existing = groups.get(section.date) || {date:section.date, sections:[]};
+      existing.sections.push(section);
+      groups.set(section.date, existing);
+    });
   });
   return Array.from(groups.values()).map(group => ({
     ...group,
-    records:sortRecordsNewestFirst(group.records)
+    sections:[...group.sections].sort((a,b) => b.sortTime - a.sortTime)
   })).sort((a,b) => String(b.date || '').localeCompare(String(a.date || '')));
 }
 
-function selectedIpTimelineDateRecords(){
-  if (!selectedIpTimelineKey || !selectedIpTimelineDate) return [];
+function selectedIpTimelineDateGroup(){
+  if (!selectedIpTimelineKey || !selectedIpTimelineDate) return null;
   return ipTimelineDateGroupsForKey(selectedIpTimelineKey)
-    .find(group => group.date === selectedIpTimelineDate)?.records || [];
+    .find(group => group.date === selectedIpTimelineDate) || null;
 }
 
 function recordSortTime(record){
@@ -2762,6 +2821,7 @@ function reviewNoteTimelineEntriesForRecord(record){
       index,
       heading,
       body,
+      timestampLabel,
       label:`Review Note${rxSuffix} - ${labelDate}`,
       meta:[`Review ${index + 1}`, opTimelineEntryMeta(record)].filter(Boolean).join(' · ')
     };
@@ -3050,8 +3110,9 @@ function renderIpPatientTimeline(key, date = selectedIpTimelineDate || dateInput
   activeIndex = null;
   selectedIpTimelineKey = key;
   selectedIpTimelineDate = dateGroups.some(group => group.date === date) ? date : dateGroups[0].date;
-  const recordsToRender = selectedIpTimelineDateRecords();
-  const latest = recordsToRender[0] || dateGroups[0].records[0];
+  const selectedGroup = selectedIpTimelineDateGroup() || dateGroups[0];
+  const sectionsToRender = selectedGroup.sections || [];
+  const latest = sectionsToRender[0]?.record || dateGroups[0].sections[0]?.record;
   const identity = patientIdentity(latest);
   topbarName.textContent = displayPatientName(latest);
   topbarUhid.textContent = 'UHID ' + (anonymizeEnabled ? 'hidden' : (identity.uhid || 'NIL'));
@@ -3064,11 +3125,14 @@ function renderIpPatientTimeline(key, date = selectedIpTimelineDate || dateInput
   updateContinueNoteButton();
   renderTimelineMenu();
   hidePrintMenuState();
-  const renderedNotes = recordsToRender.map(record => {
-    const displayText = anonymizeTextForRecord(displayNoteTextForRecord(record, record.transcription || ''), record);
+  const reviewCount = sectionsToRender.filter(section => section.type === 'review').length;
+  const visitCount = sectionsToRender.filter(section => section.type === 'visit').length;
+  const renderedNotes = sectionsToRender.map(section => {
+    const displayText = anonymizeTextForRecord(section.text, section.record);
+    const reviewAttribute = section.type === 'review' ? ` data-ip-timeline-review="${section.reviewIndex}"` : '';
     return `
-      <article class="timeline-entry" data-ip-timeline-note="${escapeHtml(record.firestoreId)}" tabindex="0" role="button" aria-label="Open ${escapeHtml(timelineTitleForRecord(record))}">
-        <h2 class="timeline-entry-title">${escapeHtml(timelineTitleForRecord(record))}</h2>
+      <article class="timeline-entry" data-ip-timeline-note="${escapeHtml(section.record.firestoreId)}"${reviewAttribute} tabindex="0" role="button" aria-label="Open ${escapeHtml(section.title)}">
+        <h2 class="timeline-entry-title">${escapeHtml(section.title)}</h2>
         <div class="timeline-note">${richNoteHtml(displayText)}</div>
       </article>
     `;
@@ -3082,16 +3146,18 @@ function renderIpPatientTimeline(key, date = selectedIpTimelineDate || dateInput
           <div class="timeline-meta">${escapeHtml(patientMetaLine(latest))}</div>
         </div>
       </div>
-      <div class="timeline-count">${escapeHtml(formatVisitDateLabel(selectedIpTimelineDate))} · ${recordsToRender.length} note${recordsToRender.length === 1 ? '' : 's'}</div>
+      <div class="timeline-count">${escapeHtml(formatVisitDateLabel(selectedIpTimelineDate))} · ${visitCount} visit note${visitCount === 1 ? '' : 's'} · ${reviewCount} review note${reviewCount === 1 ? '' : 's'}</div>
       ${renderedNotes}
     </div>`;
   mainScroll.querySelectorAll('[data-ip-timeline-note]').forEach(entry => {
     const openEntry = () => {
       const noteId = entry.dataset.ipTimelineNote;
+      const reviewIndex = entry.dataset.ipTimelineReview !== undefined ? Number(entry.dataset.ipTimelineReview) : null;
       const targetIndex = records.findIndex(record => record.firestoreId === noteId);
       if (targetIndex >= 0){
         selectEntry(targetIndex);
         renderEntries();
+        if (reviewIndex !== null) focusReviewNoteInEditor(reviewIndex);
       }
     };
     entry.addEventListener('click', openEntry);
@@ -3141,9 +3207,11 @@ function renderTimelineMenu(){
     const dateGroups = ipTimelineDateGroupsForKey(selectedIpTimelineKey);
     timelineMenu.innerHTML = dateGroups.map(group => {
       const active = group.date === selectedIpTimelineDate;
+      const visitCount = group.sections.filter(section => section.type === 'visit').length;
+      const reviewCount = group.sections.filter(section => section.type === 'review').length;
       return `<button class="timeline-item ${active ? 'active' : ''}" type="button" data-ip-timeline-date="${escapeHtml(group.date)}">
         ${escapeHtml(formatVisitDateLabel(group.date))}
-        <span class="timeline-item-meta">${group.records.length} note${group.records.length === 1 ? '' : 's'}</span>
+        <span class="timeline-item-meta">${visitCount} visit · ${reviewCount} review${reviewCount === 1 ? '' : 's'}</span>
       </button>`;
     }).join('');
     return;
@@ -7101,7 +7169,7 @@ if ('serviceWorker' in navigator) {
     navigator.serviceWorker.addEventListener('controllerchange', () => {
       reloadForUpdateWhenIdle();
     });
-    navigator.serviceWorker.register('./sw.js?v=145', {updateViaCache:'none'}).then(registration => {
+    navigator.serviceWorker.register('./sw.js?v=146', {updateViaCache:'none'}).then(registration => {
       registration.update();
     }).catch(error => {
       console.warn('Service worker registration failed:', error);
