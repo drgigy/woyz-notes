@@ -1056,8 +1056,10 @@
   }
   .timeline-wrap{
     width:100%;
-    max-width:980px;
-    padding:44px 34px 80px;
+    max-width:none;
+    min-height:100%;
+    background:#fff;
+    padding:44px max(34px, calc((100% - 980px) / 2)) 80px;
   }
   .timeline-header{
     display:flex;
@@ -2713,6 +2715,17 @@ function latestOpTimelineRecord(predicate = () => true){
     .sort((a,b) => recordSortTime(b) - recordSortTime(a))[0] || null;
 }
 
+function opTimelineWorkingRecord(){
+  if (selectedVisitType !== 'OP' || !selectedOpTimelineKey) return null;
+  return selectedOpTimelineRecord()
+    || latestOpTimelineRecord(record => opTimelineKind(record) === 'Visit Note')
+    || latestOpTimelineRecord();
+}
+
+function currentEditableRecord(){
+  return selectedOpTimelineRecord() || (activeIndex !== null ? records[activeIndex] : null);
+}
+
 function groupedPatientSearchResults(){
   const queryText = recordSearchTerm.trim().toLowerCase();
   const groups = new Map();
@@ -2857,6 +2870,21 @@ function renderOpPatientTimeline(key, entryId = selectedOpTimelineEntryId || 'al
   selectedOpTimelineKey = key;
   selectedOpTimelineEntryId = entryId === 'all' ? 'all' : entryId;
   const selectedRecord = selectedOpTimelineRecord();
+  if (selectedRecord){
+    topbarName.textContent = displayPatientName(selectedRecord);
+    const selectedIdentity = patientIdentity(selectedRecord);
+    topbarUhid.textContent = 'UHID ' + (anonymizeEnabled ? 'hidden' : (selectedIdentity.uhid || 'NIL'));
+    topbarAge.textContent = selectedIdentity.age + ' yrs';
+    topbarPatient.classList.add('visible');
+    saveDraftBtn.classList.toggle('visible', !anonymizeEnabled);
+    deleteBtn.classList.toggle('visible', canDeleteRecord(selectedRecord));
+    dischargeBtn.classList.remove('visible');
+    renderGeneratedNote(selectedRecord);
+    renderTimelineMenu();
+    updateContinueNoteButton();
+    updatePrescriptionPrintButton();
+    return;
+  }
   const recordsToRender = selectedRecord ? [selectedRecord] : timelineRecords;
   const latest = timelineRecords[0];
   const identity = patientIdentity(latest);
@@ -3187,10 +3215,11 @@ function applyLocalDirtyRecord(record){
 }
 
 function captureActiveEditorState(){
-  if (activeIndex === null || !records[activeIndex] || anonymizeEnabled) return;
+  if (anonymizeEnabled) return;
+  const record = currentEditableRecord();
+  if (!record) return;
   const editor = document.getElementById('generatedNoteEditor');
   if (!editor) return;
-  const record = records[activeIndex];
   if (record.voiceDraft || record.transcribing) return;
   const text = editorPlainText(editor);
   if (text !== (record.transcription || '')){
@@ -3990,7 +4019,7 @@ function treatmentPlanAndPrescriptionText(text){
 function activePrescriptionText(){
   const record = currentPrintPrescriptionRecord();
   if (!record || noteVisitType(record) !== 'OP') return '';
-  const sourceText = record === records[activeIndex] ? currentRecordSourceText(record) : (record.transcription || '');
+  const sourceText = currentRecordSourceText(record);
   return prescriptionTextFromNote(sourceText);
 }
 
@@ -4677,7 +4706,7 @@ function renderContinuationDock(){
 }
 
 function selectedRecordCanContinue(){
-  const record = records[activeIndex];
+  const record = currentEditableRecord() || opTimelineWorkingRecord();
   return Boolean(record && !record.voiceDraft && (record.transcription || record.kind === 'generated'));
 }
 
@@ -4689,11 +4718,13 @@ function newVoiceTemplateForMode(mode, visitType = selectedVisitType){
 
 function openContinuationDock(){
   if (!selectedRecordCanContinue()) return;
+  const targetRecord = currentEditableRecord() || opTimelineWorkingRecord();
+  if (!targetRecord?.firestoreId) return;
   stopVoiceTimer();
   stopMediaTracks();
   continuationState.open = true;
   continuationState.mode = 'continue';
-  continuationState.targetId = records[activeIndex].firestoreId;
+  continuationState.targetId = targetRecord.firestoreId;
   continuationState.recording = false;
   continuationState.paused = false;
   continuationState.processing = false;
@@ -4918,9 +4949,13 @@ function appendContinuationText(addition){
   const text = stripLeadingReviewNoteHeading(addition);
   if (!text) return;
   const targetIndex = records.findIndex(record => record.firestoreId === continuationState.targetId);
-  if (targetIndex < 0) return;
-  activeIndex = targetIndex;
-  const record = records[targetIndex];
+  const timelineRecord = selectedOpTimelineRecord() || opTimelineWorkingRecord();
+  const record = targetIndex >= 0
+    ? records[targetIndex]
+    : allRecords.find(item => item.firestoreId === continuationState.targetId)
+      || (timelineRecord?.firestoreId === continuationState.targetId ? timelineRecord : null);
+  if (!record) return;
+  if (targetIndex >= 0) activeIndex = targetIndex;
   const editor = document.getElementById('generatedNoteEditor');
   const existing = editor ? editorPlainText(editor) : record.transcription;
   const baseText = String(existing || '').trimEnd();
@@ -4931,7 +4966,12 @@ function appendContinuationText(addition){
   clearTimeout(saveFeedbackTimer);
   saveFeedbackUntil = 0;
   saveDraftBtn.querySelector('span').textContent = 'Save';
-  renderGeneratedNote(record);
+  if (selectedVisitType === 'OP' && selectedOpTimelineKey && targetIndex < 0){
+    selectedOpTimelineEntryId = record.firestoreId;
+    renderOpPatientTimeline(selectedOpTimelineKey, record.firestoreId);
+  }else{
+    renderGeneratedNote(record);
+  }
   focusEditorEnd(document.getElementById('generatedNoteEditor'));
 }
 
@@ -4974,7 +5014,7 @@ function renderMmseModal(){
 }
 
 function openMmseModal(){
-  if (activeIndex === null || !records[activeIndex]){
+  if (!currentEditableRecord()){
     alert('Please select a note before inserting MMSE.');
     return;
   }
@@ -5015,11 +5055,11 @@ function mmseNoteText(){
 }
 
 function insertMmseIntoCurrentNote(){
-  if (activeIndex === null || !records[activeIndex]){
+  const record = currentEditableRecord();
+  if (!record){
     alert('Please select a note before inserting MMSE.');
     return;
   }
-  const record = records[activeIndex];
   const editor = document.getElementById('generatedNoteEditor');
   if (editor && !anonymizeEnabled && restoreEditorSelection(editor)){
     document.execCommand('insertText', false, `\n\n${mmseNoteText()}\n`);
@@ -6059,7 +6099,7 @@ document.addEventListener('selectionchange', captureEditorSelection);
 copyBtn.addEventListener('click', async () => {
   const activeRecord = selectedOpTimelineRecord() || (activeIndex !== null ? records[activeIndex] : null);
   if (!activeRecord) return;
-  const sourceText = activeRecord === records[activeIndex] ? currentRecordSourceText(activeRecord) : (activeRecord.transcription || '');
+  const sourceText = currentRecordSourceText(activeRecord);
   const rawText = anonymizeTextForRecord(displayNoteTextForRecord(activeRecord, sourceText), activeRecord);
   const text = removeNilSectionsForCopy(rawText);
   try{
@@ -6077,7 +6117,7 @@ printBtn.addEventListener('click', () => {
   closePrintMenu();
   const activeRecord = currentPrintVisitRecord();
   if (!activeRecord) return;
-  const sourceText = activeRecord === records[activeIndex] ? currentRecordSourceText(activeRecord) : (activeRecord.transcription || '');
+  const sourceText = currentRecordSourceText(activeRecord);
   const note = anonymizeTextForRecord(displayNoteTextForRecord(activeRecord, sourceText), activeRecord);
   if (!note) return;
   const printWindow = createPrintWindow();
@@ -6170,7 +6210,7 @@ rxPrintBtn.addEventListener('click', () => {
   if (!activeRecord) return;
   const prescription = activePrescriptionText();
   if (!prescription) return;
-  const sourceText = activeRecord === records[activeIndex] ? currentRecordSourceText(activeRecord) : (activeRecord.transcription || '');
+  const sourceText = currentRecordSourceText(activeRecord);
   const treatmentPlan = noteSectionText(sourceText, 'Treatment Plan');
   const identity = patientIdentity(activeRecord);
   const ageLabel = /^nil$/i.test(identity.age) ? 'NIL' : `${identity.age} years`;
@@ -6674,8 +6714,8 @@ credentialSaveBtn.addEventListener('click', async () => {
 });
 
 saveDraftBtn.addEventListener('click', async () => {
-  if (activeIndex === null || !records[activeIndex]) return;
-  const draft = records[activeIndex];
+  const draft = currentEditableRecord();
+  if (!draft) return;
   const editor = document.getElementById('generatedNoteEditor');
   if (editor && !anonymizeEnabled) draft.transcription = editorPlainText(editor);
   draft.patientData = extractPatientFromNote(draft.transcription, draft.patientData);
@@ -6686,7 +6726,7 @@ saveDraftBtn.addEventListener('click', async () => {
   draft.voiceDraft = false;
   draft.visitType = draft.visitType || selectedVisitType;
   const selectedDateString = dateInputValue(selectedVisitDate);
-  const persistedVisitDate = draft.visitType === 'IP' ? (draft.visitDate || draft.admissionDate || selectedDateString) : selectedDateString;
+  const persistedVisitDate = draft.visitType === 'IP' ? (draft.visitDate || draft.admissionDate || selectedDateString) : (draft.visitDate || selectedDateString);
   const admissionDate = draft.visitType === 'IP' ? (draft.admissionDate || draft.visitDate || selectedDateString) : null;
   draft.visitDate = persistedVisitDate;
   draft.admissionDate = admissionDate;
@@ -6727,8 +6767,7 @@ function extractPatientFromNote(text, fallback = {}){
 }
 
 deleteBtn.addEventListener('click', async () => {
-  if (activeIndex === null) return;
-  const draft = records[activeIndex];
+  const draft = currentEditableRecord();
   if (!draft?.firestoreId || !currentUser) return;
   const noteName = draft.patientData?.name || draft.name || 'this selected note';
   if (!window.confirm(`Move ${noteName} to Trash? It can be restored for 30 days.`)) return;
@@ -6747,8 +6786,17 @@ deleteBtn.addEventListener('click', async () => {
       updatedAt:serverTimestamp()
     });
     records = records.filter(record => !(record.firestoreId === draft.firestoreId && noteOwnerUid(record) === noteOwnerUid(draft)));
+    allRecords = allRecords.filter(record => !(record.firestoreId === draft.firestoreId && noteOwnerUid(record) === noteOwnerUid(draft)));
     activeIndex = null;
     renderEntries();
+    if (selectedOpTimelineKey){
+      const timelineKey = selectedOpTimelineKey;
+      selectedOpTimelineEntryId = 'all';
+      if (opTimelineRecordsForKey(timelineKey).length){
+        renderOpPatientTimeline(timelineKey, 'all');
+        return;
+      }
+    }
     if (records.length){
       if (!openDefaultOpView()) selectEntry(0);
     }
@@ -6784,7 +6832,7 @@ if ('serviceWorker' in navigator) {
     navigator.serviceWorker.addEventListener('controllerchange', () => {
       reloadForUpdateWhenIdle();
     });
-    navigator.serviceWorker.register('./sw.js?v=133', {updateViaCache:'none'}).then(registration => {
+    navigator.serviceWorker.register('./sw.js?v=141', {updateViaCache:'none'}).then(registration => {
       registration.update();
     }).catch(error => {
       console.warn('Service worker registration failed:', error);
