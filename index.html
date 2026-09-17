@@ -1106,7 +1106,11 @@
   .timeline-entry{
     border-top:1px solid var(--border);
     padding:22px 0;
+    cursor:pointer;
+    border-radius:8px;
+    transition:background .15s ease, padding-left .15s ease, padding-right .15s ease;
   }
+  .timeline-entry:hover{ background:#F8FBFA; padding-left:10px; padding-right:10px; }
   .timeline-entry-title{
     margin:0 0 14px;
     color:var(--ink);
@@ -2610,7 +2614,7 @@ function renderOpPatientEntries(){
       <span class="entry-owner">${escapeHtml(ownerCode)}</span>
     `;
     btn.addEventListener('click', () => {
-      renderOpPatientTimeline(group.key, 'all');
+      renderOpPatientTimeline(group.key, preferredOpTimelineEntryId(group.key, latest));
       renderEntries();
       closeMobileSidebar();
     });
@@ -2714,6 +2718,14 @@ function latestOpTimelineRecord(predicate = () => true){
   return selectedOpTimelineRecords()
     .filter(predicate)
     .sort((a,b) => recordSortTime(b) - recordSortTime(a))[0] || null;
+}
+
+function preferredOpTimelineEntryId(key, fallbackRecord = null){
+  const selectedDate = dateInputValue(selectedVisitDate);
+  const sameDateRecord = opTimelineRecordsForKey(key)
+    .filter(record => record.visitDate === selectedDate)
+    .sort((a,b) => recordSortTime(b) - recordSortTime(a))[0];
+  return sameDateRecord?.firestoreId || fallbackRecord?.firestoreId || 'all';
 }
 
 function opTimelineWorkingRecord(){
@@ -2905,7 +2917,7 @@ function renderOpPatientTimeline(key, entryId = selectedOpTimelineEntryId || 'al
   const renderedNotes = recordsToRender.map(record => {
     const displayText = anonymizeTextForRecord(displayNoteTextForRecord(record, record.transcription || ''), record);
     return `
-      <article class="timeline-entry">
+      <article class="timeline-entry" data-timeline-note="${escapeHtml(record.firestoreId)}" tabindex="0" role="button" aria-label="Open ${escapeHtml(opTimelineEntryLabel(record))}">
         <h2 class="timeline-entry-title">${escapeHtml(timelineTitleForRecord(record))}</h2>
         <div class="timeline-note">${richNoteHtml(displayText)}</div>
       </article>
@@ -2923,13 +2935,27 @@ function renderOpPatientTimeline(key, entryId = selectedOpTimelineEntryId || 'al
       <div class="timeline-count">${selectedRecord ? escapeHtml(opTimelineEntryLabel(selectedRecord)) : `${timelineRecords.length} entr${timelineRecords.length === 1 ? 'y' : 'ies'} · All entries`}</div>
       ${renderedNotes}
     </div>`;
+  mainScroll.querySelectorAll('[data-timeline-note]').forEach(entry => {
+    const openEntry = () => {
+      const noteId = entry.dataset.timelineNote;
+      if (!noteId || !selectedOpTimelineKey) return;
+      renderOpPatientTimeline(selectedOpTimelineKey, noteId);
+      renderEntries();
+    };
+    entry.addEventListener('click', openEntry);
+    entry.addEventListener('keydown', event => {
+      if (event.key !== 'Enter' && event.key !== ' ') return;
+      event.preventDefault();
+      openEntry();
+    });
+  });
 }
 
-function openOpTimelineForRecord(record, entryId = 'all'){
+function openOpTimelineForRecord(record, entryId = null){
   if (!record || noteVisitType(record) !== 'OP' || record.isDraft) return false;
   const key = patientSearchKey(record);
   if (!key) return false;
-  renderOpPatientTimeline(key, entryId);
+  renderOpPatientTimeline(key, entryId || preferredOpTimelineEntryId(key, record));
   renderEntries();
   return true;
 }
@@ -2941,9 +2967,9 @@ function openDefaultOpView(){
     selectEntry(activeIndex);
     return true;
   }
-  if (openOpTimelineForRecord(activeRecord, 'all')) return true;
+  if (openOpTimelineForRecord(activeRecord)) return true;
   const firstSavedOpRecord = records.find(record => !record.isDraft && noteVisitType(record) === 'OP');
-  return openOpTimelineForRecord(firstSavedOpRecord, 'all');
+  return openOpTimelineForRecord(firstSavedOpRecord);
 }
 
 function renderTimelineMenu(){
@@ -3424,7 +3450,7 @@ function subscribeToSelectedDate({allowLatestDateFallback = false} = {}){
     const targetIndex = targetId ? records.findIndex(record => `${noteOwnerUid(record)}:${record.firestoreId}` === targetId || record.firestoreId === targetId) : -1;
     pendingSelectId = null;
     if (targetIndex >= 0){
-      if (selectedVisitType === 'OP' && openOpTimelineForRecord(records[targetIndex], 'all')) return;
+      if (selectedVisitType === 'OP' && openOpTimelineForRecord(records[targetIndex])) return;
       selectEntry(targetIndex,{preserveDirtyEditor:true});
       if (pendingNewVoiceDockId && records[activeIndex]?.firestoreId === pendingNewVoiceDockId){
         pendingNewVoiceDockId = null;
@@ -6835,7 +6861,7 @@ if ('serviceWorker' in navigator) {
     navigator.serviceWorker.addEventListener('controllerchange', () => {
       reloadForUpdateWhenIdle();
     });
-    navigator.serviceWorker.register('./sw.js?v=142', {updateViaCache:'none'}).then(registration => {
+    navigator.serviceWorker.register('./sw.js?v=143', {updateViaCache:'none'}).then(registration => {
       registration.update();
     }).catch(error => {
       console.warn('Service worker registration failed:', error);
