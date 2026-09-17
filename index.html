@@ -2903,6 +2903,18 @@ function openOpTimelineForRecord(record, entryId = 'all'){
   return true;
 }
 
+function openDefaultOpView(){
+  if (selectedVisitType !== 'OP') return false;
+  const activeRecord = activeIndex !== null ? records[activeIndex] : null;
+  if (activeRecord?.isDraft){
+    selectEntry(activeIndex);
+    return true;
+  }
+  if (openOpTimelineForRecord(activeRecord, 'all')) return true;
+  const firstSavedOpRecord = records.find(record => !record.isDraft && noteVisitType(record) === 'OP');
+  return openOpTimelineForRecord(firstSavedOpRecord, 'all');
+}
+
 function renderTimelineMenu(){
   if (!timelineBtn || !timelineMenu) return;
   const isOpTimeline = selectedVisitType === 'OP' && Boolean(selectedOpTimelineKey);
@@ -3302,6 +3314,7 @@ function setSearchScope(scope){
   updateSearchScopeToggle();
   renderEntries();
   if (searchScope === 'today'){
+    if (openDefaultOpView()) return;
     if (activeIndex !== null && records[activeIndex]) selectEntry(activeIndex);
     else if (records.length) selectEntry(0);
     else showEmptyDate(selectedVisitType === 'IP' ? 'No active IP notes for this date.' : `No ${selectedVisitType} notes saved for this date.`);
@@ -3328,6 +3341,7 @@ function refreshAnonymizedView(){
   renderEntries();
   if (searchScope === 'all' && selectedTimelineKey) renderPatientTimeline(selectedTimelineKey);
   else if (selectedVisitType === 'OP' && selectedOpTimelineKey) renderOpPatientTimeline(selectedOpTimelineKey, selectedOpTimelineEntryId);
+  else if (openDefaultOpView()) return;
   else if (activeIndex !== null && records[activeIndex]) selectEntry(activeIndex);
 }
 
@@ -3386,10 +3400,7 @@ function subscribeToSelectedDate({allowLatestDateFallback = false} = {}){
       }
     }
     else if (records.length){
-      if (selectedVisitType === 'OP'){
-        const firstSavedOpRecord = records.find(record => !record.isDraft && noteVisitType(record) === 'OP');
-        if (openOpTimelineForRecord(firstSavedOpRecord, 'all')) return;
-      }
+      if (openDefaultOpView()) return;
       selectEntry(0);
     }
     else if (allowLatestDateFallback && receivedOwners >= owners.length && !latestDateLookupInProgress){
@@ -6738,7 +6749,9 @@ deleteBtn.addEventListener('click', async () => {
     records = records.filter(record => !(record.firestoreId === draft.firestoreId && noteOwnerUid(record) === noteOwnerUid(draft)));
     activeIndex = null;
     renderEntries();
-    if (records.length) selectEntry(0);
+    if (records.length){
+      if (!openDefaultOpView()) selectEntry(0);
+    }
     else showEmptyDate(selectedVisitType === 'IP' ? 'No active IP notes for this date.' : `No ${selectedVisitType} notes saved for this date.`);
   }catch(error){
     console.error('Delete failed:', error);
