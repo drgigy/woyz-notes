@@ -2629,7 +2629,7 @@ function renderPatientTimeline(key){
   deleteBtn.classList.remove('visible');
   dischargeBtn.classList.remove('visible');
   const renderedNotes = timelineRecords.map(record => {
-    const displayText = anonymizeTextForRecord(formatStoredReviewNotes(record.transcription || ''), record);
+    const displayText = anonymizeTextForRecord(displayNoteTextForRecord(record, record.transcription || ''), record);
     return `
       <article class="timeline-entry">
         <h2 class="timeline-entry-title">${escapeHtml(timelineTitleForRecord(record))}</h2>
@@ -3535,6 +3535,65 @@ function normalizeNumberedSectionHeadings(text){
     .trim();
 }
 
+function reviewNoteTimestampValue(heading){
+  const match = String(heading || '').match(/^Review Note\s*\(([^)]*)\):$/i);
+  if (!match) return null;
+  const parts = match[1].match(/(\d{1,2})[/-](\d{1,2})[/-](\d{2,4})(?:,\s*)?(\d{1,2}):(\d{2})\s*(AM|PM)?/i);
+  if (!parts) return null;
+  let [, day, month, year, hour, minute, meridiem] = parts;
+  year = Number(year);
+  if (year < 100) year += 2000;
+  hour = Number(hour);
+  minute = Number(minute);
+  if (meridiem){
+    const period = meridiem.toUpperCase();
+    if (period === 'PM' && hour < 12) hour += 12;
+    if (period === 'AM' && hour === 12) hour = 0;
+  }
+  const timestamp = new Date(year, Number(month) - 1, Number(day), hour, minute).getTime();
+  return Number.isFinite(timestamp) ? timestamp : null;
+}
+
+function organizeIpReviewNotes(text){
+  const normalized = formatStoredReviewNotes(text).replace(/\r\n/g, '\n').trim();
+  if (!normalized) return '';
+  const lines = normalized.split('\n');
+  const introLines = [];
+  const reviewBlocks = [];
+  let currentBlock = null;
+  lines.forEach(line => {
+    if (/^Review Note(?:\s*\([^)]*\))?:$/i.test(line.trim())){
+      if (currentBlock) reviewBlocks.push(currentBlock);
+      currentBlock = [line];
+      return;
+    }
+    if (currentBlock) currentBlock.push(line);
+    else if (!/^Review Notes:$/i.test(line.trim())) introLines.push(line);
+  });
+  if (currentBlock) reviewBlocks.push(currentBlock);
+  if (!reviewBlocks.length) return normalized;
+  const indexedBlocks = reviewBlocks.map((block, index) => ({
+    block,
+    index,
+    timestamp: reviewNoteTimestampValue(block[0])
+  }));
+  const allTimestamped = indexedBlocks.every(item => item.timestamp !== null);
+  const orderedBlocks = allTimestamped
+    ? indexedBlocks.sort((a, b) => b.timestamp - a.timestamp || b.index - a.index)
+    : indexedBlocks.reverse();
+  const intro = introLines.join('\n').trim();
+  const reviews = orderedBlocks
+    .map(item => item.block.join('\n').trim())
+    .filter(Boolean)
+    .join('\n\n');
+  return [intro, 'Review Notes:', reviews].filter(Boolean).join('\n\n');
+}
+
+function displayNoteTextForRecord(record, text){
+  const formatted = formatStoredReviewNotes(text);
+  return noteVisitType(record) === 'IP' ? organizeIpReviewNotes(formatted) : formatted;
+}
+
 function simpleRichNoteHtml(text){
   return String(text || '')
     .split('\n')
@@ -3876,7 +3935,7 @@ function renderVoiceWorkspace(){
 
 function renderGeneratedNote(draft){
   const title = draft.selectedMode || 'Visit Note';
-  const displayText = anonymizeTextForRecord(formatStoredReviewNotes(draft.transcription), draft);
+  const displayText = anonymizeTextForRecord(displayNoteTextForRecord(draft, draft.transcription), draft);
   const canEdit = !anonymizeEnabled;
   mainScroll.innerHTML = `
     <div class="generated-note">
@@ -5655,7 +5714,7 @@ copyBtn.addEventListener('click', async () => {
   if (activeIndex === null) return;
   const activeRecord = records[activeIndex];
   const sourceText = currentRecordSourceText(activeRecord);
-  const rawText = anonymizeTextForRecord(formatStoredReviewNotes(sourceText), activeRecord);
+  const rawText = anonymizeTextForRecord(displayNoteTextForRecord(activeRecord, sourceText), activeRecord);
   const text = removeNilSectionsForCopy(rawText);
   try{
     await navigator.clipboard.writeText(text);
@@ -5673,7 +5732,7 @@ printBtn.addEventListener('click', () => {
   if (activeIndex === null) return;
   const activeRecord = records[activeIndex];
   const sourceText = currentRecordSourceText(activeRecord);
-  const note = anonymizeTextForRecord(formatStoredReviewNotes(sourceText), activeRecord);
+  const note = anonymizeTextForRecord(displayNoteTextForRecord(activeRecord, sourceText), activeRecord);
   if (!note) return;
   const printWindow = createPrintWindow();
   if (!printWindow){
