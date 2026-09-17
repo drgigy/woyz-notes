@@ -3169,6 +3169,24 @@ function renderIpPatientTimeline(key, date = selectedIpTimelineDate || dateInput
   });
 }
 
+function openIpTimelineDate(key, date = selectedIpTimelineDate || dateInputValue(selectedVisitDate)){
+  const group = ipTimelineDateGroupsForKey(key).find(item => item.date === date) || ipTimelineDateGroupsForKey(key)[0];
+  const section = group?.sections?.[0];
+  if (!section) return false;
+  const targetIndex = records.findIndex(record => record.firestoreId === section.record.firestoreId);
+  if (targetIndex < 0){
+    renderIpPatientTimeline(key, group.date);
+    return false;
+  }
+  selectEntry(targetIndex);
+  selectedIpTimelineKey = key;
+  selectedIpTimelineDate = group.date;
+  renderEntries();
+  renderTimelineMenu();
+  if (section.type === 'review') focusReviewNoteInEditor(section.reviewIndex);
+  return true;
+}
+
 function openIpTimelineForRecord(record, date = null){
   if (!record || noteVisitType(record) !== 'IP' || record.isDraft) return false;
   const key = patientSearchKey(record);
@@ -3176,9 +3194,7 @@ function openIpTimelineForRecord(record, date = null){
   selectedOpTimelineKey = null;
   selectedOpTimelineEntryId = 'all';
   selectedOpTimelineReviewIndex = null;
-  renderIpPatientTimeline(key, date || record.visitDate || dateInputValue(selectedVisitDate));
-  renderEntries();
-  return true;
+  return openIpTimelineDate(key, date || record.visitDate || dateInputValue(selectedVisitDate));
 }
 
 function openDefaultOpView(){
@@ -3646,7 +3662,7 @@ function refreshAnonymizedView(){
   renderEntries();
   if (searchScope === 'all' && selectedTimelineKey) renderPatientTimeline(selectedTimelineKey);
   else if (selectedVisitType === 'OP' && selectedOpTimelineKey) renderOpPatientTimeline(selectedOpTimelineKey, selectedOpTimelineEntryId);
-  else if (selectedVisitType === 'IP' && selectedIpTimelineKey) renderIpPatientTimeline(selectedIpTimelineKey, selectedIpTimelineDate);
+  else if (selectedVisitType === 'IP' && activeIndex !== null && records[activeIndex]) selectEntry(activeIndex);
   else if (openDefaultOpView()) return;
   else if (activeIndex !== null && records[activeIndex]) selectEntry(activeIndex);
 }
@@ -3695,10 +3711,6 @@ function subscribeToSelectedDate({allowLatestDateFallback = false} = {}){
     if (searchScope === 'all') return;
     if (selectedVisitType === 'OP' && selectedOpTimelineKey){
       renderOpPatientTimeline(selectedOpTimelineKey, selectedOpTimelineEntryId);
-      return;
-    }
-    if (selectedVisitType === 'IP' && selectedIpTimelineKey){
-      renderIpPatientTimeline(selectedIpTimelineKey, selectedIpTimelineDate);
       return;
     }
     const targetId = pendingSelectId || previousId;
@@ -3780,7 +3792,6 @@ function subscribeToAllRecords(){
         if (selectedOpTimelineKey) renderOpPatientTimeline(selectedOpTimelineKey, selectedOpTimelineEntryId);
       }else if (selectedVisitType === 'IP'){
         renderEntries();
-        if (selectedIpTimelineKey) renderIpPatientTimeline(selectedIpTimelineKey, selectedIpTimelineDate);
       }
     }, error => {
       console.error('Unable to load all notes:', error);
@@ -6826,8 +6837,7 @@ timelineMenu.addEventListener('click', event => {
   if (ipButton && selectedIpTimelineKey){
     const date = ipButton.dataset.ipTimelineDate || dateInputValue(selectedVisitDate);
     closeTimelineMenu();
-    renderIpPatientTimeline(selectedIpTimelineKey, date);
-    renderEntries();
+    openIpTimelineDate(selectedIpTimelineKey, date);
     return;
   }
   const button = event.target.closest('[data-timeline-entry]');
@@ -7169,7 +7179,7 @@ if ('serviceWorker' in navigator) {
     navigator.serviceWorker.addEventListener('controllerchange', () => {
       reloadForUpdateWhenIdle();
     });
-    navigator.serviceWorker.register('./sw.js?v=146', {updateViaCache:'none'}).then(registration => {
+    navigator.serviceWorker.register('./sw.js?v=147', {updateViaCache:'none'}).then(registration => {
       registration.update();
     }).catch(error => {
       console.warn('Service worker registration failed:', error);
