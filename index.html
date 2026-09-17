@@ -2670,11 +2670,20 @@ function recordHasPrescription(record){
 }
 
 function opTimelineKind(record){
-  const mode = String(record?.selectedMode || record?.heading || '').toLowerCase();
-  if (mode.includes('reply letter')) return 'Letter';
+  const mode = normalizedEntryMode(record).toLowerCase();
+  if (mode.includes('letter')) return 'Letter';
   if (mode.includes('certificate')) return 'Certificate';
   if (mode.includes('review note')) return 'Review Note';
   return 'Visit Note';
+}
+
+function normalizedEntryMode(record){
+  const raw = String(record?.selectedMode || record?.heading || 'Visit Note').trim();
+  if (/^reply letter(?: draft)?$/i.test(raw)) return 'Reply Letter';
+  if (/^medical certificate(?: draft)?$/i.test(raw)) return 'Medical Certificate';
+  if (/^visit note(?: draft)?$/i.test(raw)) return 'Visit Note';
+  if (/^manual note(?: draft)?$/i.test(raw)) return 'Manual Note';
+  return raw.replace(/\s+draft$/i, '').trim() || 'Visit Note';
 }
 
 function opTimelineEntryLabel(record){
@@ -2775,7 +2784,7 @@ function recordMatchesSearch(record){
 }
 
 function timelineTitleForRecord(record){
-  const mode = record?.selectedMode || record?.heading || 'Visit Note';
+  const mode = normalizedEntryMode(record);
   const dateText = formatVisitDateLabel(record?.visitDate || dateInputValue(selectedVisitDate));
   const timeText = record?.createdAt ? String(record.createdAt).split(',').slice(1).join(',').trim() : '';
   return `${mode} - ${dateText}${timeText ? `, ${timeText}` : ''}`;
