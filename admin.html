@@ -121,6 +121,13 @@
   .note-editor{ width:100%; min-height:calc(100vh - 190px); border:0; outline:none; resize:vertical; background:#fff; color:#26302B; font:16px/1.55 'Inter',system-ui,sans-serif; padding:0; white-space:pre-wrap; }
   .note-editor p{ margin:0 0 10px; }
   .note-editor strong{ font-weight:800; color:#1E2521; }
+  .note-editor .review-notes-title{
+    display:block;
+    margin:18px 0 20px;
+    color:#1E2521;
+    font:600 31px 'Fraunces',serif;
+    line-height:1.15;
+  }
   .note-editor .review-note-divider{
     width:50%;
     height:1px;
@@ -411,6 +418,7 @@ function simpleRichNoteHtml(text){
     .split('\n')
     .map(line => {
       const escaped = escapeHtml(line);
+      if (/^Review Notes:$/i.test(line.trim())) return `<span class="review-notes-title">${escaped}</span>`;
       const formatted = escaped.replace(/^([^:<\n]{2,90}:)(\s*)/, '<strong>$1</strong>$2');
       return /^Review Note(?:\s*\([^)]*\))?:$/i.test(line.trim()) ? `<hr class="review-note-divider">${formatted}` : formatted;
     })
@@ -1249,6 +1257,13 @@ printBtn.addEventListener('click', () => {
     border:0;
     border-top:1.5px solid #999;
     margin:7mm 0 4mm;
+  }
+  .review-notes-title{
+    display:block;
+    margin:0 0 5mm;
+    font-size:18pt;
+    font-weight:700;
+    line-height:1.15;
   }
   h1{
     margin:0 0 10px;
