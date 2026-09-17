@@ -1047,6 +1047,7 @@
     overscroll-behavior:contain;
     display:flex;
     justify-content:center;
+    background:#fff;
   }
 
   .note-wrap{
@@ -2868,7 +2869,9 @@ function renderOpPatientTimeline(key, entryId = selectedOpTimelineEntryId || 'al
   }
   activeIndex = null;
   selectedOpTimelineKey = key;
-  selectedOpTimelineEntryId = entryId === 'all' ? 'all' : entryId;
+  selectedOpTimelineEntryId = entryId === 'all' && timelineRecords.length === 1
+    ? timelineRecords[0].firestoreId
+    : (entryId === 'all' ? 'all' : entryId);
   const selectedRecord = selectedOpTimelineRecord();
   if (selectedRecord){
     topbarName.textContent = displayPatientName(selectedRecord);
@@ -6832,7 +6835,7 @@ if ('serviceWorker' in navigator) {
     navigator.serviceWorker.addEventListener('controllerchange', () => {
       reloadForUpdateWhenIdle();
     });
-    navigator.serviceWorker.register('./sw.js?v=141', {updateViaCache:'none'}).then(registration => {
+    navigator.serviceWorker.register('./sw.js?v=142', {updateViaCache:'none'}).then(registration => {
       registration.update();
     }).catch(error => {
       console.warn('Service worker registration failed:', error);
