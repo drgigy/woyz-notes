@@ -927,6 +927,8 @@
     z-index:25;
   }
   .timeline-menu{
+    top:0;
+    right:calc(100% + 8px);
     min-width:330px;
     max-height:min(430px,70vh);
     overflow:auto;
@@ -2405,6 +2407,8 @@ let selectedTimelineKey = null;
 let selectedOpTimelineKey = null;
 let selectedOpTimelineEntryId = 'all';
 let selectedOpTimelineReviewIndex = null;
+let selectedIpTimelineKey = null;
+let selectedIpTimelineDate = null;
 let pendingSelectId = null;
 let pendingNewVoiceDockId = null;
 let draftCreationPromise = null;
@@ -2678,6 +2682,30 @@ function opTimelineRecordsForKey(key){
   return firstVisit ? [firstVisit, ...rest] : rest;
 }
 
+function ipTimelineRecordsForKey(key){
+  return timelineRecordsForKey(key).filter(record => noteVisitType(record) === 'IP');
+}
+
+function ipTimelineDateGroupsForKey(key){
+  const groups = new Map();
+  ipTimelineRecordsForKey(key).forEach(record => {
+    const date = record.visitDate || record.admissionDate || dateInputValue(selectedVisitDate);
+    const existing = groups.get(date) || {date, records:[]};
+    existing.records.push(record);
+    groups.set(date, existing);
+  });
+  return Array.from(groups.values()).map(group => ({
+    ...group,
+    records:sortRecordsNewestFirst(group.records)
+  })).sort((a,b) => String(b.date || '').localeCompare(String(a.date || '')));
+}
+
+function selectedIpTimelineDateRecords(){
+  if (!selectedIpTimelineKey || !selectedIpTimelineDate) return [];
+  return ipTimelineDateGroupsForKey(selectedIpTimelineKey)
+    .find(group => group.date === selectedIpTimelineDate)?.records || [];
+}
+
 function recordSortTime(record){
   return record?.createdAtValue?.toMillis?.() || dateValueFromRecord(record) || 0;
 }
@@ -2824,6 +2852,11 @@ function renderAllPatientEntries(){
     `;
     btn.addEventListener('click', () => {
       selectedTimelineKey = group.key;
+      selectedOpTimelineKey = null;
+      selectedOpTimelineEntryId = 'all';
+      selectedOpTimelineReviewIndex = null;
+      selectedIpTimelineKey = null;
+      selectedIpTimelineDate = null;
       renderEntries();
       renderPatientTimeline(group.key);
       closeMobileSidebar();
@@ -3008,6 +3041,80 @@ function openOpTimelineForRecord(record, entryId = null){
   return true;
 }
 
+function renderIpPatientTimeline(key, date = selectedIpTimelineDate || dateInputValue(selectedVisitDate)){
+  const dateGroups = ipTimelineDateGroupsForKey(key);
+  if (!dateGroups.length){
+    showEmptyDate('No IP entries found for this patient.');
+    return;
+  }
+  activeIndex = null;
+  selectedIpTimelineKey = key;
+  selectedIpTimelineDate = dateGroups.some(group => group.date === date) ? date : dateGroups[0].date;
+  const recordsToRender = selectedIpTimelineDateRecords();
+  const latest = recordsToRender[0] || dateGroups[0].records[0];
+  const identity = patientIdentity(latest);
+  topbarName.textContent = displayPatientName(latest);
+  topbarUhid.textContent = 'UHID ' + (anonymizeEnabled ? 'hidden' : (identity.uhid || 'NIL'));
+  topbarAge.textContent = identity.age + ' yrs';
+  topbarPatient.classList.add('visible');
+  copyBtn.style.display = 'none';
+  saveDraftBtn.classList.remove('visible');
+  deleteBtn.classList.remove('visible');
+  dischargeBtn.classList.remove('visible');
+  updateContinueNoteButton();
+  renderTimelineMenu();
+  hidePrintMenuState();
+  const renderedNotes = recordsToRender.map(record => {
+    const displayText = anonymizeTextForRecord(displayNoteTextForRecord(record, record.transcription || ''), record);
+    return `
+      <article class="timeline-entry" data-ip-timeline-note="${escapeHtml(record.firestoreId)}" tabindex="0" role="button" aria-label="Open ${escapeHtml(timelineTitleForRecord(record))}">
+        <h2 class="timeline-entry-title">${escapeHtml(timelineTitleForRecord(record))}</h2>
+        <div class="timeline-note">${richNoteHtml(displayText)}</div>
+      </article>
+    `;
+  }).join('');
+  mainScroll.innerHTML = `
+    <div class="timeline-wrap">
+      <div class="timeline-header">
+        <div>
+          <div class="timeline-kicker">IP Timeline</div>
+          <h1 class="timeline-title">${escapeHtml(displayPatientName(latest))}</h1>
+          <div class="timeline-meta">${escapeHtml(patientMetaLine(latest))}</div>
+        </div>
+      </div>
+      <div class="timeline-count">${escapeHtml(formatVisitDateLabel(selectedIpTimelineDate))} · ${recordsToRender.length} note${recordsToRender.length === 1 ? '' : 's'}</div>
+      ${renderedNotes}
+    </div>`;
+  mainScroll.querySelectorAll('[data-ip-timeline-note]').forEach(entry => {
+    const openEntry = () => {
+      const noteId = entry.dataset.ipTimelineNote;
+      const targetIndex = records.findIndex(record => record.firestoreId === noteId);
+      if (targetIndex >= 0){
+        selectEntry(targetIndex);
+        renderEntries();
+      }
+    };
+    entry.addEventListener('click', openEntry);
+    entry.addEventListener('keydown', event => {
+      if (event.key !== 'Enter' && event.key !== ' ') return;
+      event.preventDefault();
+      openEntry();
+    });
+  });
+}
+
+function openIpTimelineForRecord(record, date = null){
+  if (!record || noteVisitType(record) !== 'IP' || record.isDraft) return false;
+  const key = patientSearchKey(record);
+  if (!key) return false;
+  selectedOpTimelineKey = null;
+  selectedOpTimelineEntryId = 'all';
+  selectedOpTimelineReviewIndex = null;
+  renderIpPatientTimeline(key, date || record.visitDate || dateInputValue(selectedVisitDate));
+  renderEntries();
+  return true;
+}
+
 function openDefaultOpView(){
   if (selectedVisitType !== 'OP') return false;
   const activeRecord = activeIndex !== null ? records[activeIndex] : null;
@@ -3023,10 +3130,22 @@ function openDefaultOpView(){
 function renderTimelineMenu(){
   if (!timelineBtn || !timelineMenu) return;
   const isOpTimeline = selectedVisitType === 'OP' && Boolean(selectedOpTimelineKey);
-  timelineBtn.classList.toggle('visible', isOpTimeline);
-  if (!isOpTimeline){
+  const isIpTimeline = selectedVisitType === 'IP' && Boolean(selectedIpTimelineKey);
+  timelineBtn.classList.toggle('visible', isOpTimeline || isIpTimeline);
+  if (!isOpTimeline && !isIpTimeline){
     timelineMenu.innerHTML = '';
     closeTimelineMenu();
+    return;
+  }
+  if (isIpTimeline){
+    const dateGroups = ipTimelineDateGroupsForKey(selectedIpTimelineKey);
+    timelineMenu.innerHTML = dateGroups.map(group => {
+      const active = group.date === selectedIpTimelineDate;
+      return `<button class="timeline-item ${active ? 'active' : ''}" type="button" data-ip-timeline-date="${escapeHtml(group.date)}">
+        ${escapeHtml(formatVisitDateLabel(group.date))}
+        <span class="timeline-item-meta">${group.records.length} note${group.records.length === 1 ? '' : 's'}</span>
+      </button>`;
+    }).join('');
     return;
   }
   const timelineRecords = selectedOpTimelineRecords();
@@ -3425,6 +3544,9 @@ function setSearchScope(scope){
   selectedTimelineKey = null;
   selectedOpTimelineKey = null;
   selectedOpTimelineEntryId = 'all';
+  selectedOpTimelineReviewIndex = null;
+  selectedIpTimelineKey = null;
+  selectedIpTimelineDate = null;
   updateSearchScopeToggle();
   renderEntries();
   if (searchScope === 'today'){
@@ -3441,6 +3563,7 @@ function setSearchScope(scope){
   saveDraftBtn.classList.remove('visible');
   deleteBtn.classList.remove('visible');
   dischargeBtn.classList.remove('visible');
+  renderTimelineMenu();
   updateContinueNoteButton();
   mainScroll.innerHTML = '<div class="empty-state"><div class="empty-title">Search all patients</div><div class="empty-sub">Type a name or UHID, then select a patient to view previous records.</div></div>';
 }
@@ -3455,6 +3578,7 @@ function refreshAnonymizedView(){
   renderEntries();
   if (searchScope === 'all' && selectedTimelineKey) renderPatientTimeline(selectedTimelineKey);
   else if (selectedVisitType === 'OP' && selectedOpTimelineKey) renderOpPatientTimeline(selectedOpTimelineKey, selectedOpTimelineEntryId);
+  else if (selectedVisitType === 'IP' && selectedIpTimelineKey) renderIpPatientTimeline(selectedIpTimelineKey, selectedIpTimelineDate);
   else if (openDefaultOpView()) return;
   else if (activeIndex !== null && records[activeIndex]) selectEntry(activeIndex);
 }
@@ -3463,6 +3587,9 @@ function setVisitType(type){
   selectedVisitType = type === 'IP' ? 'IP' : 'OP';
   selectedOpTimelineKey = null;
   selectedOpTimelineEntryId = 'all';
+  selectedOpTimelineReviewIndex = null;
+  selectedIpTimelineKey = null;
+  selectedIpTimelineDate = null;
   updateVisitToggle();
   if (searchScope === 'all'){
     searchScope = 'today';
@@ -3500,6 +3627,10 @@ function subscribeToSelectedDate({allowLatestDateFallback = false} = {}){
     if (searchScope === 'all') return;
     if (selectedVisitType === 'OP' && selectedOpTimelineKey){
       renderOpPatientTimeline(selectedOpTimelineKey, selectedOpTimelineEntryId);
+      return;
+    }
+    if (selectedVisitType === 'IP' && selectedIpTimelineKey){
+      renderIpPatientTimeline(selectedIpTimelineKey, selectedIpTimelineDate);
       return;
     }
     const targetId = pendingSelectId || previousId;
@@ -3579,6 +3710,9 @@ function subscribeToAllRecords(){
       }else if (selectedVisitType === 'OP'){
         renderEntries();
         if (selectedOpTimelineKey) renderOpPatientTimeline(selectedOpTimelineKey, selectedOpTimelineEntryId);
+      }else if (selectedVisitType === 'IP'){
+        renderEntries();
+        if (selectedIpTimelineKey) renderIpPatientTimeline(selectedIpTimelineKey, selectedIpTimelineDate);
       }
     }, error => {
       console.error('Unable to load all notes:', error);
@@ -3586,6 +3720,7 @@ function subscribeToAllRecords(){
       allRecords = Array.from(allOwnerRecords.values()).flat();
       if (searchScope === 'all') renderEntries();
       else if (selectedVisitType === 'OP') renderEntries();
+      else if (selectedVisitType === 'IP') renderEntries();
     });
     allNotesUnsubscribes.push(unsubscribe);
   });
@@ -3634,6 +3769,11 @@ function subscribeToGroups(){
 
 function showEmptyDate(message = 'No notes saved for this date.'){
   activeIndex = null;
+  selectedOpTimelineKey = null;
+  selectedOpTimelineEntryId = 'all';
+  selectedOpTimelineReviewIndex = null;
+  selectedIpTimelineKey = null;
+  selectedIpTimelineDate = null;
   updateContinueNoteButton();
   topbarPatient.classList.remove('visible');
   copyBtn.style.display = 'none';
@@ -3757,6 +3897,11 @@ onAuthStateChanged(auth,user => {
     ownerProfiles = {};
     searchScope = 'today';
     selectedTimelineKey = null;
+    selectedOpTimelineKey = null;
+    selectedOpTimelineEntryId = 'all';
+    selectedOpTimelineReviewIndex = null;
+    selectedIpTimelineKey = null;
+    selectedIpTimelineDate = null;
     updateSearchScopeToggle();
     records = [];
     renderEntries();
@@ -3822,7 +3967,15 @@ function selectEntry(i,{preserveDirtyEditor = false} = {}){
   activeIndex = i;
   selectedOpTimelineKey = null;
   selectedOpTimelineEntryId = 'all';
+  selectedOpTimelineReviewIndex = null;
   const r = records[i];
+  if (noteVisitType(r) === 'IP' && !r.isDraft){
+    selectedIpTimelineKey = patientSearchKey(r);
+    selectedIpTimelineDate = r.visitDate || dateInputValue(selectedVisitDate);
+  }else{
+    selectedIpTimelineKey = null;
+    selectedIpTimelineDate = null;
+  }
   const isVoiceDraftRecord = r.voiceDraft === true;
   const isGeneratedRecord = !isVoiceDraftRecord && (Boolean(r.transcription) || r.kind === 'generated');
   const keepExistingEditor = preserveDirtyEditor && localDirtyRecords.has(recordLocalKey(r)) && Boolean(document.getElementById('generatedNoteEditor'));
@@ -4337,8 +4490,21 @@ function focusReviewNoteInEditor(reviewIndex){
   if (!editor) return;
   const marker = editor.querySelectorAll('.review-note-divider')[reviewIndex];
   if (!marker) return;
-  marker.scrollIntoView({block:'center', behavior:'smooth'});
-  editor.focus();
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      editor.focus({preventScroll:true});
+      const range = document.createRange();
+      range.setStartAfter(marker);
+      range.collapse(true);
+      const selection = window.getSelection();
+      selection.removeAllRanges();
+      selection.addRange(range);
+      const containerRect = mainScroll.getBoundingClientRect();
+      const markerRect = marker.getBoundingClientRect();
+      const targetTop = mainScroll.scrollTop + markerRect.top - containerRect.top - 110;
+      mainScroll.scrollTo({top:Math.max(0, targetTop), behavior:'smooth'});
+    });
+  });
 }
 
 function captureEditorSelection(){
@@ -6588,6 +6754,14 @@ timelineBtn.addEventListener('click', event => {
 });
 
 timelineMenu.addEventListener('click', event => {
+  const ipButton = event.target.closest('[data-ip-timeline-date]');
+  if (ipButton && selectedIpTimelineKey){
+    const date = ipButton.dataset.ipTimelineDate || dateInputValue(selectedVisitDate);
+    closeTimelineMenu();
+    renderIpPatientTimeline(selectedIpTimelineKey, date);
+    renderEntries();
+    return;
+  }
   const button = event.target.closest('[data-timeline-entry]');
   if (!button || !selectedOpTimelineKey) return;
   const entryId = button.dataset.timelineEntry || 'all';
@@ -6927,7 +7101,7 @@ if ('serviceWorker' in navigator) {
     navigator.serviceWorker.addEventListener('controllerchange', () => {
       reloadForUpdateWhenIdle();
     });
-    navigator.serviceWorker.register('./sw.js?v=144', {updateViaCache:'none'}).then(registration => {
+    navigator.serviceWorker.register('./sw.js?v=145', {updateViaCache:'none'}).then(registration => {
       registration.update();
     }).catch(error => {
       console.warn('Service worker registration failed:', error);
