@@ -1137,6 +1137,34 @@
     white-space:pre-wrap;
   }
   .timeline-note strong{ font-weight:800; }
+  .op-all-entry{
+    padding:20px 0 26px;
+    border-top:1px solid var(--border);
+  }
+  .op-all-entry:first-of-type{ border-top:0; }
+  .op-all-entry-title{
+    margin:0 0 14px;
+    color:var(--ink);
+    font:800 19px/1.25 'Inter',sans-serif;
+  }
+  .op-all-entry-editor{
+    width:100%;
+    min-height:240px;
+    border:0;
+    outline:0;
+    background:#fff;
+    color:var(--ink);
+    font:500 18px/1.55 'Inter',sans-serif;
+    white-space:pre-wrap;
+  }
+  .op-all-entry-editor:focus{
+    box-shadow:inset 3px 0 0 var(--teal);
+    padding-left:12px;
+  }
+  .op-all-entry-editor.anonymized{
+    color:var(--muted);
+    cursor:default;
+  }
 
   .note-eyebrow{
     font-size:12px;
@@ -2851,6 +2879,10 @@ function selectedOpTimelineRecord(){
   return selectedOpTimelineRecords().find(record => record.firestoreId === selectedOpTimelineEntryId) || null;
 }
 
+function opAllEntriesActive(){
+  return selectedVisitType === 'OP' && Boolean(selectedOpTimelineKey) && selectedOpTimelineEntryId === 'all';
+}
+
 function latestOpTimelineRecord(predicate = () => true){
   return selectedOpTimelineRecords()
     .filter(predicate)
@@ -3023,9 +3055,7 @@ function renderOpPatientTimeline(key, entryId = selectedOpTimelineEntryId || 'al
   }
   activeIndex = null;
   selectedOpTimelineKey = key;
-  selectedOpTimelineEntryId = entryId === 'all' && timelineRecords.length === 1
-    ? timelineRecords[0].firestoreId
-    : (entryId === 'all' ? 'all' : entryId);
+  selectedOpTimelineEntryId = entryId === 'all' ? 'all' : entryId;
   if (selectedOpTimelineEntryId === 'all') selectedOpTimelineReviewIndex = null;
   const selectedRecord = selectedOpTimelineRecord();
   if (selectedRecord){
@@ -3048,32 +3078,32 @@ function renderOpPatientTimeline(key, entryId = selectedOpTimelineEntryId || 'al
     updatePrescriptionPrintButton();
     return;
   }
-  const recordsToRender = selectedRecord ? [selectedRecord] : timelineRecords;
   const latest = timelineRecords[0];
   const identity = patientIdentity(latest);
   topbarName.textContent = displayPatientName(latest);
   topbarUhid.textContent = 'UHID ' + (anonymizeEnabled ? 'hidden' : (identity.uhid || 'NIL'));
   topbarAge.textContent = identity.age + ' yrs';
   topbarPatient.classList.add('visible');
-  copyBtn.style.display = recordsToRender.length === 1 ? 'flex' : 'none';
-  saveDraftBtn.classList.remove('visible');
+  copyBtn.style.display = 'none';
+  saveDraftBtn.classList.toggle('visible', !anonymizeEnabled);
+  saveDraftBtn.querySelector('span').textContent = saveButtonLabel();
   deleteBtn.classList.remove('visible');
   dischargeBtn.classList.remove('visible');
   updateContinueNoteButton();
   renderTimelineMenu();
   updatePrescriptionPrintButton();
   const visibleEntryCount = opTimelineVisibleEntryCount(timelineRecords);
-  const renderedNotes = recordsToRender.map(record => {
+  const renderedNotes = timelineRecords.map(record => {
     const displayText = anonymizeTextForRecord(displayNoteTextForRecord(record, record.transcription || ''), record);
     return `
-      <article class="timeline-entry" data-timeline-note="${escapeHtml(record.firestoreId)}" tabindex="0" role="button" aria-label="Open ${escapeHtml(opTimelineEntryLabel(record))}">
-        <h2 class="timeline-entry-title">${escapeHtml(timelineTitleForRecord(record))}</h2>
-        <div class="timeline-note">${richNoteHtml(displayText)}</div>
+      <article class="op-all-entry">
+        <h2 class="op-all-entry-title">${escapeHtml(timelineTitleForRecord(record))}</h2>
+        <div class="op-all-entry-editor note-editor ${anonymizeEnabled ? 'anonymized' : ''}" data-op-all-entry-editor="${escapeHtml(record.firestoreId)}" data-op-all-entry-owner="${escapeHtml(noteOwnerUid(record) || '')}" contenteditable="${anonymizeEnabled ? 'false' : 'true'}" spellcheck="true" role="textbox" aria-multiline="true" aria-label="Editable ${escapeHtml(opTimelineEntryLabel(record))}">${richNoteHtml(displayText)}</div>
       </article>
     `;
   }).join('');
   mainScroll.innerHTML = `
-    <div class="timeline-wrap">
+    <div class="timeline-wrap op-all-editable">
       <div class="timeline-header">
         <div>
           <div class="timeline-kicker">OP Timeline</div>
@@ -3084,19 +3114,24 @@ function renderOpPatientTimeline(key, entryId = selectedOpTimelineEntryId || 'al
       <div class="timeline-count">${selectedRecord ? escapeHtml(opTimelineEntryLabel(selectedRecord)) : `${visibleEntryCount} entr${visibleEntryCount === 1 ? 'y' : 'ies'} · All entries`}</div>
       ${renderedNotes}
     </div>`;
-  mainScroll.querySelectorAll('[data-timeline-note]').forEach(entry => {
-    const openEntry = () => {
-      const noteId = entry.dataset.timelineNote;
-      if (!noteId || !selectedOpTimelineKey) return;
-      selectedOpTimelineReviewIndex = null;
-      renderOpPatientTimeline(selectedOpTimelineKey, noteId);
-      renderEntries();
-    };
-    entry.addEventListener('click', openEntry);
-    entry.addEventListener('keydown', event => {
-      if (event.key !== 'Enter' && event.key !== ' ') return;
+  mainScroll.querySelectorAll('[data-op-all-entry-editor]').forEach(editor => {
+    resizeNoteEditor(editor);
+    if (anonymizeEnabled) return;
+    ['focus','keyup','mouseup','touchend'].forEach(eventName => {
+      editor.addEventListener(eventName, captureEditorSelection);
+    });
+    editor.addEventListener('input', () => {
+      updateOpAllEntryRecordFromEditor(editor);
+      clearTimeout(saveFeedbackTimer);
+      saveFeedbackUntil = 0;
+      saveDraftBtn.querySelector('span').textContent = 'Save';
+      updatePrescriptionPrintButton();
+      resizeNoteEditor(editor);
+      captureEditorSelection();
+    });
+    editor.addEventListener('paste', event => {
       event.preventDefault();
-      openEntry();
+      document.execCommand('insertText', false, event.clipboardData?.getData('text/plain') || '');
     });
   });
 }
@@ -3512,8 +3547,47 @@ function applyLocalDirtyRecord(record){
   };
 }
 
+function recordFromOpAllEntryEditor(editor){
+  const recordId = editor?.dataset?.opAllEntryEditor;
+  const ownerUid = editor?.dataset?.opAllEntryOwner || currentUser?.uid || '';
+  if (!recordId) return null;
+  return records.find(record => record.firestoreId === recordId && noteOwnerUid(record) === ownerUid)
+    || allRecords.find(record => record.firestoreId === recordId && noteOwnerUid(record) === ownerUid)
+    || null;
+}
+
+function syncRecordCollections(record){
+  if (!record?.firestoreId) return;
+  const ownerUid = noteOwnerUid(record);
+  const sync = item => item.firestoreId === record.firestoreId && noteOwnerUid(item) === ownerUid
+    ? {...item, ...record}
+    : item;
+  records = records.map(sync);
+  allRecords = allRecords.map(sync);
+}
+
+function updateOpAllEntryRecordFromEditor(editor){
+  if (anonymizeEnabled) return null;
+  const record = recordFromOpAllEntryEditor(editor);
+  if (!record || record.voiceDraft || record.transcribing) return null;
+  const text = editorPlainText(editor);
+  if (text !== (record.transcription || '')){
+    record.transcription = text;
+    record.patientData = extractPatientFromNote(text, record.patientData);
+    record.saved = false;
+    markRecordDirty(record);
+    syncRecordCollections(record);
+  }
+  return record;
+}
+
 function captureActiveEditorState(){
   if (anonymizeEnabled) return;
+  const allEntryEditors = Array.from(document.querySelectorAll('[data-op-all-entry-editor]'));
+  if (allEntryEditors.length){
+    allEntryEditors.forEach(editor => updateOpAllEntryRecordFromEditor(editor));
+    return;
+  }
   const record = currentEditableRecord();
   if (!record) return;
   const editor = document.getElementById('generatedNoteEditor');
@@ -3785,7 +3859,7 @@ function subscribeToAllRecords(){
   const owners = sharedOwnerIds.length ? sharedOwnerIds : [currentUser.uid];
   owners.forEach(ownerUid => {
     const unsubscribe = onSnapshot(collection(db,'users',ownerUid,'notes'), snapshot => {
-      allOwnerRecords.set(ownerUid, snapshot.docs.map(docSnap => noteFromSnapshot(docSnap, ownerUid)));
+      allOwnerRecords.set(ownerUid, snapshot.docs.map(docSnap => applyLocalDirtyRecord(noteFromSnapshot(docSnap, ownerUid))));
       allRecords = Array.from(allOwnerRecords.values()).flat();
       if (searchScope === 'all'){
         renderEntries();
@@ -3902,6 +3976,50 @@ function saveButtonLabel(){
 async function persistRecord(record, changes){
   if (!currentUser || !record?.firestoreId) return;
   await setDoc(noteDocRef(record),changes,{merge:true});
+}
+
+async function saveOpAllEntries(){
+  const editors = Array.from(document.querySelectorAll('[data-op-all-entry-editor]'));
+  if (!opAllEntriesActive() || !editors.length || anonymizeEnabled) return false;
+  const recordsToSave = editors
+    .map(editor => updateOpAllEntryRecordFromEditor(editor))
+    .filter(Boolean);
+  const uniqueRecords = Array.from(new Map(recordsToSave.map(record => [recordLocalKey(record), record])).values());
+  if (!uniqueRecords.length) return true;
+  await Promise.all(uniqueRecords.map(async record => {
+    record.patientData = extractPatientFromNote(record.transcription, record.patientData);
+    record.saved = true;
+    record.everSaved = true;
+    record.isDraft = false;
+    record.kind = 'generated';
+    record.voiceDraft = false;
+    record.visitType = record.visitType || 'OP';
+    record.adminCopiedAt = null;
+    record.adminCopiedBy = null;
+    syncRecordCollections(record);
+    await persistRecord(record,{
+      kind:'generated',
+      voiceDraft:false,
+      isDraft:false,
+      saved:true,
+      everSaved:true,
+      transcription:record.transcription,
+      patientData:record.patientData,
+      selectedMode:record.selectedMode,
+      visitDate:record.visitDate || dateInputValue(selectedVisitDate),
+      visitType:record.visitType,
+      admissionDate:null,
+      adminCopiedAt:null,
+      adminCopiedBy:null,
+      userSavedAt:serverTimestamp(),
+      updatedAt:serverTimestamp()
+    });
+    clearRecordDirty(record);
+  }));
+  renderEntries();
+  renderTimelineMenu();
+  flashSaveButton();
+  return true;
 }
 
 function clearRecordSearch(){
@@ -7124,6 +7242,7 @@ credentialSaveBtn.addEventListener('click', async () => {
 });
 
 saveDraftBtn.addEventListener('click', async () => {
+  if (await saveOpAllEntries()) return;
   const draft = currentEditableRecord();
   if (!draft) return;
   const editor = document.getElementById('generatedNoteEditor');
@@ -7242,7 +7361,7 @@ if ('serviceWorker' in navigator) {
     navigator.serviceWorker.addEventListener('controllerchange', () => {
       reloadForUpdateWhenIdle();
     });
-    navigator.serviceWorker.register('./sw.js?v=149', {updateViaCache:'none'}).then(registration => {
+    navigator.serviceWorker.register('./sw.js?v=150', {updateViaCache:'none'}).then(registration => {
       registration.update();
     }).catch(error => {
       console.warn('Service worker registration failed:', error);
