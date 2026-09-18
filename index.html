@@ -2435,6 +2435,7 @@ let continuationState = {
   hasStarted:false,
   audioBlob:null,
   status:'Ready',
+  documentMode:null,
   position:null
 };
 
@@ -5015,7 +5016,9 @@ function renderContinuationDock(){
   const hasSavedAudio = Boolean(continuationState.audioBlob);
   const isWaitingForDraft = continuationState.mode === 'new' && !activeDraft?.voiceDraft;
   continuationLevel.innerHTML = Array.from({length:28}, () => '<span></span>').join('');
-  continuationTitle.textContent = continuationState.mode === 'new' ? 'Voice note draft' : 'Continue dictation';
+  continuationTitle.textContent = continuationState.mode === 'new'
+    ? 'Voice note draft'
+    : continuationState.documentMode || 'Continue dictation';
   continuationDock.classList.toggle('visible', continuationState.open);
   continuationStartBtn.style.display = continuationState.hasStarted ? 'none' : 'grid';
   continuationPauseBtn.style.display = continuationState.hasStarted && !hasSavedAudio ? 'grid' : 'none';
@@ -5069,10 +5072,33 @@ function openContinuationDock(){
   continuationState.processing = false;
   continuationState.hasStarted = false;
   continuationState.audioBlob = null;
+  continuationState.documentMode = null;
   continuationState.status = 'Ready to continue selected note';
   remainingSeconds = 300;
   placeDock('right');
   renderContinuationDock();
+}
+
+function openDocumentAppendDock(mode){
+  if (!mode || !selectedRecordCanContinue()) return false;
+  const targetRecord = currentEditableRecord() || opTimelineWorkingRecord();
+  if (!targetRecord?.firestoreId) return false;
+  stopVoiceTimer();
+  stopMediaTracks();
+  continuationState.open = true;
+  continuationState.mode = 'continue';
+  continuationState.targetId = targetRecord.firestoreId;
+  continuationState.recording = false;
+  continuationState.paused = false;
+  continuationState.processing = false;
+  continuationState.hasStarted = false;
+  continuationState.audioBlob = null;
+  continuationState.documentMode = mode;
+  continuationState.status = `Ready to record ${mode.toLowerCase()}`;
+  remainingSeconds = 300;
+  placeDock('right');
+  renderContinuationDock();
+  return true;
 }
 
 function openPreparingNewVoiceDock(mode = null){
@@ -5086,6 +5112,7 @@ function openPreparingNewVoiceDock(mode = null){
   continuationState.processing = true;
   continuationState.hasStarted = false;
   continuationState.audioBlob = null;
+  continuationState.documentMode = null;
   continuationState.status = 'Preparing voice note...';
   remainingSeconds = 300;
   placeDock('right');
@@ -5105,6 +5132,7 @@ function openNewVoiceDock(){
   continuationState.processing = false;
   continuationState.hasStarted = false;
   continuationState.audioBlob = null;
+  continuationState.documentMode = null;
   continuationState.status = 'Ready to record new voice note';
   remainingSeconds = 300;
   placeDock('right');
@@ -5118,6 +5146,7 @@ function closeContinuationDock({releaseMic = true} = {}){
   continuationState.processing = false;
   continuationState.hasStarted = false;
   continuationState.audioBlob = null;
+  continuationState.documentMode = null;
   if (releaseMic){
     stopVoiceTimer();
     stopMediaTracks();
@@ -5221,15 +5250,29 @@ async function stopAndAppendContinuation(){
       );
       setContinuationStatus('Note generated. Review and save.');
     }else{
-      const addition = await runUntilGenerated(
-        onRetry => sendContinuationAudioToGemini(audioBlob, apiKey, onRetry),
-        {
-          setStatus:setContinuationStatus,
-          shouldContinue:() => continuationState.open && continuationState.targetId === targetId
-        }
-      );
-      appendContinuationText(addition);
-      setContinuationStatus('Added to selected note. Review and save.');
+      if (continuationState.documentMode){
+        const targetRecord = continuationTargetRecord();
+        const patient = patientDataWithFallback(patientIdentity(targetRecord || {}));
+        const generated = await runUntilGenerated(
+          onRetry => sendAudioToGemini(audioBlob, apiKey, continuationState.documentMode, onRetry, noteVisitType(targetRecord), patient),
+          {
+            setStatus:setContinuationStatus,
+            shouldContinue:() => continuationState.open && continuationState.targetId === targetId
+          }
+        );
+        appendDocumentText(generated.text, continuationState.documentMode);
+        setContinuationStatus(`${continuationState.documentMode} added. Review and save.`);
+      }else{
+        const addition = await runUntilGenerated(
+          onRetry => sendContinuationAudioToGemini(audioBlob, apiKey, onRetry),
+          {
+            setStatus:setContinuationStatus,
+            shouldContinue:() => continuationState.open && continuationState.targetId === targetId
+          }
+        );
+        appendContinuationText(addition);
+        setContinuationStatus('Added to selected note. Review and save.');
+      }
     }
     closeContinuationDock({releaseMic:false});
   }catch(error){
@@ -5287,19 +5330,40 @@ async function finishNewVoiceDraft(audioBlob, apiKey, onRetry){
 function appendContinuationText(addition){
   const text = stripLeadingReviewNoteHeading(addition);
   if (!text) return;
+  const record = continuationTargetRecord();
+  if (!record) return;
+  appendTextToRecord(record, text, {review:true});
+}
+
+function continuationTargetRecord(){
   const targetIndex = records.findIndex(record => record.firestoreId === continuationState.targetId);
   const timelineRecord = selectedOpTimelineRecord() || opTimelineWorkingRecord();
-  const record = targetIndex >= 0
+  return targetIndex >= 0
     ? records[targetIndex]
     : allRecords.find(item => item.firestoreId === continuationState.targetId)
       || (timelineRecord?.firestoreId === continuationState.targetId ? timelineRecord : null);
+}
+
+function appendDocumentText(generatedText, mode){
+  const text = String(generatedText || '').trim();
+  if (!text) return;
+  const record = continuationTargetRecord();
   if (!record) return;
+  const label = mode === 'Medical certificate' ? 'Medical Certificate' : 'Reply Letter';
+  appendTextToRecord(record, `${label} (${reviewTimestampLabel()}):\n${text}`, {review:false});
+}
+
+function appendTextToRecord(record, text, {review = false} = {}){
+  const targetIndex = records.findIndex(item => item.firestoreId === record.firestoreId);
   if (targetIndex >= 0) activeIndex = targetIndex;
   const editor = document.getElementById('generatedNoteEditor');
   const existing = editor ? editorPlainText(editor) : record.transcription;
   const baseText = String(existing || '').trimEnd();
-  const reviewHeading = noteVisitType(record) === 'IP' ? `Review Note (${reviewTimestampLabel()}):` : 'Review Note:';
-  record.transcription = `${baseText}\n\n${reviewHeading}\n${text}`.trim();
+  const heading = review
+    ? (noteVisitType(record) === 'IP' ? `Review Note (${reviewTimestampLabel()}):` : 'Review Note:')
+    : '';
+  const appendedText = heading ? `${heading}\n${text}` : text;
+  record.transcription = `${baseText}\n\n${appendedText}`.trim();
   record.saved = false;
   markRecordDirty(record);
   clearTimeout(saveFeedbackTimer);
@@ -5428,8 +5492,7 @@ function reviewTimestampLabel(){
 }
 
 function handleRecordButtonClick(){
-  if (selectedRecordCanContinue()) openContinuationDock();
-  else createVoiceDraft();
+  createVoiceDraft();
 }
 
 function placeDock(side){
@@ -6046,10 +6109,6 @@ async function createVoiceDraft(mode = null){
       subscribeToSelectedDate();
     }
     try{
-      if (selectExistingLocalDraft({visitType:requestedVisitType,fallbackToAny:false,predicate:record => record.voiceDraft === true})){
-        if (records[activeIndex]?.voiceDraft) openNewVoiceDock();
-        return;
-      }
       stopVoiceTimer();
       stopMediaTracks();
       const now = new Date();
@@ -6406,6 +6465,7 @@ function handleDocumentModeAction(mode){
     if (continuationState.open && continuationState.mode === 'new') renderContinuationDock();
     return;
   }
+  if (selectedRecordCanContinue() && openDocumentAppendDock(mode)) return;
   createVoiceDraft(mode);
 }
 
@@ -7179,7 +7239,7 @@ if ('serviceWorker' in navigator) {
     navigator.serviceWorker.addEventListener('controllerchange', () => {
       reloadForUpdateWhenIdle();
     });
-    navigator.serviceWorker.register('./sw.js?v=147', {updateViaCache:'none'}).then(registration => {
+    navigator.serviceWorker.register('./sw.js?v=148', {updateViaCache:'none'}).then(registration => {
       registration.update();
     }).catch(error => {
       console.warn('Service worker registration failed:', error);
