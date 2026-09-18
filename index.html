@@ -4712,8 +4712,13 @@ async function ensureEmailDeviceRecord(){
   if (!sendAuth.currentUser) await signInAnonymously(sendAuth);
   const deviceId = emailDeviceId();
   const ref = doc(sendDb, 'deviceApprovals', deviceId);
-  const snapshot = await getDoc(ref);
-  if (!snapshot.exists()){
+  let snapshot = null;
+  try{
+    snapshot = await getDoc(ref);
+  }catch(error){
+    if (error?.code !== 'permission-denied') throw error;
+  }
+  if (!snapshot?.exists()){
     await setDoc(ref, {
       id:deviceId,
       ownerUid:sendAuth.currentUser.uid,
@@ -7739,7 +7744,7 @@ if ('serviceWorker' in navigator) {
     navigator.serviceWorker.addEventListener('controllerchange', () => {
       reloadForUpdateWhenIdle();
     });
-    navigator.serviceWorker.register('./sw.js?v=161', {updateViaCache:'none'}).then(registration => {
+    navigator.serviceWorker.register('./sw.js?v=162', {updateViaCache:'none'}).then(registration => {
       registration.update();
     }).catch(error => {
       console.warn('Service worker registration failed:', error);
