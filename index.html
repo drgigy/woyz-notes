@@ -4817,7 +4817,12 @@ async function sendCurrentNoteEmail(){
     setTimeout(closeEmailDialog, 650);
   }catch(error){
     console.error('Email send failed:', error);
-    setEmailStatus(error.message || 'Email could not be sent.', 'error');
+    const message = String(error.message || '');
+    if (/not approved/i.test(message)){
+      setEmailStatus(`Approval request created. Approve WOYZ Notes device ${emailDeviceId()} in doctor.woyz.in/admin.html, then send again.`, 'error');
+    }else{
+      setEmailStatus(message || 'Email could not be sent.', 'error');
+    }
   }finally{
     emailSendBtn.dataset.sending = 'false';
     updateEmailSendButton();
@@ -7744,7 +7749,7 @@ if ('serviceWorker' in navigator) {
     navigator.serviceWorker.addEventListener('controllerchange', () => {
       reloadForUpdateWhenIdle();
     });
-    navigator.serviceWorker.register('./sw.js?v=162', {updateViaCache:'none'}).then(registration => {
+    navigator.serviceWorker.register('./sw.js?v=163', {updateViaCache:'none'}).then(registration => {
       registration.update();
     }).catch(error => {
       console.warn('Service worker registration failed:', error);
