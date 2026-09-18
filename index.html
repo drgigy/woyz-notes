@@ -3341,8 +3341,7 @@ async function addTimelinePatientToToday(sourceRecord){
     uhid:identity.uhid || 'NIL',
     sex:identity.sex || 'NIL'
   };
-  const fallbackHeader = `Patient Name: ${patientData.name}\nAge: ${patientData.age}\nUHID: ${patientData.uhid}\nSex: ${patientData.sex}`;
-  const transcription = `${fallbackHeader}\n\nReview Note (${reviewTimestampLabel()}):\n`;
+  const transcription = `Review Note (${reviewTimestampLabel()}):\n`;
   const newDraftRef = doc(userNotesCollection());
   const draftData = {
     heading:'Review Note draft',
@@ -3654,13 +3653,11 @@ function normalizeCarryForwardContinuation(record){
   const reviewStart = lastMatch.index + String(lastMatch[1] || '').length;
   const reviewText = text.slice(reviewStart).trim();
   if (!reviewText) return record;
-  const identity = patientIdentity(record);
-  const header = `Patient Name: ${identity.name || 'NIL'}\nAge: ${identity.age || 'NIL'}\nUHID: ${identity.uhid || 'NIL'}\nSex: ${identity.sex || 'NIL'}`;
   return {
     ...record,
     heading:record.isDraft ? 'Review Note draft' : 'Review Note',
     selectedMode:'Review Note',
-    transcription:`${header}\n\n${reviewText}`,
+    transcription:reviewText,
     carriedForwardFrom:record.carriedForwardFrom || record.sourceNoteId
   };
 }
@@ -7407,7 +7404,7 @@ if ('serviceWorker' in navigator) {
     navigator.serviceWorker.addEventListener('controllerchange', () => {
       reloadForUpdateWhenIdle();
     });
-    navigator.serviceWorker.register('./sw.js?v=157', {updateViaCache:'none'}).then(registration => {
+    navigator.serviceWorker.register('./sw.js?v=158', {updateViaCache:'none'}).then(registration => {
       registration.update();
     }).catch(error => {
       console.warn('Service worker registration failed:', error);
