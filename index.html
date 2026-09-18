@@ -3643,9 +3643,31 @@ function ownerInitials(ownerUid){
   return credential.replace(/[^a-z0-9]/gi, '').slice(0, 2).toUpperCase();
 }
 
+function normalizeCarryForwardContinuation(record){
+  if (!record?.sourceNoteId || noteVisitType(record) !== 'OP') return record;
+  const mode = String(record.selectedMode || record.heading || '').trim();
+  if (!/^visit note(?: draft)?$/i.test(mode)) return record;
+  const text = formatStoredReviewNotes(record.transcription || '').replace(/\r\n/g, '\n');
+  const reviewMatches = Array.from(text.matchAll(/(^|\n)(Review Note(?:\s*\([^)]*\))?:)/gi));
+  if (!reviewMatches.length) return record;
+  const lastMatch = reviewMatches[reviewMatches.length - 1];
+  const reviewStart = lastMatch.index + String(lastMatch[1] || '').length;
+  const reviewText = text.slice(reviewStart).trim();
+  if (!reviewText) return record;
+  const identity = patientIdentity(record);
+  const header = `Patient Name: ${identity.name || 'NIL'}\nAge: ${identity.age || 'NIL'}\nUHID: ${identity.uhid || 'NIL'}\nSex: ${identity.sex || 'NIL'}`;
+  return {
+    ...record,
+    heading:record.isDraft ? 'Review Note draft' : 'Review Note',
+    selectedMode:'Review Note',
+    transcription:`${header}\n\n${reviewText}`,
+    carriedForwardFrom:record.carriedForwardFrom || record.sourceNoteId
+  };
+}
+
 function noteFromSnapshot(snapshot, ownerUid = currentUser?.uid){
   const data = snapshot.data();
-  return {
+  return normalizeCarryForwardContinuation({
     ...data,
     firestoreId:snapshot.id,
     ownerUid,
@@ -3668,7 +3690,7 @@ function noteFromSnapshot(snapshot, ownerUid = currentUser?.uid){
     isDeleted:data.deleted === true,
     deletedAtValue:data.deletedAt || null,
     deletedBy:data.deletedBy || null
-  };
+  });
 }
 
 function noteVisitType(note){
@@ -7385,7 +7407,7 @@ if ('serviceWorker' in navigator) {
     navigator.serviceWorker.addEventListener('controllerchange', () => {
       reloadForUpdateWhenIdle();
     });
-    navigator.serviceWorker.register('./sw.js?v=156', {updateViaCache:'none'}).then(registration => {
+    navigator.serviceWorker.register('./sw.js?v=157', {updateViaCache:'none'}).then(registration => {
       registration.update();
     }).catch(error => {
       console.warn('Service worker registration failed:', error);
