@@ -469,6 +469,18 @@
   .auth-input{ width:100%; border:1.5px solid var(--border); border-radius:10px; padding:12px 13px; font:14px 'IBM Plex Mono',monospace; outline:none; }
   .auth-input:focus{ border-color:var(--focus); box-shadow:0 0 0 3px rgba(143,185,172,.2); }
   .auth-actions{ display:flex; justify-content:flex-end; gap:10px; margin-top:20px; }
+  .email-modal{ width:min(500px,100%); }
+  .remember-email-row{ margin:12px 0 8px; display:flex; align-items:center; gap:10px; font:800 13px 'Inter',sans-serif; color:var(--ink); }
+  .remember-email-row input{ width:16px; height:16px; accent-color:var(--teal); }
+  .remembered-email-list{ display:grid; gap:7px; margin-top:10px; }
+  .remembered-email-list[hidden]{ display:none; }
+  .remembered-email-chip{ min-height:36px; border:1px solid #CFE1DA; border-radius:10px; background:#F8FBFA; display:flex; align-items:center; justify-content:space-between; gap:10px; padding:0 8px 0 12px; color:var(--teal-deep); font:800 13px 'Inter',sans-serif; }
+  .remembered-email-chip button{ border:0; background:transparent; color:inherit; cursor:pointer; font:inherit; }
+  .remembered-email-remove{ width:26px; height:26px; border-radius:8px; color:#8D4B3D !important; }
+  .remembered-email-remove:hover{ background:#F8E7E3; }
+  .email-status{ min-height:18px; margin-top:10px; color:var(--muted); font:700 12px 'Inter',sans-serif; }
+  .email-status.error{ color:#B93B28; }
+  .email-status.success{ color:var(--teal-deep); }
   .layout-section{ border:1px solid var(--border); border-radius:12px; padding:14px; display:grid; gap:10px; margin-top:12px; }
   .layout-section-title{ font:800 13px 'Inter',sans-serif; color:var(--ink); }
   .layout-option-row{ border:1px solid var(--border); border-radius:12px; padding:12px 14px; display:flex; align-items:center; justify-content:space-between; gap:14px; margin-top:12px; }
@@ -805,6 +817,19 @@
     background:#F6F7F5;
     color:#9BA8A4;
     border-color:#DDE5E1;
+  }
+  .email-btn{
+    order:7;
+    display:none;
+    border-color:rgba(31,95,82,0.3);
+    color:var(--teal-deep);
+  }
+  .email-btn.visible{ display:flex; }
+  .email-btn:hover:not(:disabled){ background:var(--teal-wash); }
+  .email-btn:disabled{
+    opacity:.56;
+    cursor:not-allowed;
+    background:#F6F7F5;
   }
   .btn.discharge-btn{
     display:none;
@@ -1943,6 +1968,7 @@
           <button class="btn print-btn" id="printBtn" type="button" aria-label="Print visit note" title="Print visit note">Visit Note</button>
         </div>
       </div>
+      <button class="btn email-btn" id="emailBtn" type="button" aria-label="Email selected note" title="Email selected note">Email</button>
       <button class="btn save-draft-btn" id="saveDraftBtn" aria-label="Save note">
         <span>Save</span>
       </button>
@@ -2074,6 +2100,28 @@
   </div>
 </div>
 
+<div class="modal-backdrop" id="emailModal" role="dialog" aria-modal="true" aria-labelledby="emailModalTitle">
+  <div class="auth-modal email-modal">
+    <div class="auth-modal-head">
+      <h2 class="auth-modal-title" id="emailModalTitle">Email note</h2>
+      <button class="modal-close" id="emailCloseBtn" aria-label="Close email dialog">&times;</button>
+    </div>
+    <p class="auth-help">Send the generated note as a formatted PDF attachment. The same note text is included in the email body.</p>
+    <label class="auth-label" for="emailRecipientInput">Receiver email address</label>
+    <input class="auth-input" id="emailRecipientInput" type="email" autocomplete="email" inputmode="email" placeholder="receiver@example.com">
+    <label class="remember-email-row" for="rememberEmailCheckbox">
+      <input id="rememberEmailCheckbox" type="checkbox">
+      Remember this email
+    </label>
+    <div class="remembered-email-list" id="rememberedEmailList" hidden></div>
+    <div class="email-status" id="emailDialogStatus"></div>
+    <div class="auth-actions">
+      <button class="btn" id="emailCancelBtn" type="button">Cancel</button>
+      <button class="btn btn-copy" id="emailSendBtn" type="button">Send</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-backdrop" id="trashModal" role="dialog" aria-modal="true" aria-labelledby="trashModalTitle">
   <div class="auth-modal trash-modal">
     <div class="auth-modal-head">
@@ -2181,7 +2229,7 @@
 
 <script type="module">
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/12.16.0/firebase-app.js';
-import { browserLocalPersistence, getAuth, onAuthStateChanged, setPersistence, signInWithEmailAndPassword, signOut as firebaseSignOut } from 'https://www.gstatic.com/firebasejs/12.16.0/firebase-auth.js';
+import { browserLocalPersistence, getAuth, onAuthStateChanged, setPersistence, signInAnonymously, signInWithEmailAndPassword, signOut as firebaseSignOut } from 'https://www.gstatic.com/firebasejs/12.16.0/firebase-auth.js';
 import { getFirestore, collection, query, where, onSnapshot, addDoc, deleteDoc, doc, getDoc, getDocs, setDoc, serverTimestamp } from 'https://www.gstatic.com/firebasejs/12.16.0/firebase-firestore.js';
 import { firebaseConfig } from './firebase-config.js';
 
@@ -2261,6 +2309,7 @@ const topbarAge = document.getElementById('topbarAge');
 const copyBtn = document.getElementById('copyBtn');
 const printBtn = document.getElementById('printBtn');
 const rxPrintBtn = document.getElementById('rxPrintBtn');
+const emailBtn = document.getElementById('emailBtn');
 const deleteBtn = document.getElementById('deleteBtn');
 const printWrap = document.getElementById('printWrap');
 const printMenuBtn = document.getElementById('printMenuBtn');
@@ -2287,6 +2336,14 @@ const credentialNameInput = document.getElementById('credentialNameInput');
 const credentialCloseBtn = document.getElementById('credentialCloseBtn');
 const credentialCancelBtn = document.getElementById('credentialCancelBtn');
 const credentialSaveBtn = document.getElementById('credentialSaveBtn');
+const emailModal = document.getElementById('emailModal');
+const emailCloseBtn = document.getElementById('emailCloseBtn');
+const emailCancelBtn = document.getElementById('emailCancelBtn');
+const emailSendBtn = document.getElementById('emailSendBtn');
+const emailRecipientInput = document.getElementById('emailRecipientInput');
+const rememberEmailCheckbox = document.getElementById('rememberEmailCheckbox');
+const rememberedEmailList = document.getElementById('rememberedEmailList');
+const emailDialogStatus = document.getElementById('emailDialogStatus');
 const trashModal = document.getElementById('trashModal');
 const trashList = document.getElementById('trashList');
 const trashCloseBtn = document.getElementById('trashCloseBtn');
@@ -2387,6 +2444,18 @@ const TEXT_SCHEMA = {type:'object',properties:{...PATIENT_FIELDS,text:{type:'str
 const CERTIFICATE_SCHEMA = {type:'object',properties:{...PATIENT_FIELDS,date:{type:'string'},patientSex:{type:'string'},certificateBody:{type:'string'}},required:['patientName','patientAge','patientUhid','date','patientSex','certificateBody']};
 const AMBIENT_FIELDS = ['presentingComplaint','historyOfPresentIllness','pastMedicalHistory','allergies','familyHistory','personalHistory','examinationFindings','reviewOfInvestigations','currentMedication','provisionalDiagnosis','treatmentPlan'];
 const OP_AMBIENT_FIELDS = [...AMBIENT_FIELDS,'prescription'];
+const REMEMBERED_EMAILS_STORAGE_KEY = 'woyz_notes_remembered_emails';
+const EMAIL_DEVICE_ID_STORAGE_KEY = 'woyz_notes_email_device_id';
+const EMAIL_FUNCTION_URL = 'https://asia-south1-woyz-be9e5.cloudfunctions.net/sendVisitNoteEmailHttp';
+const EMAIL_BACKEND_CONFIG = {
+  apiKey:'AIzaSyDaSqQLixjaib7hfsv9hsLzebWU_kZuLmY',
+  authDomain:'woyz-be9e5.firebaseapp.com',
+  projectId:'woyz-be9e5',
+  storageBucket:'woyz-be9e5.firebasestorage.app',
+  messagingSenderId:'757935575451',
+  appId:'1:757935575451:web:4adba5f60e49346cce513e',
+  measurementId:'G-LBPXGJCKRB'
+};
 const ambientSchemaForVisitType = visitType => {
   const fields = visitType === 'OP' ? OP_AMBIENT_FIELDS : AMBIENT_FIELDS;
   return {type:'object',properties:{...PATIENT_FIELDS,patientSex:{type:'string'},...Object.fromEntries(fields.map(field=>[field,{type:'string'}]))},required:['patientName','patientAge','patientUhid','patientSex',...fields]};
@@ -2426,6 +2495,9 @@ let processingInterval = null;
 let selectedVisitDate = new Date();
 let selectedVisitType = 'OP';
 let currentUser = null;
+let emailBackendAuth = null;
+let emailBackendDb = null;
+let emailBackendReady = null;
 let notesUnsubscribes = [];
 let allNotesUnsubscribes = [];
 let userProfileUnsubscribe = null;
@@ -4509,6 +4581,7 @@ function hidePrintMenuState(){
   printWrap.classList.remove('visible');
   printBtn.classList.remove('visible');
   rxPrintBtn.classList.remove('visible');
+  emailBtn.classList.remove('visible');
   closePrintMenu();
 }
 
@@ -4516,6 +4589,7 @@ function updatePrintMenuState(){
   const printable = hasPrintableActiveRecord();
   printWrap.classList.toggle('visible', printable);
   printBtn.classList.toggle('visible', printable);
+  emailBtn.classList.toggle('visible', printable);
   if (!printable) closePrintMenu();
 }
 
@@ -4527,6 +4601,223 @@ function updatePrescriptionPrintButton(){
   rxPrintBtn.disabled = !prescription;
   rxPrintBtn.title = prescription ? 'Print Prescription' : 'No prescription found in selected entry';
   updatePrintMenuState();
+}
+
+function normalizeRememberedEmail(value){
+  return String(value || '').trim().toLowerCase();
+}
+
+function getRememberedEmails(){
+  try{
+    const parsed = JSON.parse(localStorage.getItem(REMEMBERED_EMAILS_STORAGE_KEY) || '[]');
+    return Array.isArray(parsed)
+      ? [...new Set(parsed.map(normalizeRememberedEmail).filter(validEmailAddress))].slice(0, 20)
+      : [];
+  }catch(error){
+    return [];
+  }
+}
+
+function setRememberedEmails(emails){
+  localStorage.setItem(REMEMBERED_EMAILS_STORAGE_KEY, JSON.stringify([...new Set(emails.map(normalizeRememberedEmail).filter(validEmailAddress))].slice(0, 20)));
+}
+
+function rememberEmailAddress(email){
+  const normalized = normalizeRememberedEmail(email);
+  if (!validEmailAddress(normalized)) return;
+  setRememberedEmails([normalized, ...getRememberedEmails().filter(saved => saved !== normalized)]);
+}
+
+function removeRememberedEmail(email){
+  const normalized = normalizeRememberedEmail(email);
+  setRememberedEmails(getRememberedEmails().filter(saved => saved !== normalized));
+  renderRememberedEmailSuggestions();
+}
+
+function filteredRememberedEmails(){
+  const queryText = normalizeRememberedEmail(emailRecipientInput.value);
+  const emails = getRememberedEmails();
+  return queryText ? emails.filter(email => email.startsWith(queryText) || email.includes(queryText)) : emails;
+}
+
+function renderRememberedEmailSuggestions(){
+  const emails = filteredRememberedEmails();
+  rememberedEmailList.hidden = emails.length === 0;
+  rememberedEmailList.innerHTML = emails.map(email => `
+    <div class="remembered-email-chip">
+      <button type="button" data-remembered-email="${escapeHtml(email)}">${escapeHtml(email)}</button>
+      <button class="remembered-email-remove" type="button" aria-label="Remove ${escapeHtml(email)}" data-remove-remembered-email="${escapeHtml(email)}">&times;</button>
+    </div>
+  `).join('');
+}
+
+function validEmailAddress(value){
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value || '').trim());
+}
+
+function updateEmailSendButton(){
+  const valid = validEmailAddress(emailRecipientInput.value);
+  emailSendBtn.disabled = !valid || emailSendBtn.dataset.sending === 'true';
+}
+
+function setEmailStatus(message, tone = ''){
+  emailDialogStatus.textContent = message || '';
+  emailDialogStatus.classList.toggle('error', tone === 'error');
+  emailDialogStatus.classList.toggle('success', tone === 'success');
+}
+
+function openEmailDialog(){
+  if (!hasPrintableActiveRecord()) return;
+  closePrintMenu();
+  emailRecipientInput.value = '';
+  rememberEmailCheckbox.checked = false;
+  emailSendBtn.dataset.sending = 'false';
+  setEmailStatus('');
+  renderRememberedEmailSuggestions();
+  updateEmailSendButton();
+  emailModal.classList.add('open');
+  requestAnimationFrame(() => emailRecipientInput.focus());
+}
+
+function closeEmailDialog(){
+  if (emailSendBtn.dataset.sending === 'true') return;
+  emailModal.classList.remove('open');
+}
+
+function emailDeviceId(){
+  let deviceId = localStorage.getItem(EMAIL_DEVICE_ID_STORAGE_KEY);
+  if (!deviceId){
+    deviceId = window.crypto?.randomUUID ? window.crypto.randomUUID() : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    localStorage.setItem(EMAIL_DEVICE_ID_STORAGE_KEY, deviceId);
+  }
+  return deviceId;
+}
+
+async function emailBackend(){
+  if (!emailBackendReady){
+    const emailApp = initializeApp(EMAIL_BACKEND_CONFIG, 'woyz-notes-email');
+    emailBackendAuth = getAuth(emailApp);
+    emailBackendDb = getFirestore(emailApp);
+    emailBackendReady = setPersistence(emailBackendAuth, browserLocalPersistence)
+      .then(async () => {
+        if (!emailBackendAuth.currentUser) await signInAnonymously(emailBackendAuth);
+        return {auth:emailBackendAuth, db:emailBackendDb};
+      });
+  }
+  return emailBackendReady;
+}
+
+async function ensureEmailDeviceRecord(){
+  const {auth:sendAuth, db:sendDb} = await emailBackend();
+  if (!sendAuth.currentUser) await signInAnonymously(sendAuth);
+  const deviceId = emailDeviceId();
+  const ref = doc(sendDb, 'deviceApprovals', deviceId);
+  const snapshot = await getDoc(ref);
+  if (!snapshot.exists()){
+    await setDoc(ref, {
+      ownerUid:sendAuth.currentUser.uid,
+      status:'pending',
+      app:'WOYZ Notes',
+      label:navigator.platform ? `WOYZ Notes - ${navigator.platform}` : 'WOYZ Notes device',
+      requestedBy:currentUser?.email || '',
+      userAgent:navigator.userAgent,
+      createdAt:serverTimestamp(),
+      updatedAt:serverTimestamp()
+    });
+  }
+  return {auth:sendAuth, deviceId};
+}
+
+function visitNoteEmailHtml(note){
+  return `<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>WOYZ Notes Email</title>
+<style>
+  @page{ margin:8mm; }
+  *{ box-sizing:border-box; }
+  body{ margin:0; color:#111; font-family:Arial, Helvetica, sans-serif; font-size:12pt; line-height:1.35; }
+  .note{ width:100%; max-width:none; min-height:100vh; padding:8mm 9mm; white-space:pre-wrap; }
+  .rx-table{ display:grid; gap:4mm; margin:3mm 0 5mm; white-space:normal; }
+  .rx-row{ display:grid; grid-template-columns:9mm minmax(44mm, 34%) minmax(0,1fr); column-gap:4mm; align-items:start; break-inside:avoid; }
+  .rx-number,.rx-medicine{ font-weight:700; }
+  .rx-instructions{ display:grid; gap:1mm; min-width:0; }
+  .review-note-divider{ width:50%; height:1px; border:0; border-top:1.5px solid #999; margin:7mm 0 4mm; }
+  .review-notes-title{ display:block; margin:0 0 5mm; font-size:18pt; font-weight:700; line-height:1.15; }
+  h1{ margin:0 0 10px; font-size:18pt; line-height:1.15; }
+  strong{ font-weight:700; }
+</style>
+</head>
+<body><main class="note">${richNoteHtml(note)}</main></body>
+</html>`;
+}
+
+function emailTitleForRecord(record){
+  const title = selectedVisitType === 'OP' ? timelineTitleForRecord(record) : (record.selectedMode || 'Visit Note');
+  const patient = displayPatientName(record);
+  return [title, patient].filter(Boolean).join(' - ');
+}
+
+function buildEmailPayload(to){
+  const activeRecord = currentPrintVisitRecord();
+  if (!activeRecord) throw new Error('No note is selected.');
+  const sourceText = currentRecordSourceText(activeRecord);
+  const note = anonymizeTextForRecord(displayNoteTextForRecord(activeRecord, sourceText), activeRecord);
+  if (!note) throw new Error('This note is empty.');
+  const identity = patientIdentity(activeRecord);
+  const title = emailTitleForRecord(activeRecord);
+  return {
+    to,
+    title,
+    patient:{
+      name:displayPatientName(activeRecord),
+      age:identity.age || activeRecord.patientAge || '',
+      sex:identity.sex || activeRecord.patientSex || '',
+      uhid:anonymizeEnabled ? 'hidden' : (identity.uhid || activeRecord.patientUhid || ''),
+      date:fullVisitDateLabel(activeRecord.visitDate || dateInputValue(selectedVisitDate))
+    },
+    sections:[{title, value:note}],
+    bodyText:note,
+    printHtml:visitNoteEmailHtml(note),
+    deviceId:emailDeviceId()
+  };
+}
+
+async function sendCurrentNoteEmail(){
+  const to = normalizeRememberedEmail(emailRecipientInput.value);
+  if (!validEmailAddress(to)){
+    setEmailStatus('Enter a valid receiver email address.', 'error');
+    return;
+  }
+  emailSendBtn.dataset.sending = 'true';
+  emailSendBtn.disabled = true;
+  setEmailStatus('Sending email...');
+  try{
+    const {auth:sendAuth, deviceId} = await ensureEmailDeviceRecord();
+    const token = await sendAuth.currentUser.getIdToken();
+    const payload = {...buildEmailPayload(to), deviceId};
+    const response = await fetch(EMAIL_FUNCTION_URL, {
+      method:'POST',
+      headers:{
+        'Authorization':`Bearer ${token}`,
+        'Content-Type':'application/json'
+      },
+      body:JSON.stringify(payload)
+    });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(result.error || 'Email could not be sent.');
+    if (rememberEmailCheckbox.checked) rememberEmailAddress(to);
+    setEmailStatus('Email sent.', 'success');
+    renderRememberedEmailSuggestions();
+    setTimeout(closeEmailDialog, 650);
+  }catch(error){
+    console.error('Email send failed:', error);
+    setEmailStatus(error.message || 'Email could not be sent.', 'error');
+  }finally{
+    emailSendBtn.dataset.sending = 'false';
+    updateEmailSendButton();
+  }
 }
 
 function prescriptionRowsHtml(text, {includeMalayalam = true} = {}){
@@ -7088,6 +7379,44 @@ printMenuBtn.addEventListener('click', event => {
   printMenuBtn.setAttribute('aria-expanded', String(isOpen));
 });
 
+emailBtn.addEventListener('click', openEmailDialog);
+emailCloseBtn.addEventListener('click', closeEmailDialog);
+emailCancelBtn.addEventListener('click', closeEmailDialog);
+emailSendBtn.addEventListener('click', sendCurrentNoteEmail);
+emailModal.addEventListener('click', event => { if (event.target === emailModal) closeEmailDialog(); });
+emailRecipientInput.addEventListener('input', () => {
+  setEmailStatus('');
+  renderRememberedEmailSuggestions();
+  updateEmailSendButton();
+});
+emailRecipientInput.addEventListener('keydown', event => {
+  if (event.key !== 'Enter') return;
+  event.preventDefault();
+  const typed = normalizeRememberedEmail(emailRecipientInput.value);
+  const match = filteredRememberedEmails().find(email => email.startsWith(typed));
+  if (match && typed && match !== typed){
+    emailRecipientInput.value = match;
+    renderRememberedEmailSuggestions();
+    updateEmailSendButton();
+    return;
+  }
+  if (validEmailAddress(emailRecipientInput.value)) sendCurrentNoteEmail();
+});
+rememberedEmailList.addEventListener('click', event => {
+  const removeButton = event.target.closest('[data-remove-remembered-email]');
+  if (removeButton){
+    removeRememberedEmail(removeButton.dataset.removeRememberedEmail);
+    return;
+  }
+  const emailButton = event.target.closest('[data-remembered-email]');
+  if (!emailButton) return;
+  emailRecipientInput.value = emailButton.dataset.rememberedEmail;
+  setEmailStatus('');
+  renderRememberedEmailSuggestions();
+  updateEmailSendButton();
+  emailRecipientInput.focus();
+});
+
 settingsBtn.addEventListener('click', (e) => {
   e.stopPropagation();
   clearTimeout(settingsCloseTimer);
@@ -7137,7 +7466,7 @@ addNoteBtn.addEventListener('click', closeMobileSidebar);
 
 document.addEventListener('keydown', (event) => {
   const isTyping = ['INPUT','TEXTAREA'].includes(document.activeElement?.tagName) || document.activeElement?.isContentEditable;
-  if (isTyping || authModal.classList.contains('open') || credentialModal.classList.contains('open') || trashModal.classList.contains('open') || layoutModal.classList.contains('open') || mmseModal.classList.contains('open')) return;
+  if (isTyping || authModal.classList.contains('open') || credentialModal.classList.contains('open') || emailModal.classList.contains('open') || trashModal.classList.contains('open') || layoutModal.classList.contains('open') || mmseModal.classList.contains('open')) return;
   if (continuationState.open){
     if (event.code === 'Space'){
       event.preventDefault();
@@ -7411,7 +7740,7 @@ if ('serviceWorker' in navigator) {
     navigator.serviceWorker.addEventListener('controllerchange', () => {
       reloadForUpdateWhenIdle();
     });
-    navigator.serviceWorker.register('./sw.js?v=159', {updateViaCache:'none'}).then(registration => {
+    navigator.serviceWorker.register('./sw.js?v=160', {updateViaCache:'none'}).then(registration => {
       registration.update();
     }).catch(error => {
       console.warn('Service worker registration failed:', error);
