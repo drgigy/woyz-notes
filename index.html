@@ -742,35 +742,46 @@
   }
   .btn-copy:hover{ background:var(--teal-wash); }
   .btn-copy.copied{ background:var(--teal); color:#fff; border-color:var(--teal); }
-  .print-btn{
+  .print-btn,
+  .email-visit-btn{
     display:none;
     border-color:rgba(31,95,82,0.3);
     color:var(--teal-deep);
   }
-  .print-btn.visible{ display:flex; }
-  .print-btn:hover{ background:var(--teal-wash); }
-  .rx-print-btn{
+  .print-btn.visible,
+  .email-visit-btn.visible{ display:flex; }
+  .print-btn:hover,
+  .email-visit-btn:hover{ background:var(--teal-wash); }
+  .rx-print-btn,
+  .email-rx-btn{
     display:none;
     border-color:rgba(31,95,82,0.3);
     color:var(--teal-deep);
     min-width:78px;
     justify-content:center;
   }
-  .rx-print-btn.visible{ display:flex; }
-  .rx-print-btn:hover:not(:disabled){ background:var(--teal-wash); }
-  .rx-print-btn:disabled{
+  .rx-print-btn.visible,
+  .email-rx-btn.visible{ display:flex; }
+  .rx-print-btn:hover:not(:disabled),
+  .email-rx-btn:hover:not(:disabled){ background:var(--teal-wash); }
+  .rx-print-btn:disabled,
+  .email-rx-btn:disabled{
     opacity:.42;
     cursor:not-allowed;
     background:#F6F7F5;
   }
-  .print-wrap{
+  .print-wrap,
+  .email-wrap{
     order:6;
     position:relative;
     display:none;
     flex:0 0 auto;
   }
-  .print-wrap.visible{ display:block; }
-  .print-wrap::after{
+  .email-wrap{ order:7; }
+  .print-wrap.visible,
+  .email-wrap.visible{ display:block; }
+  .print-wrap::after,
+  .email-wrap::after{
     content:'';
     position:absolute;
     left:0;
@@ -778,15 +789,20 @@
     top:100%;
     height:10px;
   }
-  .print-menu-btn{ min-width:86px; }
+  .print-menu-btn,
+  .email-menu-btn{ min-width:86px; }
   .print-wrap:hover .print-menu-btn,
   .print-wrap:focus-within .print-menu-btn,
-  .print-menu-btn.open{
+  .print-menu-btn.open,
+  .email-wrap:hover .email-menu-btn,
+  .email-wrap:focus-within .email-menu-btn,
+  .email-menu-btn.open{
     background:var(--teal-wash);
     border-color:rgba(31,95,82,0.3);
     color:var(--teal-deep);
   }
-  .print-menu{
+  .print-menu,
+  .email-menu{
     position:absolute;
     top:calc(100% + 8px);
     right:0;
@@ -801,35 +817,29 @@
   }
   .print-wrap:hover .print-menu,
   .print-wrap:focus-within .print-menu,
-  .print-menu.open{
+  .print-menu.open,
+  .email-wrap:hover .email-menu,
+  .email-wrap:focus-within .email-menu,
+  .email-menu.open{
     display:grid;
     gap:6px;
   }
-  .print-menu .btn{
+  .print-menu .btn,
+  .email-menu .btn{
     width:100%;
     min-height:42px;
     justify-content:center;
     border-radius:9px;
   }
   .print-menu .rx-print-btn.visible,
-  .print-menu .print-btn.visible{ display:flex; }
-  .print-menu .rx-print-btn:disabled{
+  .print-menu .print-btn.visible,
+  .email-menu .email-rx-btn.visible,
+  .email-menu .email-visit-btn.visible{ display:flex; }
+  .print-menu .rx-print-btn:disabled,
+  .email-menu .email-rx-btn:disabled{
     background:#F6F7F5;
     color:#9BA8A4;
     border-color:#DDE5E1;
-  }
-  .email-btn{
-    order:7;
-    display:none;
-    border-color:rgba(31,95,82,0.3);
-    color:var(--teal-deep);
-  }
-  .email-btn.visible{ display:flex; }
-  .email-btn:hover:not(:disabled){ background:var(--teal-wash); }
-  .email-btn:disabled{
-    opacity:.56;
-    cursor:not-allowed;
-    background:#F6F7F5;
   }
   .btn.discharge-btn{
     display:none;
@@ -1009,6 +1019,7 @@
   .delete-btn{ order:4; }
   .btn-copy{ order:5; }
   .print-wrap{ order:6; }
+  .email-wrap{ order:7; }
   .save-draft-btn{ order:8; }
   .timeline-menu-wrap{ order:9; flex-shrink:0; }
   /* ---------- SETTINGS ---------- */
@@ -1293,6 +1304,7 @@
     .discharge-btn{ order:4; }
     .btn-copy{ order:5; }
     .print-wrap{ order:6; }
+    .email-wrap{ order:7; }
     .save-draft-btn{ order:8; }
     .timeline-menu-wrap{ order:9; }
     .settings-wrap{ order:10; }
@@ -1463,7 +1475,9 @@
     .btn.delete-btn,
     .btn-copy,
     .print-wrap,
-    .print-menu-btn{
+    .print-menu-btn,
+    .email-wrap,
+    .email-menu-btn{
       min-width:72px;
       justify-content:center;
     }
@@ -1517,6 +1531,7 @@
     .discharge-btn{ order:4; }
     .btn-copy{ order:5; }
     .print-wrap{ order:6; }
+    .email-wrap{ order:7; }
     .save-draft-btn{ order:8; }
     .timeline-menu-wrap{ order:9; }
     .settings-wrap{ order:10; margin-left:0; }
@@ -1853,7 +1868,8 @@
     }
     .continue-note-btn.visible{ display:none; }
     .main-topbar > .btn,
-    .main-topbar > .print-wrap{ display:none !important; }
+    .main-topbar > .print-wrap,
+    .main-topbar > .email-wrap{ display:none !important; }
   }
 
   ::-webkit-scrollbar{ width:9px; }
@@ -1968,7 +1984,13 @@
           <button class="btn print-btn" id="printBtn" type="button" aria-label="Print visit note" title="Print visit note">Visit Note</button>
         </div>
       </div>
-      <button class="btn email-btn" id="emailBtn" type="button" aria-label="Email selected note" title="Email selected note">Email</button>
+      <div class="email-wrap" id="emailWrap">
+        <button class="btn email-menu-btn" id="emailMenuBtn" type="button" aria-label="Email options" aria-haspopup="true" aria-expanded="false">Email</button>
+        <div class="email-menu" id="emailMenu">
+          <button class="btn email-rx-btn" id="emailRxBtn" type="button" aria-label="Email prescription" title="Email Prescription">Prescription</button>
+          <button class="btn email-visit-btn" id="emailVisitBtn" type="button" aria-label="Email visit note" title="Email visit note">Visit Note</button>
+        </div>
+      </div>
       <button class="btn save-draft-btn" id="saveDraftBtn" aria-label="Save note">
         <span>Save</span>
       </button>
@@ -2309,11 +2331,15 @@ const topbarAge = document.getElementById('topbarAge');
 const copyBtn = document.getElementById('copyBtn');
 const printBtn = document.getElementById('printBtn');
 const rxPrintBtn = document.getElementById('rxPrintBtn');
-const emailBtn = document.getElementById('emailBtn');
 const deleteBtn = document.getElementById('deleteBtn');
 const printWrap = document.getElementById('printWrap');
 const printMenuBtn = document.getElementById('printMenuBtn');
 const printMenu = document.getElementById('printMenu');
+const emailWrap = document.getElementById('emailWrap');
+const emailMenuBtn = document.getElementById('emailMenuBtn');
+const emailMenu = document.getElementById('emailMenu');
+const emailRxBtn = document.getElementById('emailRxBtn');
+const emailVisitBtn = document.getElementById('emailVisitBtn');
 const timelineMenuWrap = document.getElementById('timelineMenuWrap');
 const timelineBtn = document.getElementById('timelineBtn');
 const timelineMenu = document.getElementById('timelineMenu');
@@ -2337,6 +2363,7 @@ const credentialCloseBtn = document.getElementById('credentialCloseBtn');
 const credentialCancelBtn = document.getElementById('credentialCancelBtn');
 const credentialSaveBtn = document.getElementById('credentialSaveBtn');
 const emailModal = document.getElementById('emailModal');
+const emailModalTitle = document.getElementById('emailModalTitle');
 const emailCloseBtn = document.getElementById('emailCloseBtn');
 const emailCancelBtn = document.getElementById('emailCancelBtn');
 const emailSendBtn = document.getElementById('emailSendBtn');
@@ -2529,7 +2556,9 @@ let lastEditorSelectionRange = null;
 let localDirtyRecords = new Map();
 let settingsCloseTimer = null;
 let printCloseTimer = null;
+let emailCloseTimer = null;
 let timelineCloseTimer = null;
+let pendingEmailMode = 'visit';
 let anonymizeEnabled = localStorage.getItem(ANONYMIZE_STORAGE) === 'true';
 let continuationState = {
   open:false,
@@ -4581,16 +4610,23 @@ function hidePrintMenuState(){
   printWrap.classList.remove('visible');
   printBtn.classList.remove('visible');
   rxPrintBtn.classList.remove('visible');
-  emailBtn.classList.remove('visible');
+  emailWrap.classList.remove('visible');
+  emailVisitBtn.classList.remove('visible');
+  emailRxBtn.classList.remove('visible');
   closePrintMenu();
+  closeEmailMenu();
 }
 
 function updatePrintMenuState(){
   const printable = hasPrintableActiveRecord();
   printWrap.classList.toggle('visible', printable);
   printBtn.classList.toggle('visible', printable);
-  emailBtn.classList.toggle('visible', printable);
-  if (!printable) closePrintMenu();
+  emailWrap.classList.toggle('visible', printable);
+  emailVisitBtn.classList.toggle('visible', printable);
+  if (!printable){
+    closePrintMenu();
+    closeEmailMenu();
+  }
 }
 
 function updatePrescriptionPrintButton(){
@@ -4600,6 +4636,9 @@ function updatePrescriptionPrintButton(){
   rxPrintBtn.classList.toggle('visible', hasPrintableRecord);
   rxPrintBtn.disabled = !prescription;
   rxPrintBtn.title = prescription ? 'Print Prescription' : 'No prescription found in selected entry';
+  emailRxBtn.classList.toggle('visible', hasPrintableRecord);
+  emailRxBtn.disabled = !prescription;
+  emailRxBtn.title = prescription ? 'Email Prescription' : 'No prescription found in selected entry';
   updatePrintMenuState();
 }
 
@@ -4666,9 +4705,13 @@ function setEmailStatus(message, tone = ''){
   emailDialogStatus.classList.toggle('success', tone === 'success');
 }
 
-function openEmailDialog(){
+function openEmailDialog(mode = 'visit'){
   if (!hasPrintableActiveRecord()) return;
+  if (mode === 'prescription' && !activePrescriptionText()) return;
+  pendingEmailMode = mode === 'prescription' ? 'prescription' : 'visit';
   closePrintMenu();
+  closeEmailMenu();
+  emailModalTitle.textContent = pendingEmailMode === 'prescription' ? 'Email prescription' : 'Email visit note';
   emailRecipientInput.value = '';
   rememberEmailCheckbox.checked = false;
   emailSendBtn.dataset.sending = 'false';
@@ -4828,20 +4871,170 @@ function visitNotePrintHtml(note, title = 'WOYZ Notes Print'){
 </html>`;
 }
 
+function prescriptionPrintHtml(activeRecord, prescription, sourceText, title = 'WOYZ Prescription Print'){
+  const treatmentPlan = noteSectionText(sourceText, 'Treatment Plan');
+  const identity = patientIdentity(activeRecord);
+  const ageLabel = /^nil$/i.test(identity.age) ? 'NIL' : `${identity.age} years`;
+  const patientLine = [
+    `Age: ${ageLabel}`,
+    `Sex: ${identity.sex || activeRecord.patientSex || 'NIL'}`,
+    `UHID: ${anonymizeEnabled ? 'hidden' : (identity.uhid || 'NIL')}`,
+    fullVisitDateLabel(activeRecord.visitDate || dateInputValue(selectedVisitDate))
+  ].join(' | ');
+  const layout = prescriptionLayout();
+  return `<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>${escapeHtml(title)}</title>
+<style>
+  @page{ margin:8mm; }
+  *{ box-sizing:border-box; }
+  body{
+    margin:0;
+    color:#111;
+    font-family:Arial, Helvetica, sans-serif;
+    font-size:10.5pt;
+    line-height:1.35;
+  }
+  .page{
+    min-height:100vh;
+    display:flex;
+    flex-direction:column;
+  }
+  .rx-print-header{
+    background:#EEF4F6;
+    padding:12mm 12mm 10mm;
+    min-height:31mm;
+  }
+  .rx-print-content{
+    padding:9mm 12mm 36mm;
+  }
+  .rx{
+    width:100%;
+    max-width:none;
+  }
+  .patient-line{
+    display:flex;
+    flex-wrap:wrap;
+    gap:8px 14px;
+    margin:0 0 18px;
+    font-size:9.5pt;
+  }
+  h1{
+    margin:0 0 8px;
+    font-size:16pt;
+    line-height:1.15;
+    text-transform:uppercase;
+  }
+  .rx-heading{
+    color:#00395F;
+    font-size:12pt;
+    font-weight:700;
+    margin:0 0 13px;
+  }
+  .rx-treatment{
+    margin:0 0 9mm;
+    padding-bottom:5mm;
+    border-bottom:1px solid #ddd;
+    white-space:pre-wrap;
+  }
+  .rx-table{
+    display:grid;
+    gap:11px;
+  }
+  .rx-row{
+    display:grid;
+    grid-template-columns:28px minmax(170px, 34%) 1fr;
+    column-gap:10px;
+    align-items:start;
+    break-inside:avoid;
+  }
+  .rx-number,
+  .rx-medicine{
+    font-weight:700;
+  }
+  .rx-instructions{
+    display:grid;
+    gap:2px;
+    white-space:normal;
+  }
+  .rx-print-footer{
+    position:fixed;
+    left:12mm;
+    right:12mm;
+    bottom:10mm;
+    margin-top:0;
+    border-top:1px solid #999;
+    padding-top:4mm;
+    font-size:8pt;
+    line-height:1.28;
+  }
+  .rx-print-footer-line{
+    display:block;
+    max-width:100%;
+    overflow-wrap:normal;
+    white-space:normal;
+  }
+  .rx-print-signature{
+    margin-top:14mm;
+    padding:0;
+  }
+  .layout-small{ font-size:8.5pt; }
+  .layout-medium{ font-size:10.5pt; }
+  .layout-large{ font-size:14pt; }
+  .layout-bold{ font-weight:700; }
+  .layout-italic{ font-style:italic; }
+  .rx-print-footer.layout-small,
+  .rx-print-footer.layout-medium,
+  .rx-print-footer.layout-large{ font-size:8pt; }
+  strong{ font-weight:700; }
+  @media print{
+    body{ print-color-adjust:exact; -webkit-print-color-adjust:exact; }
+  }
+</style>
+</head>
+<body>
+  <main class="page">
+    ${layout.header.enabled !== false && layout.header.text ? `<header class="rx-print-header ${layoutBlockClass(layout.header)}">${printBlockHtml(layout.header, {firstLineStrong:true})}</header>` : ''}
+    <section class="rx-print-content">
+      <div class="rx">
+        <h1>${escapeHtml(displayPatientName(activeRecord))}</h1>
+        <div class="patient-line">${escapeHtml(patientLine)}</div>
+        ${treatmentPlan ? `<section class="rx-treatment">${richNoteHtml(anonymizeTextForRecord(treatmentPlan, activeRecord), {includeMalayalam:false})}</section>` : ''}
+        <div class="rx-heading">Rx / ADVICE</div>
+        <div class="rx-table">${prescriptionRowsHtml(prescription, {includeMalayalam:layout.includeMalayalam !== false})}</div>
+        ${layout.signature.enabled !== false && layout.signature.text ? `<section class="rx-print-signature ${layoutBlockClass(layout.signature)}">${printBlockHtml(layout.signature, {firstLineStrong:true})}</section>` : ''}
+      </div>
+    </section>
+    ${layout.footer.enabled !== false && layout.footer.text ? `<section class="rx-print-footer ${layoutBlockClass(layout.footer)}">${footerBlockHtml(layout.footer)}</section>` : ''}
+  </main>
+</body>
+</html>`;
+}
+
 function emailTitleForRecord(record){
   const title = selectedVisitType === 'OP' ? timelineTitleForRecord(record) : (record.selectedMode || 'Visit Note');
   const patient = displayPatientName(record);
   return [title, patient].filter(Boolean).join(' - ');
 }
 
-function buildEmailPayload(to){
-  const activeRecord = currentPrintVisitRecord();
+function buildEmailPayload(to, mode = 'visit'){
+  const activeRecord = mode === 'prescription' ? currentPrintPrescriptionRecord() : currentPrintVisitRecord();
   if (!activeRecord) throw new Error('No note is selected.');
   const sourceText = currentRecordSourceText(activeRecord);
-  const note = anonymizeTextForRecord(displayNoteTextForRecord(activeRecord, sourceText), activeRecord);
+  const prescription = mode === 'prescription' ? activePrescriptionText() : '';
+  const note = mode === 'prescription'
+    ? anonymizeTextForRecord([
+        noteSectionText(sourceText, 'Treatment Plan'),
+        prescription ? `Prescription:\n${prescription}` : ''
+      ].filter(Boolean).join('\n\n'), activeRecord)
+    : anonymizeTextForRecord(displayNoteTextForRecord(activeRecord, sourceText), activeRecord);
   if (!note) throw new Error('This note is empty.');
   const identity = patientIdentity(activeRecord);
-  const title = emailTitleForRecord(activeRecord);
+  const title = mode === 'prescription'
+    ? ['Prescription', displayPatientName(activeRecord)].filter(Boolean).join(' - ')
+    : emailTitleForRecord(activeRecord);
   return {
     to,
     title,
@@ -4854,7 +5047,9 @@ function buildEmailPayload(to){
     },
     sections:[{title, value:note}],
     bodyText:note,
-    printHtml:visitNotePrintHtml(note, 'WOYZ Notes Email'),
+    printHtml:mode === 'prescription'
+      ? prescriptionPrintHtml(activeRecord, prescription, sourceText, 'WOYZ Prescription Email')
+      : visitNotePrintHtml(note, 'WOYZ Notes Email'),
     deviceId:emailDeviceId()
   };
 }
@@ -4871,7 +5066,7 @@ async function sendCurrentNoteEmail(){
   try{
     const {auth:sendAuth, deviceId} = await ensureEmailDeviceRecord();
     const token = await sendAuth.currentUser.getIdToken();
-    const payload = {...buildEmailPayload(to), deviceId};
+    const payload = {...buildEmailPayload(to, pendingEmailMode), deviceId};
     const response = await fetch(EMAIL_FUNCTION_URL, {
       method:'POST',
       headers:{
@@ -7082,150 +7277,12 @@ rxPrintBtn.addEventListener('click', () => {
   const prescription = activePrescriptionText();
   if (!prescription) return;
   const sourceText = currentRecordSourceText(activeRecord);
-  const treatmentPlan = noteSectionText(sourceText, 'Treatment Plan');
-  const identity = patientIdentity(activeRecord);
-  const ageLabel = /^nil$/i.test(identity.age) ? 'NIL' : `${identity.age} years`;
-  const patientLine = [
-    `Age: ${ageLabel}`,
-    `Sex: ${identity.sex || activeRecord.patientSex || 'NIL'}`,
-    `UHID: ${anonymizeEnabled ? 'hidden' : (identity.uhid || 'NIL')}`,
-    fullVisitDateLabel(activeRecord.visitDate || dateInputValue(selectedVisitDate))
-  ].join(' | ');
-  const layout = prescriptionLayout();
   const printWindow = createPrintWindow();
   if (!printWindow){
     window.print();
     return;
   }
-  printWindow.document.write(`<!doctype html>
-<html>
-<head>
-<meta charset="utf-8">
-<title>WOYZ Prescription Print</title>
-<style>
-  @page{ margin:8mm; }
-  *{ box-sizing:border-box; }
-  body{
-    margin:0;
-    color:#111;
-    font-family:Arial, Helvetica, sans-serif;
-    font-size:10.5pt;
-    line-height:1.35;
-  }
-  .page{
-    min-height:100vh;
-    display:flex;
-    flex-direction:column;
-  }
-  .rx-print-header{
-    background:#EEF4F6;
-    padding:12mm 12mm 10mm;
-    min-height:31mm;
-  }
-  .rx-print-content{
-    padding:9mm 12mm 36mm;
-  }
-  .rx{
-    width:100%;
-    max-width:none;
-  }
-  .patient-line{
-    display:flex;
-    flex-wrap:wrap;
-    gap:8px 14px;
-    margin:0 0 18px;
-    font-size:9.5pt;
-  }
-  h1{
-    margin:0 0 8px;
-    font-size:16pt;
-    line-height:1.15;
-    text-transform:uppercase;
-  }
-  .rx-heading{
-    color:#00395F;
-    font-size:12pt;
-    font-weight:700;
-    margin:0 0 13px;
-  }
-  .rx-treatment{
-    margin:0 0 9mm;
-    padding-bottom:5mm;
-    border-bottom:1px solid #ddd;
-    white-space:pre-wrap;
-  }
-  .rx-table{
-    display:grid;
-    gap:11px;
-  }
-  .rx-row{
-    display:grid;
-    grid-template-columns:28px minmax(170px, 34%) 1fr;
-    column-gap:10px;
-    align-items:start;
-    break-inside:avoid;
-  }
-  .rx-number,
-  .rx-medicine{
-    font-weight:700;
-  }
-  .rx-instructions{
-    display:grid;
-    gap:2px;
-    white-space:normal;
-  }
-  .rx-print-footer{
-    position:fixed;
-    left:12mm;
-    right:12mm;
-    bottom:10mm;
-    margin-top:0;
-    border-top:1px solid #999;
-    padding-top:4mm;
-    font-size:8pt;
-    line-height:1.28;
-  }
-  .rx-print-footer-line{
-    display:block;
-    max-width:100%;
-    overflow-wrap:normal;
-    white-space:normal;
-  }
-  .rx-print-signature{
-    margin-top:14mm;
-    padding:0;
-  }
-  .layout-small{ font-size:8.5pt; }
-  .layout-medium{ font-size:10.5pt; }
-  .layout-large{ font-size:14pt; }
-  .layout-bold{ font-weight:700; }
-  .layout-italic{ font-style:italic; }
-  .rx-print-footer.layout-small,
-  .rx-print-footer.layout-medium,
-  .rx-print-footer.layout-large{ font-size:8pt; }
-  strong{ font-weight:700; }
-  @media print{
-    body{ print-color-adjust:exact; -webkit-print-color-adjust:exact; }
-  }
-</style>
-</head>
-<body>
-  <main class="page">
-    ${layout.header.enabled !== false && layout.header.text ? `<header class="rx-print-header ${layoutBlockClass(layout.header)}">${printBlockHtml(layout.header, {firstLineStrong:true})}</header>` : ''}
-    <section class="rx-print-content">
-      <div class="rx">
-        <h1>${escapeHtml(displayPatientName(activeRecord))}</h1>
-        <div class="patient-line">${escapeHtml(patientLine)}</div>
-        ${treatmentPlan ? `<section class="rx-treatment">${richNoteHtml(anonymizeTextForRecord(treatmentPlan, activeRecord), {includeMalayalam:false})}</section>` : ''}
-        <div class="rx-heading">Rx / ADVICE</div>
-        <div class="rx-table">${prescriptionRowsHtml(prescription, {includeMalayalam:layout.includeMalayalam !== false})}</div>
-        ${layout.signature.enabled !== false && layout.signature.text ? `<section class="rx-print-signature ${layoutBlockClass(layout.signature)}">${printBlockHtml(layout.signature, {firstLineStrong:true})}</section>` : ''}
-      </div>
-    </section>
-    ${layout.footer.enabled !== false && layout.footer.text ? `<section class="rx-print-footer ${layoutBlockClass(layout.footer)}">${footerBlockHtml(layout.footer)}</section>` : ''}
-  </main>
-</body>
-</html>`);
+  printWindow.document.write(prescriptionPrintHtml(activeRecord, prescription, sourceText, 'WOYZ Prescription Print'));
   printWindow.document.close();
   printWindow.focus();
   setTimeout(() => {
@@ -7337,6 +7394,7 @@ function closePrintMenu(){
 function openPrintMenu(){
   if (!printWrap.classList.contains('visible')) return;
   clearTimeout(printCloseTimer);
+  closeEmailMenu();
   printMenu.classList.add('open');
   printMenuBtn.classList.add('open');
   printMenuBtn.setAttribute('aria-expanded', 'true');
@@ -7345,6 +7403,27 @@ function openPrintMenu(){
 function scheduleClosePrintMenu(){
   clearTimeout(printCloseTimer);
   printCloseTimer = setTimeout(closePrintMenu, 900);
+}
+
+function closeEmailMenu(){
+  clearTimeout(emailCloseTimer);
+  emailMenu.classList.remove('open');
+  emailMenuBtn.classList.remove('open');
+  emailMenuBtn.setAttribute('aria-expanded', 'false');
+}
+
+function openEmailMenu(){
+  if (!emailWrap.classList.contains('visible')) return;
+  clearTimeout(emailCloseTimer);
+  closePrintMenu();
+  emailMenu.classList.add('open');
+  emailMenuBtn.classList.add('open');
+  emailMenuBtn.setAttribute('aria-expanded', 'true');
+}
+
+function scheduleCloseEmailMenu(){
+  clearTimeout(emailCloseTimer);
+  emailCloseTimer = setTimeout(closeEmailMenu, 900);
 }
 
 templateBtn.addEventListener('click', event => {
@@ -7384,12 +7463,22 @@ timelineMenu.addEventListener('click', event => {
 printMenuBtn.addEventListener('click', event => {
   event.stopPropagation();
   clearTimeout(printCloseTimer);
+  closeEmailMenu();
   const isOpen = printMenu.classList.toggle('open');
   printMenuBtn.classList.toggle('open', isOpen);
   printMenuBtn.setAttribute('aria-expanded', String(isOpen));
 });
 
-emailBtn.addEventListener('click', openEmailDialog);
+emailMenuBtn.addEventListener('click', event => {
+  event.stopPropagation();
+  clearTimeout(emailCloseTimer);
+  closePrintMenu();
+  const isOpen = emailMenu.classList.toggle('open');
+  emailMenuBtn.classList.toggle('open', isOpen);
+  emailMenuBtn.setAttribute('aria-expanded', String(isOpen));
+});
+emailRxBtn.addEventListener('click', () => openEmailDialog('prescription'));
+emailVisitBtn.addEventListener('click', () => openEmailDialog('visit'));
 emailCloseBtn.addEventListener('click', closeEmailDialog);
 emailCancelBtn.addEventListener('click', closeEmailDialog);
 emailSendBtn.addEventListener('click', sendCurrentNoteEmail);
@@ -7441,6 +7530,8 @@ timelineMenuWrap.addEventListener('pointerenter', openTimelineMenu);
 timelineMenuWrap.addEventListener('pointerleave', scheduleCloseTimelineMenu);
 printWrap.addEventListener('pointerenter', openPrintMenu);
 printWrap.addEventListener('pointerleave', scheduleClosePrintMenu);
+emailWrap.addEventListener('pointerenter', openEmailMenu);
+emailWrap.addEventListener('pointerleave', scheduleCloseEmailMenu);
 settingsWrap.addEventListener('pointerenter', openSettings);
 settingsWrap.addEventListener('pointerleave', scheduleCloseSettings);
 
@@ -7456,6 +7547,9 @@ document.addEventListener('click', (e) => {
   }
   if (!printMenu.contains(e.target) && e.target !== printMenuBtn){
     closePrintMenu();
+  }
+  if (!emailMenu.contains(e.target) && e.target !== emailMenuBtn){
+    closeEmailMenu();
   }
 });
 
@@ -7750,7 +7844,7 @@ if ('serviceWorker' in navigator) {
     navigator.serviceWorker.addEventListener('controllerchange', () => {
       reloadForUpdateWhenIdle();
     });
-    navigator.serviceWorker.register('./sw.js?v=164', {updateViaCache:'none'}).then(registration => {
+    navigator.serviceWorker.register('./sw.js?v=165', {updateViaCache:'none'}).then(registration => {
       registration.update();
     }).catch(error => {
       console.warn('Service worker registration failed:', error);
