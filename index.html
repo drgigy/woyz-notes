@@ -1138,28 +1138,30 @@
   }
   .timeline-note strong{ font-weight:800; }
   .op-all-entry{
-    padding:20px 0 26px;
-    border-top:1px solid var(--border);
+    padding:0;
   }
-  .op-all-entry:first-of-type{ border-top:0; }
+  .op-all-entry + .op-all-entry{
+    margin-top:26px;
+    padding-top:22px;
+    border-top:1.5px solid #C9D5CF;
+  }
   .op-all-entry-title{
-    margin:0 0 14px;
+    margin:0 0 16px;
     color:var(--ink);
     font:800 19px/1.25 'Inter',sans-serif;
   }
   .op-all-entry-editor{
     width:100%;
-    min-height:240px;
+    min-height:0;
     border:0;
     outline:0;
     background:#fff;
     color:var(--ink);
-    font:500 18px/1.55 'Inter',sans-serif;
     white-space:pre-wrap;
   }
   .op-all-entry-editor:focus{
-    box-shadow:inset 3px 0 0 var(--teal);
-    padding-left:12px;
+    box-shadow:none;
+    padding-left:0;
   }
   .op-all-entry-editor.anonymized{
     color:var(--muted);
@@ -3091,38 +3093,36 @@ function renderOpPatientTimeline(key, entryId = selectedOpTimelineEntryId || 'al
   topbarAge.textContent = identity.age + ' yrs';
   topbarPatient.classList.add('visible');
   copyBtn.style.display = 'none';
-  saveDraftBtn.classList.toggle('visible', !anonymizeEnabled);
+  saveDraftBtn.classList.add('visible');
   saveDraftBtn.querySelector('span').textContent = saveButtonLabel();
   deleteBtn.classList.remove('visible');
   dischargeBtn.classList.remove('visible');
   updateContinueNoteButton();
   renderTimelineMenu();
   updatePrescriptionPrintButton();
-  const visibleEntryCount = opTimelineVisibleEntryCount(timelineRecords);
   const renderedNotes = timelineRecords.map(record => {
-    const displayText = anonymizeTextForRecord(displayNoteTextForRecord(record, record.transcription || ''), record);
+    const displayText = displayNoteTextForRecord(record, record.transcription || '');
+    const entryTitle = timelineRecords.length > 1 ? `<h2 class="op-all-entry-title">${escapeHtml(timelineTitleForRecord(record))}</h2>` : '';
     return `
       <article class="op-all-entry">
-        <h2 class="op-all-entry-title">${escapeHtml(timelineTitleForRecord(record))}</h2>
-        <div class="op-all-entry-editor note-editor ${anonymizeEnabled ? 'anonymized' : ''}" data-op-all-entry-editor="${escapeHtml(record.firestoreId)}" data-op-all-entry-owner="${escapeHtml(noteOwnerUid(record) || '')}" contenteditable="${anonymizeEnabled ? 'false' : 'true'}" spellcheck="true" role="textbox" aria-multiline="true" aria-label="Editable ${escapeHtml(opTimelineEntryLabel(record))}">${richNoteHtml(displayText)}</div>
+        ${entryTitle}
+        <div class="op-all-entry-editor note-editor" data-op-all-entry-editor="${escapeHtml(record.firestoreId)}" data-op-all-entry-owner="${escapeHtml(noteOwnerUid(record) || '')}" contenteditable="true" spellcheck="true" role="textbox" aria-multiline="true" aria-label="Editable ${escapeHtml(opTimelineEntryLabel(record))}">${richNoteHtml(displayText)}</div>
       </article>
     `;
   }).join('');
   mainScroll.innerHTML = `
-    <div class="timeline-wrap op-all-editable">
-      <div class="timeline-header">
-        <div>
-          <div class="timeline-kicker">OP Timeline</div>
-          <h1 class="timeline-title">${escapeHtml(displayPatientName(latest))}</h1>
-          <div class="timeline-meta">${escapeHtml(patientMetaLine(latest))}</div>
+    <div class="generated-note op-all-editable">
+      <section class="generated-note-card">
+        <div class="generated-note-head">
+          <div>
+            <h1 class="generated-note-title">Visit Note</h1>
+          </div>
         </div>
-      </div>
-      <div class="timeline-count">${selectedRecord ? escapeHtml(opTimelineEntryLabel(selectedRecord)) : `${visibleEntryCount} entr${visibleEntryCount === 1 ? 'y' : 'ies'} · All entries`}</div>
-      ${renderedNotes}
+        ${renderedNotes}
+      </section>
     </div>`;
   mainScroll.querySelectorAll('[data-op-all-entry-editor]').forEach(editor => {
     resizeNoteEditor(editor);
-    if (anonymizeEnabled) return;
     ['focus','keyup','mouseup','touchend'].forEach(eventName => {
       editor.addEventListener(eventName, captureEditorSelection);
     });
@@ -7382,7 +7382,7 @@ if ('serviceWorker' in navigator) {
     navigator.serviceWorker.addEventListener('controllerchange', () => {
       reloadForUpdateWhenIdle();
     });
-    navigator.serviceWorker.register('./sw.js?v=153', {updateViaCache:'none'}).then(registration => {
+    navigator.serviceWorker.register('./sw.js?v=154', {updateViaCache:'none'}).then(registration => {
       registration.update();
     }).catch(error => {
       console.warn('Service worker registration failed:', error);
