@@ -2671,7 +2671,7 @@ function renderOpPatientEntries(){
     `;
     btn.addEventListener('click', () => {
       selectedOpTimelineReviewIndex = null;
-      renderOpPatientTimeline(group.key, preferredOpTimelineEntryId(group.key, latest));
+      renderOpPatientTimeline(group.key, 'all');
       renderEntries();
       closeMobileSidebar();
     });
@@ -3147,7 +3147,7 @@ function openOpTimelineForRecord(record, entryId = null){
   const key = patientSearchKey(record);
   if (!key) return false;
   selectedOpTimelineReviewIndex = null;
-  renderOpPatientTimeline(key, entryId || preferredOpTimelineEntryId(key, record));
+  renderOpPatientTimeline(key, entryId || 'all');
   renderEntries();
   return true;
 }
@@ -7382,7 +7382,7 @@ if ('serviceWorker' in navigator) {
     navigator.serviceWorker.addEventListener('controllerchange', () => {
       reloadForUpdateWhenIdle();
     });
-    navigator.serviceWorker.register('./sw.js?v=152', {updateViaCache:'none'}).then(registration => {
+    navigator.serviceWorker.register('./sw.js?v=153', {updateViaCache:'none'}).then(registration => {
       registration.update();
     }).catch(error => {
       console.warn('Service worker registration failed:', error);
