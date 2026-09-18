@@ -2901,6 +2901,13 @@ function latestOpTimelineRecord(predicate = () => true){
     .sort((a,b) => recordSortTime(b) - recordSortTime(a))[0] || null;
 }
 
+function opAllEntriesDeleteRecord(){
+  if (!opAllEntriesActive()) return null;
+  return selectedOpTimelineRecords()
+    .filter(record => canDeleteRecord(record))
+    .sort((a,b) => recordSortTime(b) - recordSortTime(a))[0] || null;
+}
+
 function preferredOpTimelineEntryId(key, fallbackRecord = null){
   const selectedDate = dateInputValue(selectedVisitDate);
   const sameDateRecord = opTimelineRecordsForKey(key)
@@ -3099,7 +3106,7 @@ function renderOpPatientTimeline(key, entryId = selectedOpTimelineEntryId || 'al
   copyBtn.style.display = 'none';
   saveDraftBtn.classList.add('visible');
   saveDraftBtn.querySelector('span').textContent = saveButtonLabel();
-  deleteBtn.classList.remove('visible');
+  deleteBtn.classList.toggle('visible', Boolean(opAllEntriesDeleteRecord()));
   dischargeBtn.classList.remove('visible');
   updateContinueNoteButton();
   renderTimelineMenu();
@@ -7339,7 +7346,7 @@ function extractPatientFromNote(text, fallback = {}){
 }
 
 deleteBtn.addEventListener('click', async () => {
-  const draft = currentEditableRecord();
+  const draft = currentEditableRecord() || opAllEntriesDeleteRecord();
   if (!draft?.firestoreId || !currentUser) return;
   const noteName = draft.patientData?.name || draft.name || 'this selected note';
   if (!window.confirm(`Move ${noteName} to Trash? It can be restored for 30 days.`)) return;
@@ -7404,7 +7411,7 @@ if ('serviceWorker' in navigator) {
     navigator.serviceWorker.addEventListener('controllerchange', () => {
       reloadForUpdateWhenIdle();
     });
-    navigator.serviceWorker.register('./sw.js?v=158', {updateViaCache:'none'}).then(registration => {
+    navigator.serviceWorker.register('./sw.js?v=159', {updateViaCache:'none'}).then(registration => {
       registration.update();
     }).catch(error => {
       console.warn('Service worker registration failed:', error);
