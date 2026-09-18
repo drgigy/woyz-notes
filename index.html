@@ -2845,6 +2845,12 @@ function opTimelineEntryMeta(record){
   return [timeText, ownerCode].filter(Boolean).join(' · ');
 }
 
+function opTimelineDateTimeLabel(record){
+  const dateText = formatVisitDateLabel(record?.visitDate || dateInputValue(selectedVisitDate));
+  const timeText = record?.createdAt ? String(record.createdAt).split(',').slice(1).join(',').trim() : '';
+  return [dateText, timeText].filter(Boolean).join(', ');
+}
+
 function reviewNoteTimelineEntriesForRecord(record){
   const text = formatStoredReviewNotes(record?.transcription || '').replace(/\r\n/g, '\n');
   const pattern = /(^|\n)(Review Note(?:\s*\([^)]*\))?:)\s*\n([\s\S]*?)(?=\n+Review Note(?:\s*\([^)]*\))?:|$)/gi;
@@ -2854,7 +2860,7 @@ function reviewNoteTimelineEntriesForRecord(record){
     const timestampLabel = heading.match(/^Review Note\s*\(([^)]*)\):$/i)?.[1] || '';
     const blockText = `${heading}\n${body}`;
     const rxSuffix = prescriptionTextFromNote(blockText) ? ' (Rx)' : '';
-    const labelDate = timestampLabel || formatVisitDateLabel(record?.visitDate || dateInputValue(selectedVisitDate));
+    const labelDate = timestampLabel || opTimelineDateTimeLabel(record);
     return {
       index,
       heading,
@@ -5480,7 +5486,7 @@ function appendTextToRecord(record, text, {review = false} = {}){
   const existing = editor ? editorPlainText(editor) : record.transcription;
   const baseText = String(existing || '').trimEnd();
   const heading = review
-    ? (noteVisitType(record) === 'IP' ? `Review Note (${reviewTimestampLabel()}):` : 'Review Note:')
+    ? `Review Note (${reviewTimestampLabel()}):`
     : '';
   const appendedText = heading ? `${heading}\n${text}` : text;
   record.transcription = `${baseText}\n\n${appendedText}`.trim();
@@ -7361,7 +7367,7 @@ if ('serviceWorker' in navigator) {
     navigator.serviceWorker.addEventListener('controllerchange', () => {
       reloadForUpdateWhenIdle();
     });
-    navigator.serviceWorker.register('./sw.js?v=150', {updateViaCache:'none'}).then(registration => {
+    navigator.serviceWorker.register('./sw.js?v=151', {updateViaCache:'none'}).then(registration => {
       registration.update();
     }).catch(error => {
       console.warn('Service worker registration failed:', error);
