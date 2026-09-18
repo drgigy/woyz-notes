@@ -2514,6 +2514,15 @@ function renderEntries(){
   renderTodayEntries();
 }
 
+function clearTimelineSelection(){
+  selectedTimelineKey = null;
+  selectedOpTimelineKey = null;
+  selectedOpTimelineEntryId = 'all';
+  selectedOpTimelineReviewIndex = null;
+  selectedIpTimelineKey = null;
+  selectedIpTimelineDate = null;
+}
+
 function renderTodayEntries(){
   if (selectedVisitType === 'OP'){
     renderOpPatientEntries();
@@ -3626,12 +3635,7 @@ function updateSearchScopeToggle(){
 
 function setSearchScope(scope){
   searchScope = scope === 'all' ? 'all' : 'today';
-  selectedTimelineKey = null;
-  selectedOpTimelineKey = null;
-  selectedOpTimelineEntryId = 'all';
-  selectedOpTimelineReviewIndex = null;
-  selectedIpTimelineKey = null;
-  selectedIpTimelineDate = null;
+  clearTimelineSelection();
   updateSearchScopeToggle();
   renderEntries();
   if (searchScope === 'today'){
@@ -3670,11 +3674,7 @@ function refreshAnonymizedView(){
 
 function setVisitType(type){
   selectedVisitType = type === 'IP' ? 'IP' : 'OP';
-  selectedOpTimelineKey = null;
-  selectedOpTimelineEntryId = 'all';
-  selectedOpTimelineReviewIndex = null;
-  selectedIpTimelineKey = null;
-  selectedIpTimelineDate = null;
+  clearTimelineSelection();
   updateVisitToggle();
   if (searchScope === 'all'){
     searchScope = 'today';
@@ -3710,7 +3710,9 @@ function subscribeToSelectedDate({allowLatestDateFallback = false} = {}){
     });
     renderEntries();
     if (searchScope === 'all') return;
-    if (selectedVisitType === 'OP' && selectedOpTimelineKey){
+    if (pendingNewVoiceDockId){
+      clearTimelineSelection();
+    }else if (selectedVisitType === 'OP' && selectedOpTimelineKey){
       renderOpPatientTimeline(selectedOpTimelineKey, selectedOpTimelineEntryId);
       return;
     }
@@ -6136,6 +6138,7 @@ async function createVoiceDraft(mode = null){
 	      };
       pendingSelectId = newDraftRef.id;
       pendingNewVoiceDockId = newDraftRef.id;
+      clearTimelineSelection();
       remainingSeconds = 300;
       selectLocalDraftFromSnapshot({id:newDraftRef.id,data:()=>draftData});
       openNewVoiceDock();
@@ -7239,7 +7242,7 @@ if ('serviceWorker' in navigator) {
     navigator.serviceWorker.addEventListener('controllerchange', () => {
       reloadForUpdateWhenIdle();
     });
-    navigator.serviceWorker.register('./sw.js?v=148', {updateViaCache:'none'}).then(registration => {
+    navigator.serviceWorker.register('./sw.js?v=149', {updateViaCache:'none'}).then(registration => {
       registration.update();
     }).catch(error => {
       console.warn('Service worker registration failed:', error);
