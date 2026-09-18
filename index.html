@@ -4715,14 +4715,13 @@ async function ensureEmailDeviceRecord(){
   const snapshot = await getDoc(ref);
   if (!snapshot.exists()){
     await setDoc(ref, {
+      id:deviceId,
       ownerUid:sendAuth.currentUser.uid,
       status:'pending',
-      app:'WOYZ Notes',
       label:navigator.platform ? `WOYZ Notes - ${navigator.platform}` : 'WOYZ Notes device',
-      requestedBy:currentUser?.email || '',
+      email:currentUser?.email || '',
       userAgent:navigator.userAgent,
-      createdAt:serverTimestamp(),
-      updatedAt:serverTimestamp()
+      requestedAt:serverTimestamp()
     });
   }
   return {auth:sendAuth, deviceId};
@@ -7740,7 +7739,7 @@ if ('serviceWorker' in navigator) {
     navigator.serviceWorker.addEventListener('controllerchange', () => {
       reloadForUpdateWhenIdle();
     });
-    navigator.serviceWorker.register('./sw.js?v=160', {updateViaCache:'none'}).then(registration => {
+    navigator.serviceWorker.register('./sw.js?v=161', {updateViaCache:'none'}).then(registration => {
       registration.update();
     }).catch(error => {
       console.warn('Service worker registration failed:', error);
