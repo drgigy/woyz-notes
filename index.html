@@ -3984,6 +3984,10 @@ async function persistRecord(record, changes){
   await setDoc(noteDocRef(record),changes,{merge:true});
 }
 
+function showToast(message){
+  console.warn(message);
+}
+
 async function saveOpAllEntries(){
   const editors = Array.from(document.querySelectorAll('[data-op-all-entry-editor]'));
   if (!opAllEntriesActive() || !editors.length || anonymizeEnabled) return false;
@@ -5490,8 +5494,19 @@ function appendTextToRecord(record, text, {review = false} = {}){
     : '';
   const appendedText = heading ? `${heading}\n${text}` : text;
   record.transcription = `${baseText}\n\n${appendedText}`.trim();
+  record.patientData = extractPatientFromNote(record.transcription, record.patientData);
   record.saved = false;
   markRecordDirty(record);
+  syncRecordCollections(record);
+  persistRecord(record,{
+    transcription:record.transcription,
+    patientData:record.patientData,
+    saved:false,
+    updatedAt:serverTimestamp()
+  }).catch(error => {
+    console.error('Appended note save failed:', error);
+    showToast('Review note added locally, but saving is pending.');
+  });
   clearTimeout(saveFeedbackTimer);
   saveFeedbackUntil = 0;
   saveDraftBtn.querySelector('span').textContent = 'Save';
@@ -7367,7 +7382,7 @@ if ('serviceWorker' in navigator) {
     navigator.serviceWorker.addEventListener('controllerchange', () => {
       reloadForUpdateWhenIdle();
     });
-    navigator.serviceWorker.register('./sw.js?v=151', {updateViaCache:'none'}).then(registration => {
+    navigator.serviceWorker.register('./sw.js?v=152', {updateViaCache:'none'}).then(registration => {
       registration.update();
     }).catch(error => {
       console.warn('Service worker registration failed:', error);
