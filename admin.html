@@ -99,6 +99,20 @@
   .print-menu .rx-print-btn,
   .print-menu .print-btn{ display:flex !important; }
   .print-menu .rx-print-btn:disabled{ background:#F6F7F5; color:#9BA8A4; border-color:#DDE5E1; }
+  .timeline-wrap{ position:relative; flex-shrink:0; display:none; }
+  .timeline-wrap.visible{ display:block; }
+  .timeline-wrap::after{ content:''; position:absolute; left:0; right:0; top:100%; height:10px; }
+  .timeline-btn{ min-width:104px; background:var(--teal); color:#fff; border-color:var(--teal); }
+  .timeline-btn:hover,
+  .timeline-btn.open{ background:var(--teal-deep); border-color:var(--teal-deep); }
+  .timeline-menu{ position:absolute; top:calc(100% + 8px); right:0; width:260px; max-height:min(430px, calc(100vh - 120px)); overflow:auto; background:#fff; border:1px solid var(--border); border-radius:12px; box-shadow:0 18px 38px -24px rgba(20,35,29,.45); padding:6px; display:none; z-index:30; }
+  .timeline-wrap:hover .timeline-menu,
+  .timeline-wrap:focus-within .timeline-menu,
+  .timeline-menu.open{ display:grid; gap:6px; }
+  .timeline-item{ width:100%; border:1px solid rgba(31,95,82,.16); border-radius:9px; background:var(--teal-wash); color:var(--teal-deep); padding:10px 12px; text-align:left; cursor:pointer; font:800 13px 'Inter',sans-serif; }
+  .timeline-item:hover,
+  .timeline-item.active{ background:var(--teal); border-color:var(--teal); color:#fff; }
+  .timeline-item-meta{ display:block; margin-top:4px; color:inherit; opacity:.75; font:700 11px 'IBM Plex Mono',monospace; }
   .discharge-btn{
     border-color:#E5B45F;
     background:#FFF6E6;
@@ -118,6 +132,11 @@
   .settings-item:hover{ background:#F6F8F6; }
   .main-scroll{ flex:1; min-height:0; overflow-y:auto; overscroll-behavior:contain; padding:36px 42px 80px; }
   .note-title{ margin:0 0 20px; font:600 31px 'Fraunces',serif; }
+  .admin-all-entries{ display:grid; gap:28px; }
+  .admin-all-entry{ border-top:1.5px solid #C8D9D3; padding-top:22px; }
+  .admin-all-entry:first-child{ border-top:0; padding-top:0; }
+  .admin-all-entry-title{ margin:0 0 16px; font-size:22px; font-weight:800; }
+  .admin-all-count{ margin:-8px 0 20px; color:var(--muted); font:800 13px 'IBM Plex Mono',monospace; }
   .note-editor{ width:100%; min-height:calc(100vh - 190px); border:0; outline:none; resize:vertical; background:#fff; color:#26302B; font:16px/1.55 'Inter',system-ui,sans-serif; padding:0; white-space:pre-wrap; }
   .note-editor p{ margin:0 0 10px; }
   .note-editor strong{ font-weight:800; color:#1E2521; }
@@ -238,6 +257,10 @@
           <button class="btn print-btn" id="printBtn" type="button" aria-label="Print visit note" title="Print visit note">Visit Note</button>
         </div>
       </div>
+      <div class="timeline-wrap" id="adminTimelineWrap">
+        <button class="btn timeline-btn" id="adminTimelineBtn" type="button" aria-label="Patient timeline" aria-haspopup="true" aria-expanded="false">Timeline</button>
+        <div class="timeline-menu" id="adminTimelineMenu"></div>
+      </div>
       <div class="admin-settings">
         <button class="btn" id="adminSettingsBtn" aria-expanded="false">Settings</button>
         <div class="settings-menu" id="adminSettingsMenu">
@@ -294,6 +317,9 @@ const rxPrintBtn = document.getElementById('rxPrintBtn');
 const adminPrintWrap = document.getElementById('adminPrintWrap');
 const adminPrintMenuBtn = document.getElementById('adminPrintMenuBtn');
 const adminPrintMenu = document.getElementById('adminPrintMenu');
+const adminTimelineWrap = document.getElementById('adminTimelineWrap');
+const adminTimelineBtn = document.getElementById('adminTimelineBtn');
+const adminTimelineMenu = document.getElementById('adminTimelineMenu');
 const adminSettingsBtn = document.getElementById('adminSettingsBtn');
 const adminSettingsMenu = document.getElementById('adminSettingsMenu');
 const signoutBtn = document.getElementById('signoutBtn');
@@ -309,11 +335,13 @@ let scopedOwnerIds = [];
 let users = [];
 let selectedUserId = null;
 let selectedNoteId = null;
+let selectedTimelineEntryId = 'all';
 let selectedVisitType = 'OP';
 let selectedVisitDate = new Date();
 let adminDateTouched = false;
 let currentAdminUid = null;
 let adminPrintCloseTimer = null;
+let adminTimelineCloseTimer = null;
 
 const DEFAULT_PRESCRIPTION_LAYOUT = {
   includeMalayalam:true,
@@ -525,6 +553,51 @@ function notePatientName(note){
   return name && name !== 'NIL' ? name : 'Untitled note';
 }
 
+function patientTimelineKey(note){
+  const patient = note?.data?.patientData || {};
+  const uhid = String(patient.uhid || '').trim().toLowerCase();
+  if (uhid && uhid !== 'nil') return `uhid:${uhid}`;
+  return [
+    patient.name,
+    cleanAge(patient.age),
+    compactSex(patient.sex)
+  ].map(value => String(value || '').trim().toLowerCase()).join('|');
+}
+
+function patientTimelineNotes(seedNote){
+  if (!seedNote) return [];
+  const key = patientTimelineKey(seedNote);
+  return allNotes
+    .filter(note => note.data?.deleted !== true)
+    .filter(note => noteVisitType(note) === noteVisitType(seedNote))
+    .filter(note => patientTimelineKey(note) === key)
+    .sort((a,b) => noteCreatedTime(a) - noteCreatedTime(b));
+}
+
+function orderedPatientTimelineNotes(seedNote){
+  const notes = patientTimelineNotes(seedNote);
+  if (notes.length <= 1) return notes;
+  const first = notes[0];
+  const rest = notes.slice(1).sort((a,b) => noteTime(b) - noteTime(a));
+  return [first, ...rest];
+}
+
+function timelineEntryKey(note){
+  return note?.path || `${note?.userId || ''}:${note?.id || ''}`;
+}
+
+function noteByTimelineEntryKey(key){
+  if (!key || key === 'all') return null;
+  return allNotes.find(note => timelineEntryKey(note) === key) || null;
+}
+
+function noteTimelineTitle(note){
+  const mode = note.data.selectedMode || note.data.heading || 'Visit Note';
+  const dateText = fullVisitDateLabel(note.data.visitDate || dateInputValue(selectedVisitDate)).replace(/^[^,]+,\s*/, '');
+  const timeText = note.data.createdAtLabel ? String(note.data.createdAtLabel).split(',').slice(1).join(',').trim() : '';
+  return `${mode} - ${dateText}${timeText ? `, ${timeText}` : ''}`;
+}
+
 function noteVisitType(note){
   return note.data?.visitType === 'IP' ? 'IP' : 'OP';
 }
@@ -544,15 +617,19 @@ function selectedAdminNote(){
   return allNotes.find(item => item.id === selectedNoteId && item.userId === selectedUserId) || null;
 }
 
-function selectedPrescriptionText(){
-  const note = selectedAdminNote();
+function selectedTimelineNote(){
+  if (selectedTimelineEntryId === 'all') return selectedAdminNote();
+  return noteByTimelineEntryKey(selectedTimelineEntryId) || selectedAdminNote();
+}
+
+function selectedPrescriptionText(note = selectedTimelineNote()){
   if (!note || noteVisitType(note) !== 'OP') return '';
   const editor = document.getElementById('adminNoteEditor');
   return prescriptionTextFromNote(editorPlainText(editor) || note.data?.transcription || '');
 }
 
 function updatePrescriptionPrintButton(note){
-  const text = note ? selectedPrescriptionText() : '';
+  const text = note ? selectedPrescriptionText(note) : '';
   rxPrintBtn.disabled = !text;
   rxPrintBtn.title = text ? 'Print Prescription' : 'No prescription found in this note';
 }
@@ -763,6 +840,7 @@ function moveAdminDate(days){
   selectedVisitDate = next;
   selectedUserId = null;
   selectedNoteId = null;
+  selectedTimelineEntryId = 'all';
   updateDateNavigation();
   render();
 }
@@ -780,7 +858,7 @@ function updateVisitToggle(){
 
 function noteMeta(note){
   const patient = note.data.patientData || {};
-  const pieces = [noteVisitType(note)];
+  const pieces = [noteVisitType(note), userLabel(note.userId, 0)];
   if (patient.uhid) pieces.push(`UHID ${patient.uhid}`);
   if (patient.sex) pieces.push(compactSex(patient.sex));
   if (patient.age) pieces.push(cleanAge(patient.age));
@@ -793,6 +871,12 @@ function noteTime(note){
     || note.data.createdAt?.toMillis?.()
     || note.data.createdAtValue?.toMillis?.()
     || 0;
+}
+
+function noteCreatedTime(note){
+  return note.data.createdAt?.toMillis?.()
+    || note.data.createdAtValue?.toMillis?.()
+    || noteTime(note);
 }
 
 function isSavedNote(note){
@@ -840,14 +924,42 @@ function scheduleCloseAdminPrintMenu(){
   adminPrintCloseTimer = setTimeout(closeAdminPrintMenu, 900);
 }
 
+function closeAdminTimelineMenu(){
+  clearTimeout(adminTimelineCloseTimer);
+  adminTimelineMenu.classList.remove('open');
+  adminTimelineBtn.classList.remove('open');
+  adminTimelineBtn.setAttribute('aria-expanded','false');
+}
+
+function openAdminTimelineMenu(){
+  if (!adminTimelineWrap.classList.contains('visible')) return;
+  clearTimeout(adminTimelineCloseTimer);
+  renderAdminTimelineMenu();
+  adminTimelineMenu.classList.add('open');
+  adminTimelineBtn.classList.add('open');
+  adminTimelineBtn.setAttribute('aria-expanded','true');
+}
+
+function scheduleCloseAdminTimelineMenu(){
+  clearTimeout(adminTimelineCloseTimer);
+  adminTimelineCloseTimer = setTimeout(closeAdminTimelineMenu, 900);
+}
+
 function hideAdminPrintMenu(){
   adminPrintWrap.classList.remove('visible');
   closeAdminPrintMenu();
 }
 
+function hideAdminTimelineMenu(){
+  adminTimelineWrap.classList.remove('visible');
+  closeAdminTimelineMenu();
+  adminTimelineMenu.innerHTML = '';
+}
+
 function showEmpty(title, message){
   copyBtn.style.display = 'none';
   hideAdminPrintMenu();
+  hideAdminTimelineMenu();
   saveNoteBtn.style.display = 'none';
   dischargeBtn.style.display = 'none';
   mainScroll.innerHTML = `<div class="empty-state"><div class="empty-title">${escapeHtml(title)}</div><div>${escapeHtml(message)}</div></div>`;
@@ -867,6 +979,7 @@ function renderUsers(){
     button.addEventListener('click', () => {
       selectedUserId = user.uid;
       selectedNoteId = null;
+      selectedTimelineEntryId = 'all';
       render();
     });
     userRail.appendChild(button);
@@ -896,16 +1009,59 @@ function renderEntries(){
     `;
     button.addEventListener('click', () => {
       selectedNoteId = note.id;
+      selectedTimelineEntryId = 'all';
       render();
     });
     entryList.appendChild(button);
   });
 }
 
+function renderAdminTimelineMenu(){
+  const selectedNote = selectedAdminNote();
+  const notes = orderedPatientTimelineNotes(selectedNote);
+  if (!selectedNote || !notes.length){
+    adminTimelineMenu.innerHTML = '';
+    return;
+  }
+  adminTimelineMenu.innerHTML = `
+    <button class="timeline-item ${selectedTimelineEntryId === 'all' ? 'active' : ''}" type="button" data-admin-timeline-entry="all">
+      All Entries
+      <span class="timeline-item-meta">${notes.length} ${notes.length === 1 ? 'entry' : 'entries'}</span>
+    </button>
+    ${notes.map(note => `
+      <button class="timeline-item ${selectedTimelineEntryId === timelineEntryKey(note) ? 'active' : ''}" type="button" data-admin-timeline-entry="${escapeHtml(timelineEntryKey(note))}">
+        ${escapeHtml(noteTimelineTitle(note))}
+        <span class="timeline-item-meta">${escapeHtml(noteMeta(note))}</span>
+      </button>
+    `).join('')}
+  `;
+}
+
+function renderAdminAllEntries(seedNote){
+  const notes = orderedPatientTimelineNotes(seedNote);
+  const patientName = notePatientName(seedNote);
+  const rendered = notes.map(note => {
+    const text = displayNoteTextForNote(note, note.data.transcription || '');
+    const layout = prescriptionLayoutForNote(note);
+    return `
+      <article class="admin-all-entry">
+        <h2 class="admin-all-entry-title">${escapeHtml(noteTimelineTitle(note))}</h2>
+        <div class="note-editor" data-admin-all-entry-id="${escapeHtml(note.id)}" data-admin-all-entry-user="${escapeHtml(note.userId)}" contenteditable="true" role="textbox" aria-label="Editable ${escapeHtml(noteTimelineTitle(note))}">${richNoteHtml(text, {includeMalayalam:layout.includeMalayalam !== false})}</div>
+      </article>
+    `;
+  }).join('');
+  mainScroll.innerHTML = `
+    <h1 class="note-title">${escapeHtml(patientName)}</h1>
+    <div class="admin-all-count">${notes.length} ${notes.length === 1 ? 'entry' : 'entries'} · All entries</div>
+    <div class="admin-all-entries">${rendered}</div>
+  `;
+}
+
 function renderSelectedNote(){
   const selectedUser = users.find(user => user.uid === selectedUserId);
   const notes = visibleNotes().filter(note => note.userId === selectedUserId);
-  const note = notes.find(item => item.id === selectedNoteId);
+  const dateNote = notes.find(item => item.id === selectedNoteId);
+  const note = dateNote || selectedAdminNote();
   topbarTitle.textContent = selectedUser ? selectedUser.label : 'Admin notes';
   topbarMeta.textContent = selectedUser ? `${selectedVisitType} · ${notes.length} note${notes.length === 1 ? '' : 's'}` : `Select a user · ${selectedVisitType}`;
   if (!selectedUser){
@@ -918,27 +1074,63 @@ function renderSelectedNote(){
   }
   if (!note){
     selectedNoteId = notes[0].id;
+    selectedTimelineEntryId = 'all';
     renderSelectedNote();
     return;
   }
-  const title = note.data.selectedMode || note.data.heading || 'Saved note';
-  const text = displayNoteTextForNote(note, note.data.transcription || '');
-  const layout = prescriptionLayoutForNote(note);
-  copyBtn.style.display = text ? 'inline-flex' : 'none';
-  adminPrintWrap.classList.toggle('visible', Boolean(text));
-  if (!text) closeAdminPrintMenu();
+  const timelineNotes = orderedPatientTimelineNotes(note);
+  const timelineNote = selectedTimelineEntryId === 'all'
+    ? note
+    : timelineNotes.find(item => timelineEntryKey(item) === selectedTimelineEntryId) || note;
+  if (selectedTimelineEntryId !== 'all' && timelineEntryKey(timelineNote) !== selectedTimelineEntryId) selectedTimelineEntryId = 'all';
+  const title = timelineNote.data.selectedMode || timelineNote.data.heading || 'Saved note';
+  const text = displayNoteTextForNote(timelineNote, timelineNote.data.transcription || '');
+  const layout = prescriptionLayoutForNote(timelineNote);
+  const hasText = selectedTimelineEntryId === 'all' ? timelineNotes.some(item => item.data?.transcription) : Boolean(text);
+  copyBtn.style.display = hasText ? 'inline-flex' : 'none';
+  adminPrintWrap.classList.toggle('visible', hasText);
+  adminTimelineWrap.classList.toggle('visible', timelineNotes.length > 0);
+  renderAdminTimelineMenu();
+  if (!hasText) closeAdminPrintMenu();
   saveNoteBtn.style.display = 'inline-flex';
-  updateDischargeButton(note);
-  updatePrescriptionPrintButton(note);
+  updateDischargeButton(selectedTimelineEntryId === 'all' ? note : timelineNote);
+  updatePrescriptionPrintButton(selectedTimelineEntryId === 'all' ? null : timelineNote);
   saveNoteBtn.textContent = 'Save';
   saveNoteBtn.classList.remove('copied');
   copyBtn.classList.remove('copied');
   copyBtn.textContent = 'Copy note';
+  if (selectedTimelineEntryId === 'all'){
+    renderAdminAllEntries(note);
+    return;
+  }
 	  mainScroll.innerHTML = `
 	    <h1 class="note-title">${escapeHtml(title)}</h1>
 	    <div class="note-editor" id="adminNoteEditor" contenteditable="true" role="textbox" aria-label="Editable admin note">${richNoteHtml(text, {includeMalayalam:layout.includeMalayalam !== false})}</div>
 	  `;
-  document.getElementById('adminNoteEditor')?.addEventListener('input', () => updatePrescriptionPrintButton(note));
+  document.getElementById('adminNoteEditor')?.addEventListener('input', () => updatePrescriptionPrintButton(timelineNote));
+}
+
+function adminAllEntryEditors(){
+  return Array.from(document.querySelectorAll('[data-admin-all-entry-id][data-admin-all-entry-user]'));
+}
+
+function noteForAdminAllEntryEditor(editor){
+  const id = editor?.dataset?.adminAllEntryId;
+  const userId = editor?.dataset?.adminAllEntryUser;
+  return allNotes.find(note => note.id === id && note.userId === userId) || null;
+}
+
+function selectedAdminCopyText(){
+  const allEditors = adminAllEntryEditors();
+  if (selectedTimelineEntryId === 'all' && allEditors.length){
+    return allEditors
+      .map(editor => removeNilSectionsForCopy(editorPlainText(editor)))
+      .filter(Boolean)
+      .join('\n\n');
+  }
+  const note = selectedTimelineNote();
+  const editor = document.getElementById('adminNoteEditor');
+  return removeNilSectionsForCopy(editorPlainText(editor) || note?.data?.transcription || '');
 }
 
 function render(){
@@ -955,6 +1147,7 @@ function render(){
   if (!selectedUserId || !userIds.includes(selectedUserId)){
     selectedUserId = userIds[0] || null;
     selectedNoteId = null;
+    selectedTimelineEntryId = 'all';
   }
   allNotes.sort((a,b) => noteTime(b) - noteTime(a));
   renderUsers();
@@ -1120,6 +1313,7 @@ adminTodayBtn.addEventListener('click', () => {
   selectedVisitDate = new Date();
   selectedUserId = null;
   selectedNoteId = null;
+  selectedTimelineEntryId = 'all';
   updateDateNavigation();
   render();
 });
@@ -1128,6 +1322,7 @@ adminVisitDateInput.addEventListener('change', () => {
   setSelectedVisitDateFromValue(adminVisitDateInput.value);
   selectedUserId = null;
   selectedNoteId = null;
+  selectedTimelineEntryId = 'all';
   updateDateNavigation();
   render();
 });
@@ -1139,19 +1334,19 @@ adminVisitToggle.addEventListener('click', event => {
   adminDateTouched = false;
   selectedUserId = null;
   selectedNoteId = null;
+  selectedTimelineEntryId = 'all';
   updateVisitToggle();
   render();
 });
 updateVisitToggle();
 
 copyBtn.addEventListener('click', async () => {
-  const note = allNotes.find(item => item.id === selectedNoteId && item.userId === selectedUserId);
-  const editor = document.getElementById('adminNoteEditor');
-  const text = removeNilSectionsForCopy(editorPlainText(editor) || note?.data?.transcription || '');
+  const note = selectedTimelineEntryId === 'all' ? selectedAdminNote() : selectedTimelineNote();
+  const text = selectedAdminCopyText();
   if (!text) return;
   try{ await navigator.clipboard.writeText(text); }catch(error){}
   try{
-    await updateDoc(doc(db,note.path),{
+    if (note) await updateDoc(doc(db,note.path),{
       adminCopiedAt:serverTimestamp(),
       adminCopiedBy:currentAdminUid || ''
     });
@@ -1167,7 +1362,7 @@ copyBtn.addEventListener('click', async () => {
 });
 
 dischargeBtn.addEventListener('click', async () => {
-  const note = allNotes.find(item => item.id === selectedNoteId && item.userId === selectedUserId);
+  const note = selectedTimelineNote();
   if (!canToggleDischargeNote(note)) return;
   const selectedDateString = dateInputValue(selectedVisitDate);
   const patientName = notePatientName(note);
@@ -1198,9 +1393,12 @@ dischargeBtn.addEventListener('click', async () => {
 
 printBtn.addEventListener('click', () => {
   closeAdminPrintMenu();
-  const note = allNotes.find(item => item.id === selectedNoteId && item.userId === selectedUserId);
+  const note = selectedTimelineNote();
   const editor = document.getElementById('adminNoteEditor');
-  const text = editorPlainText(editor) || note?.data?.transcription || '';
+  const allEditors = adminAllEntryEditors();
+  const text = selectedTimelineEntryId === 'all' && allEditors.length
+    ? allEditors.map(item => editorPlainText(item)).filter(Boolean).join('\n\n')
+    : editorPlainText(editor) || note?.data?.transcription || '';
   if (!text) return;
   const printWindow = createPrintWindow();
   if (!printWindow){
@@ -1288,9 +1486,9 @@ printBtn.addEventListener('click', () => {
 
 rxPrintBtn.addEventListener('click', () => {
   closeAdminPrintMenu();
-  const note = selectedAdminNote();
+  const note = selectedTimelineNote();
   if (!note) return;
-  const prescription = selectedPrescriptionText();
+  const prescription = selectedPrescriptionText(note);
   if (!prescription) return;
   const patient = note.data.patientData || {};
   const age = cleanAge(patient.age);
@@ -1438,17 +1636,31 @@ rxPrintBtn.addEventListener('click', () => {
 });
 
 saveNoteBtn.addEventListener('click', async () => {
-  const note = allNotes.find(item => item.id === selectedNoteId && item.userId === selectedUserId);
+  const note = selectedTimelineNote();
   const editor = document.getElementById('adminNoteEditor');
-  if (!note || !editor) return;
+  const allEditors = adminAllEntryEditors();
+  if (selectedTimelineEntryId === 'all' && !allEditors.length) return;
+  if (selectedTimelineEntryId !== 'all' && (!note || !editor)) return;
   saveNoteBtn.disabled = true;
   saveNoteBtn.textContent = 'Saving...';
   try{
-    await updateDoc(doc(db,note.path),{
-      transcription:editorPlainText(editor),
-      adminEditedAt:serverTimestamp(),
-      adminEditedBy:currentAdminUid || ''
-    });
+    if (selectedTimelineEntryId === 'all'){
+      await Promise.all(allEditors.map(item => {
+        const entryNote = noteForAdminAllEntryEditor(item);
+        if (!entryNote) return Promise.resolve();
+        return updateDoc(doc(db,entryNote.path),{
+          transcription:editorPlainText(item),
+          adminEditedAt:serverTimestamp(),
+          adminEditedBy:currentAdminUid || ''
+        });
+      }));
+    }else{
+      await updateDoc(doc(db,note.path),{
+        transcription:editorPlainText(editor),
+        adminEditedAt:serverTimestamp(),
+        adminEditedBy:currentAdminUid || ''
+      });
+    }
     saveNoteBtn.textContent = 'Saved';
     saveNoteBtn.classList.add('copied');
     setTimeout(() => {
@@ -1479,6 +1691,25 @@ adminPrintMenuBtn.addEventListener('click', event => {
 
 adminPrintWrap.addEventListener('pointerenter', openAdminPrintMenu);
 adminPrintWrap.addEventListener('pointerleave', scheduleCloseAdminPrintMenu);
+adminTimelineWrap.addEventListener('pointerenter', openAdminTimelineMenu);
+adminTimelineWrap.addEventListener('pointerleave', scheduleCloseAdminTimelineMenu);
+
+adminTimelineBtn.addEventListener('click', event => {
+  event.stopPropagation();
+  clearTimeout(adminTimelineCloseTimer);
+  renderAdminTimelineMenu();
+  const isOpen = adminTimelineMenu.classList.toggle('open');
+  adminTimelineBtn.classList.toggle('open', isOpen);
+  adminTimelineBtn.setAttribute('aria-expanded', String(isOpen));
+});
+
+adminTimelineMenu.addEventListener('click', event => {
+  const button = event.target.closest('[data-admin-timeline-entry]');
+  if (!button) return;
+  selectedTimelineEntryId = button.dataset.adminTimelineEntry || 'all';
+  closeAdminTimelineMenu();
+  render();
+});
 
 document.addEventListener('click', event => {
   if (!adminSettingsMenu.contains(event.target) && event.target !== adminSettingsBtn){
@@ -1486,6 +1717,9 @@ document.addEventListener('click', event => {
   }
   if (!adminPrintMenu.contains(event.target) && event.target !== adminPrintMenuBtn){
     closeAdminPrintMenu();
+  }
+  if (!adminTimelineMenu.contains(event.target) && event.target !== adminTimelineBtn){
+    closeAdminTimelineMenu();
   }
 });
 
@@ -1500,7 +1734,7 @@ if ('serviceWorker' in navigator) {
       refreshingForUpdate = true;
       window.location.reload();
     });
-    navigator.serviceWorker.register('./sw.js?v=133', {updateViaCache:'none'}).then(registration => {
+    navigator.serviceWorker.register('./sw.js?v=167', {updateViaCache:'none'}).then(registration => {
       registration.update();
     }).catch(error => {
       console.warn('Service worker registration failed:', error);
