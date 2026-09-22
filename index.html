@@ -1283,6 +1283,36 @@
     margin-bottom:6px;
   }
   .empty-sub{ font-size:13.5px; max-width:280px; }
+  .home-brand{
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    gap:12px;
+    margin-bottom:12px;
+    color:var(--ink);
+    font:900 28px 'Inter',sans-serif;
+  }
+  .home-brand-pill{
+    display:inline-flex;
+    align-items:center;
+    gap:9px;
+    padding:7px 16px 7px 10px;
+    border:5px solid #F45155;
+    border-radius:999px;
+    background:#17171D;
+    color:#fff;
+    font:900 24px 'Inter',sans-serif;
+    letter-spacing:1px;
+    line-height:1;
+    box-shadow:0 12px 22px -20px rgba(20,35,29,.65);
+  }
+  .home-brand-dot{
+    width:30px;
+    height:30px;
+    border-radius:50%;
+    background:#F45155;
+    border:8px solid #452126;
+  }
   .home-tool-actions{
     display:flex;
     flex-wrap:wrap;
@@ -4363,7 +4393,10 @@ function showMobileHomeScreen(){
   setMobileBottomActionsVisible(false);
   mainScroll.innerHTML = `
     <div class="empty-state">
-      <div class="empty-title">WOYZ Notes</div>
+      <div class="home-brand" aria-label="WOYZ Notes">
+        <span class="home-brand-pill"><span class="home-brand-dot"></span>WOYZ</span>
+        <span>Notes</span>
+      </div>
       <div class="empty-sub">Please select template to create a new note</div>
       <div class="home-tool-actions" aria-label="Homepage tools">
         <button class="home-tool-btn primary" type="button" data-home-voice-mode="Visit Note">Visit Note</button>
