@@ -2770,6 +2770,7 @@ let pendingMmseText = null;
 let lastEditorSelectionRange = null;
 let localDirtyRecords = new Map();
 let mobileHomeDefaultPending = false;
+let mobileHomeDefaultActive = false;
 let settingsCloseTimer = null;
 let printCloseTimer = null;
 let emailCloseTimer = null;
@@ -4155,6 +4156,11 @@ function subscribeToSelectedDate({allowLatestDateFallback = false} = {}){
     if (searchScope === 'all') return;
     if (mobileHomeDefaultPending && !pendingSelectId && !pendingNewVoiceDockId){
       mobileHomeDefaultPending = false;
+      mobileHomeDefaultActive = true;
+      showMobileHomeScreen();
+      return;
+    }
+    if (mobileHomeDefaultActive && !pendingSelectId && !pendingNewVoiceDockId && activeIndex === null){
       showMobileHomeScreen();
       return;
     }
@@ -4331,7 +4337,6 @@ function showMobileHomeScreen(){
   mainScroll.innerHTML = `
     <div class="empty-state">
       <div class="empty-title">WOYZ Notes</div>
-      <div class="empty-sub">Use List to search patients, switch OP/IP, or select an existing entry.</div>
       <div class="home-tool-actions" aria-label="Homepage tools">
         <button class="home-tool-btn primary" type="button" data-home-voice-mode="Visit Note">Visit Note</button>
         <button class="home-tool-btn" type="button" data-home-voice-mode="Medical certificate">Certificate</button>
@@ -4491,11 +4496,15 @@ onAuthStateChanged(auth,user => {
     selectedVisitDate = new Date();
     updateDateNavigation();
     mobileHomeDefaultPending = window.matchMedia('(max-width:600px)').matches;
+    mobileHomeDefaultActive = mobileHomeDefaultPending;
+    if (mobileHomeDefaultActive) showMobileHomeScreen();
     sharedOwnerIds = [user.uid];
     ownerProfiles = {};
     subscribeToGroups();
   }else{
     clearRecordSearch();
+    mobileHomeDefaultPending = false;
+    mobileHomeDefaultActive = false;
     clearNotesSubscriptions();
     clearAllNotesSubscriptions();
     if (userProfileUnsubscribe) userProfileUnsubscribe();
@@ -4574,6 +4583,8 @@ function removeNilSectionsForCopy(text){
 }
 
 function selectEntry(i,{preserveDirtyEditor = false} = {}){
+  mobileHomeDefaultPending = false;
+  mobileHomeDefaultActive = false;
   activeIndex = i;
   selectedOpTimelineKey = null;
   selectedOpTimelineEntryId = 'all';
