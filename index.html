@@ -1307,6 +1307,9 @@
     border-color:var(--teal);
     color:#fff;
   }
+  .home-tools-wrap{
+    display:none;
+  }
 
   .mobile-app-bar,.mobile-backdrop,.mobile-visit-row,.mobile-bottom-actions{ display:none; }
 
@@ -1627,7 +1630,7 @@
       top:0; bottom:0; left:0;
       width:min(86vw,330px);
       min-width:0;
-      padding:72px 14px calc(18px + env(safe-area-inset-bottom));
+      padding:14px 14px calc(18px + env(safe-area-inset-bottom));
       box-shadow:20px 0 60px -34px rgba(0,0,0,.45);
       transform:translateX(-102%);
       transition:transform .2s ease;
@@ -1635,6 +1638,7 @@
     }
     .app.sidebar-open .sidebar{ transform:translateX(0); }
     .note-action-row{
+      display:none !important;
       min-height:72px;
       grid-template-columns:minmax(0,1fr) minmax(0,1fr);
       gap:10px;
@@ -1653,7 +1657,7 @@
       line-height:1.1;
     }
     .mobile-doc-actions{
-      display:grid;
+      display:none !important;
       grid-template-columns:repeat(3,minmax(0,1fr));
       gap:8px;
       margin-top:10px;
@@ -1676,13 +1680,13 @@
     .mmse-items{ display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:7px; }
     .mmse-item{ border-radius:9px; min-height:36px; justify-content:flex-start; }
     .sidebar .visit-toggle{
-      display:none;
-      margin:14px 0 0;
-      height:46px;
+      display:flex;
+      margin:0 52px 12px 0;
+      height:44px;
       border-radius:14px;
       background:#F4F7F6;
     }
-    .sidebar-section-label{ margin-top:20px; }
+    .sidebar-section-label{ margin-top:14px; }
     .entry-list{ padding-bottom:18px; }
     .main{
       height:100dvh;
@@ -1761,7 +1765,7 @@
       color:#fff;
     }
     .mobile-visit-row .visit-toggle{
-      display:flex;
+      display:none;
       height:36px;
       padding:3px;
       border:0;
@@ -1920,6 +1924,18 @@
       min-height:44px;
       border-radius:12px;
       font-size:14px;
+    }
+    .home-tools-wrap{
+      display:block;
+      width:100%;
+      max-width:280px;
+    }
+    .home-tools-panel{
+      display:none;
+      margin-top:9px;
+    }
+    .home-tools-panel.open{
+      display:block;
     }
     .mobile-bottom-actions{
       position:fixed;
@@ -2146,6 +2162,12 @@
           <button class="home-tool-btn primary" type="button" data-home-voice-mode="Visit Note">Visit Note</button>
           <button class="home-tool-btn" type="button" data-home-voice-mode="Medical certificate">Certificate</button>
           <button class="home-tool-btn" type="button" data-home-voice-mode="Reply letter">Reply Letter</button>
+          <div class="home-tools-wrap">
+            <button class="home-tool-btn" type="button" data-home-tools-toggle>Tools</button>
+            <div class="home-tools-panel">
+              <button class="home-tool-btn" type="button" data-home-mmse-open>MMSE</button>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -2669,6 +2691,8 @@ let saveFeedbackUntil = 0;
 let sidebarIdentityRefreshTimer = null;
 let templateCloseTimer = null;
 let mmseSelections = new Set();
+let mmseDeferredInsert = false;
+let pendingMmseText = null;
 let lastEditorSelectionRange = null;
 let localDirtyRecords = new Map();
 let settingsCloseTimer = null;
@@ -4231,6 +4255,12 @@ function showMobileHomeScreen(){
         <button class="home-tool-btn primary" type="button" data-home-voice-mode="Visit Note">Visit Note</button>
         <button class="home-tool-btn" type="button" data-home-voice-mode="Medical certificate">Certificate</button>
         <button class="home-tool-btn" type="button" data-home-voice-mode="Reply letter">Reply Letter</button>
+        <div class="home-tools-wrap">
+          <button class="home-tool-btn" type="button" data-home-tools-toggle>Tools</button>
+          <div class="home-tools-panel">
+            <button class="home-tool-btn" type="button" data-home-mmse-open>MMSE</button>
+          </div>
+        </div>
       </div>
     </div>`;
 }
@@ -4474,8 +4504,13 @@ function selectEntry(i,{preserveDirtyEditor = false} = {}){
     selectedIpTimelineKey = null;
     selectedIpTimelineDate = null;
   }
+  const insertedPendingMmse = Boolean(pendingMmseText && r.voiceDraft !== true && applyMmseTextToRecord(r, pendingMmseText));
+  if (insertedPendingMmse){
+    pendingMmseText = null;
+    closeMobileSidebar();
+  }
   const isVoiceDraftRecord = r.voiceDraft === true;
-  const isGeneratedRecord = !isVoiceDraftRecord && (Boolean(r.transcription) || r.kind === 'generated');
+  const isGeneratedRecord = !isVoiceDraftRecord && (Boolean(r.transcription) || r.kind === 'generated' || insertedPendingMmse);
   const keepExistingEditor = preserveDirtyEditor && localDirtyRecords.has(recordLocalKey(r)) && Boolean(document.getElementById('generatedNoteEditor'));
   renderEntries();
 
@@ -6321,11 +6356,18 @@ function renderMmseModal(){
   }).join('');
 }
 
-function openMmseModal(){
+function openMmseModal({allowDeferredInsert = false} = {}){
   if (!currentEditableRecord()){
+    if (allowDeferredInsert){
+      mmseDeferredInsert = true;
+      renderMmseModal();
+      mmseModal.classList.add('open');
+      return;
+    }
     alert('Please select a note before inserting MMSE.');
     return;
   }
+  mmseDeferredInsert = false;
   captureEditorSelection();
   renderMmseModal();
   mmseModal.classList.add('open');
@@ -6333,6 +6375,7 @@ function openMmseModal(){
 
 function closeMmseModal(){
   mmseModal.classList.remove('open');
+  mmseDeferredInsert = false;
 }
 
 function resetMmseModal(){
@@ -6362,30 +6405,53 @@ function mmseNoteText(){
   return lines.join('\n');
 }
 
-function insertMmseIntoCurrentNote(){
-  const record = currentEditableRecord();
-  if (!record){
-    alert('Please select a note before inserting MMSE.');
-    return;
+function insertTextIntoHpiSection(noteText, insertionText){
+  const source = String(noteText || '').trim();
+  const insertion = String(insertionText || '').trim();
+  if (!insertion) return source;
+  const hpiPattern = /(History of Present Illness:\s*\n?)([\s\S]*?)(?=\n\s*(?:Past Medical or Surgical History|Allergies|Family History|Personal History|Examination Findings|Review of Investigations|Current Medications|Diagnosis|Treatment Plan|Advice|Prescription|Review Note(?:\s*\([^)]*\))?|Medical Certificate|Reply Letter):|$)/i;
+  if (!hpiPattern.test(source)){
+    return `${source}\n\n${insertion}`.trim();
   }
+  return source.replace(hpiPattern, (_match, heading, body) => {
+    const existingBody = String(body || '').trimEnd();
+    return `${heading}${existingBody ? `${existingBody}\n\n` : ''}${insertion}`;
+  }).trim();
+}
+
+function applyMmseTextToRecord(record, mmseText){
+  if (!record || !mmseText) return false;
   const editor = document.getElementById('generatedNoteEditor');
-  if (editor && !anonymizeEnabled && restoreEditorSelection(editor)){
-    document.execCommand('insertText', false, `\n\n${mmseNoteText()}\n`);
-    record.transcription = editorPlainText(editor);
-    resizeNoteEditor(editor);
-  }else{
-    const existing = anonymizeEnabled ? record.transcription : (editor ? editorPlainText(editor) : record.transcription);
-    const baseText = String(existing || '').trimEnd();
-    record.transcription = `${baseText}\n\n${mmseNoteText()}`.trim();
-    renderGeneratedNote(record);
-    focusEditorEnd(document.getElementById('generatedNoteEditor'));
-  }
+  const editorMatchesTarget = editor?.dataset?.noteId === record.firestoreId && editor?.dataset?.noteOwner === noteOwnerUid(record);
+  const existing = editorMatchesTarget && !anonymizeEnabled ? editorPlainText(editor) : record.transcription;
+  record.transcription = insertTextIntoHpiSection(existing, mmseText);
+  record.patientData = extractPatientFromNote(record.transcription, record.patientData);
   record.saved = false;
   markRecordDirty(record);
+  syncRecordCollections(record);
   clearTimeout(saveFeedbackTimer);
   saveFeedbackUntil = 0;
   saveDraftBtn.querySelector('span').textContent = 'Save';
   updatePrescriptionPrintButton();
+  return true;
+}
+
+function insertMmseIntoCurrentNote(){
+  const record = currentEditableRecord();
+  if (!record){
+    if (mmseDeferredInsert){
+      pendingMmseText = mmseNoteText();
+      closeMmseModal();
+      openMobileSidebar();
+      alert('Select the note from the left sidebar to insert MMSE.');
+      return;
+    }
+    alert('Please select a note before inserting MMSE.');
+    return;
+  }
+  applyMmseTextToRecord(record, mmseNoteText());
+  renderGeneratedNote(record);
+  focusEditorEnd(document.getElementById('generatedNoteEditor'));
   closeMmseModal();
 }
 
@@ -7397,6 +7463,17 @@ function handleDocumentModeAction(mode){
 }
 
 document.addEventListener('click', event => {
+  const toolsButton = event.target.closest('[data-home-tools-toggle]');
+  if (toolsButton){
+    const panel = toolsButton.closest('.home-tools-wrap')?.querySelector('.home-tools-panel');
+    panel?.classList.toggle('open');
+    return;
+  }
+  const homeMmseButton = event.target.closest('[data-home-mmse-open]');
+  if (homeMmseButton){
+    openMmseModal({allowDeferredInsert:true});
+    return;
+  }
   const button = event.target.closest('[data-home-voice-mode]');
   if (!button) return;
   const mode = button.dataset.homeVoiceMode;
@@ -8045,7 +8122,7 @@ if ('serviceWorker' in navigator) {
     navigator.serviceWorker.addEventListener('controllerchange', () => {
       reloadForUpdateWhenIdle();
     });
-    navigator.serviceWorker.register('./sw.js?v=169', {updateViaCache:'none'}).then(registration => {
+    navigator.serviceWorker.register('./sw.js?v=170', {updateViaCache:'none'}).then(registration => {
       registration.update();
     }).catch(error => {
       console.warn('Service worker registration failed:', error);
