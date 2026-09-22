@@ -3771,6 +3771,33 @@ function patientDataWithFallback(primary = {}, fallback = {}){
   };
 }
 
+function patientDataWithTrustedFallback(extracted = {}, trusted = {}){
+  const choose = (field, cleaner = value => String(value || '').trim()) => {
+    const trustedValue = cleaner(trusted?.[field]);
+    if (trustedValue && !isNilLike(trustedValue)) return trustedValue;
+    const extractedValue = cleaner(extracted?.[field]);
+    return extractedValue && !isNilLike(extractedValue) ? extractedValue : 'NIL';
+  };
+  return {
+    name:choose('name'),
+    age:choose('age', cleanAge),
+    uhid:choose('uhid'),
+    sex:choose('sex', cleanSex)
+  };
+}
+
+function trustedPatientContext(patient = {}){
+  const trusted = patientDataWithFallback(patient);
+  const lines = [
+    ['Patient Name', trusted.name],
+    ['Age', trusted.age],
+    ['UHID', trusted.uhid],
+    ['Sex', trusted.sex]
+  ].filter(([, value]) => value && !isNilLike(value));
+  if (!lines.length) return '';
+  return `\n\nKnown selected patient identity from the app. Use these values for patient demographics and do not replace them from audio unless the value is NIL:\n${lines.map(([label, value]) => `${label}: ${value}`).join('\n')}`;
+}
+
 function selectedPatientDataForNewDraft(){
   const record = activeIndex !== null ? records[activeIndex] : (selectedOpTimelineRecord() || latestOpTimelineRecord());
   if (!record || record.voiceDraft) return {name:'NIL',age:'NIL',uhid:'NIL',sex:'NIL'};
@@ -6745,6 +6772,7 @@ async function sendAudioToGemini(audioBlob, apiKey, selectedMode, onRetry, visit
   const mode = selectedMode || 'ambient';
   const visitContext = visitType === 'IP' ? 'IP' : 'OP';
   const systemPrompt = GEMINI_PROMPTS[mode];
+  const patientContext = trustedPatientContext(fallbackPatientData);
   const responseSchema = mode === 'ambient' ? ambientSchemaForVisitType(visitContext) : mode === 'Medical certificate' ? CERTIFICATE_SCHEMA : TEXT_SCHEMA;
   const taskPrompts = {
     ambient:`Review the complete doctor-patient-attendant recording and produce a mutually consistent structured ${visitContext} visit note from all clearly audible clinical conversation, not only from formal dictated note phrases. Extract clinically relevant facts that are actually present in the ambient conversation and place them under the correct sections. Never infer missing details, never hallucinate, and never add or remove clinical facts. Use NIL for unsupported fields. In Review of Investigations, preserve investigation content fully and verbatim in meaning; never add, remove, shorten, summarize, or make it concise. Use numbered lists for Review of Investigations and Current Medications, with each numbered investigation or medicine starting on a new line. For investigation reports with multiple findings, place each finding on a separate unnumbered line below the numbered investigation. For blood investigations, use one numbered item per blood-report date and list the individual blood values below it without numbering, adding standard units when absent. In Treatment Plan, number only complete treatment actions. Do not split medicine dose, route, timing, frequency, or duration into separate numbered items.${visitContext === 'OP' ? ' Include a Prescription section only when the doctor explicitly dictates a prescription/Rx section or clearly says the following medicines are prescription/Rx medicines. Do not duplicate medicines from Current Medications, Treatment Plan, advice, or treatment changes into Prescription. In Prescription, each medicine must have exactly three lines: numbered Tablet/Cap/Syrup/Inj brand name dose; English patient instruction without repeating the medicine name; natural patient-friendly Kerala Malayalam instruction without repeating the medicine name. Always include the Malayalam instruction line for every prescription medicine. Do not label the Malayalam line. Always write Tablet, not Tab. Do not include demographics inside Prescription.' : ' Do not create a Prescription section for IP notes.'}`,
@@ -6757,7 +6785,7 @@ async function sendAudioToGemini(audioBlob, apiKey, selectedMode, onRetry, visit
     audioBlob,
     audioData,
     systemPrompt,
-    taskPrompt:taskPrompts[mode],
+    taskPrompt:`${taskPrompts[mode]}${patientContext}`,
     responseSchema,
     onRetry
   });
@@ -6772,7 +6800,7 @@ async function sendAudioToGemini(audioBlob, apiKey, selectedMode, onRetry, visit
     uhid:String(parsed.patientUhid || 'NIL').trim(),
     sex:String(parsed.patientSex || 'NIL').trim()
   };
-  const patientData = patientDataWithFallback(extractedPatientData, fallbackPatientData);
+  const patientData = patientDataWithTrustedFallback(extractedPatientData, fallbackPatientData);
   return {text:formatGeneratedOutput(parsed, mode, patientData, visitContext),patientData};
 }
 
@@ -7220,9 +7248,8 @@ async function createVoiceDraft(mode = null){
     const selectedMode = mode || null;
     const requestedVisitType = selectedVisitType === 'IP' ? 'IP' : 'OP';
     const requestedDateString = dateInputValue(selectedVisitDate);
-    const shouldPrefillPatient = ['Medical certificate','Reply letter'].includes(selectedMode);
-    const sourceRecord = shouldPrefillPatient ? (activeIndex !== null ? records[activeIndex] : (selectedOpTimelineRecord() || latestOpTimelineRecord())) : null;
-    const sourcePatientData = shouldPrefillPatient ? selectedPatientDataForNewDraft() : {name:'NIL',age:'NIL',uhid:'NIL',sex:'NIL'};
+    const sourceRecord = activeIndex !== null ? records[activeIndex] : (selectedOpTimelineRecord() || latestOpTimelineRecord());
+    const sourcePatientData = selectedPatientDataForNewDraft();
     const sourceKey = sourceRecord && !sourceRecord.voiceDraft ? patientSearchKey(sourceRecord) : null;
     openPreparingNewVoiceDock(selectedMode);
     if (searchScope === 'all'){
