@@ -337,7 +337,7 @@
     touch-action:manipulation;
   }
   .continuation-dock.visible{ display:grid; grid-template-rows:auto 1fr; gap:8px; }
-  .continuation-dock-head{ display:flex; align-items:center; justify-content:space-between; gap:12px; cursor:move; }
+  .continuation-dock-head{ display:flex; align-items:center; justify-content:space-between; gap:12px; cursor:move; touch-action:none; }
   .continuation-title{ display:inline-flex; align-items:center; gap:8px; color:#FF514A; font-size:13px; font-weight:900; }
   .continuation-title::before{ content:''; width:7px; height:7px; border-radius:999px; background:#FF514A; box-shadow:0 0 0 4px rgba(255,81,74,.1); }
   .continuation-close{ width:28px; height:28px; border:0; border-radius:8px; background:#2F2F32; color:#F7F7FB; cursor:pointer; font-size:18px; line-height:1; }
@@ -1937,6 +1937,80 @@
     .home-tools-panel.open{
       display:block;
     }
+    .continuation-dock{
+      width:min(82vw,300px);
+      min-height:118px;
+      padding:8px 10px;
+      border-radius:16px;
+      gap:4px;
+      touch-action:none;
+    }
+    .continuation-dock.visible{
+      gap:4px;
+    }
+    .continuation-dock-head{
+      min-height:26px;
+      padding:0 2px;
+      touch-action:none;
+    }
+    .continuation-title{
+      font-size:11px;
+      gap:6px;
+    }
+    .continuation-title::before{
+      width:6px;
+      height:6px;
+      box-shadow:0 0 0 3px rgba(255,81,74,.1);
+    }
+    .continuation-close{
+      width:26px;
+      height:26px;
+      border-radius:8px;
+      font-size:17px;
+    }
+    .continuation-body{
+      gap:5px;
+      align-content:start;
+    }
+    .continuation-level{
+      width:68%;
+      height:16px;
+      gap:2px;
+    }
+    .continuation-level span.active{ height:7px; }
+    .continuation-level span:nth-child(3n+1).active{ height:7px; }
+    .continuation-level span:nth-child(3n+2).active{ height:12px; }
+    .continuation-level span:nth-child(3n).active{ height:16px; }
+    .continuation-timer{
+      font-size:24px;
+    }
+    .continuation-actions{
+      gap:9px;
+    }
+    .continuation-action{
+      width:42px;
+      height:42px;
+    }
+    .continuation-action svg{
+      width:21px;
+      height:21px;
+    }
+    .continuation-action.extend{
+      font-size:13px;
+    }
+    .continuation-mode-bar{
+      gap:4px;
+    }
+    .continuation-mode-btn{
+      min-height:26px;
+      border-radius:8px;
+      font-size:9px;
+      padding:4px;
+    }
+    .continuation-status{
+      min-height:14px;
+      font-size:10px;
+    }
     .mobile-bottom-actions{
       position:fixed;
       left:0; right:0; bottom:0;
@@ -2695,6 +2769,7 @@ let mmseDeferredInsert = false;
 let pendingMmseText = null;
 let lastEditorSelectionRange = null;
 let localDirtyRecords = new Map();
+let mobileHomeDefaultPending = false;
 let settingsCloseTimer = null;
 let printCloseTimer = null;
 let emailCloseTimer = null;
@@ -2713,7 +2788,8 @@ let continuationState = {
   audioBlob:null,
   status:'Ready',
   documentMode:null,
-  position:null
+  position:null,
+  cancelNewDraft:false
 };
 
 const MANUAL_NOTE_TEMPLATE = `Patient Name: 
@@ -4077,6 +4153,11 @@ function subscribeToSelectedDate({allowLatestDateFallback = false} = {}){
     });
     renderEntries();
     if (searchScope === 'all') return;
+    if (mobileHomeDefaultPending && !pendingSelectId && !pendingNewVoiceDockId){
+      mobileHomeDefaultPending = false;
+      showMobileHomeScreen();
+      return;
+    }
     if (pendingNewVoiceDockId){
       clearTimelineSelection();
     }else if (selectedVisitType === 'OP' && selectedOpTimelineKey){
@@ -4409,6 +4490,7 @@ onAuthStateChanged(auth,user => {
     });
     selectedVisitDate = new Date();
     updateDateNavigation();
+    mobileHomeDefaultPending = window.matchMedia('(max-width:600px)').matches;
     sharedOwnerIds = [user.uid];
     ownerProfiles = {};
     subscribeToGroups();
@@ -5945,7 +6027,7 @@ function renderContinuationDock(){
   continuationPauseBtn.style.display = continuationState.hasStarted && !hasSavedAudio ? 'grid' : 'none';
   continuationExtendBtn.style.display = continuationState.hasStarted && !hasSavedAudio ? 'grid' : 'none';
   continuationStopBtn.style.display = continuationState.hasStarted ? 'grid' : 'none';
-  continuationCloseBtn.style.display = continuationState.mode === 'new' ? 'none' : 'grid';
+  continuationCloseBtn.style.display = continuationState.mode === 'new' && !window.matchMedia('(max-width:600px)').matches ? 'none' : 'grid';
   continuationPauseBtn.innerHTML = continuationState.recording
     ? '<svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="5" width="4" height="14"/><rect x="14" y="5" width="4" height="14"/></svg>'
     : '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7L8 5Z"/></svg>';
@@ -5995,6 +6077,7 @@ function openContinuationDock(){
   continuationState.hasStarted = false;
   continuationState.audioBlob = null;
   continuationState.documentMode = null;
+  continuationState.cancelNewDraft = false;
   continuationState.status = 'Ready to continue selected note';
   remainingSeconds = 300;
   placeDock('right');
@@ -6017,6 +6100,7 @@ function openDocumentAppendDock(mode){
   continuationState.hasStarted = false;
   continuationState.audioBlob = null;
   continuationState.documentMode = mode;
+  continuationState.cancelNewDraft = false;
   continuationState.status = `Ready to record ${mode.toLowerCase()}`;
   remainingSeconds = 300;
   placeDock('right');
@@ -6037,6 +6121,7 @@ function openPreparingNewVoiceDock(mode = null){
   continuationState.hasStarted = false;
   continuationState.audioBlob = null;
   continuationState.documentMode = null;
+  continuationState.cancelNewDraft = false;
   continuationState.status = 'Preparing voice note...';
   remainingSeconds = 300;
   placeDock('right');
@@ -6058,13 +6143,14 @@ function openNewVoiceDock(){
   continuationState.hasStarted = false;
   continuationState.audioBlob = null;
   continuationState.documentMode = null;
+  continuationState.cancelNewDraft = false;
   continuationState.status = 'Ready to record new voice note';
   remainingSeconds = 300;
   placeDock('right');
   renderContinuationDock();
 }
 
-function closeContinuationDock({releaseMic = true} = {}){
+function closeContinuationDock({releaseMic = true, preserveNewDraftCancel = false} = {}){
   continuationState.open = false;
   continuationState.recording = false;
   continuationState.paused = false;
@@ -6073,11 +6159,51 @@ function closeContinuationDock({releaseMic = true} = {}){
   continuationState.audioBlob = null;
   continuationState.documentMode = null;
   continuationState.targetOwnerUid = null;
+  if (!preserveNewDraftCancel) continuationState.cancelNewDraft = false;
   if (releaseMic){
     stopVoiceTimer();
     stopMediaTracks();
   }
   renderContinuationDock();
+}
+
+async function closeVoiceDraftWithConfirmation(){
+  if (continuationState.mode !== 'new'){
+    closeContinuationDock();
+    return;
+  }
+  if (!window.confirm('Close and delete this draft note?')) return;
+  const draft = records.find(record => recordMatchesOwnerAndId(record, continuationState.targetOwnerUid, continuationState.targetId));
+  if (!draft?.firestoreId || !currentUser){
+    continuationState.cancelNewDraft = true;
+    pendingNewVoiceDockId = null;
+    closeContinuationDock({preserveNewDraftCancel:true});
+    return;
+  }
+  draft.cancelProcessing = true;
+  pendingNewVoiceDockId = null;
+  closeContinuationDock();
+  try{
+    await persistRecord(draft,{
+      deleted:true,
+      deletedAt:serverTimestamp(),
+      deletedBy:currentUser.uid,
+      updatedAt:serverTimestamp()
+    });
+    records = records.filter(record => !recordMatchesOwnerAndId(record, noteOwnerUid(draft), draft.firestoreId));
+    allRecords = allRecords.filter(record => !recordMatchesOwnerAndId(record, noteOwnerUid(draft), draft.firestoreId));
+    activeIndex = null;
+    renderEntries();
+    if (window.matchMedia('(max-width:600px)').matches) showMobileHomeScreen();
+    else if (records.length){
+      if (!openDefaultOpView()) selectEntry(0);
+    }else{
+      showEmptyDate(selectedVisitType === 'IP' ? 'No active IP notes for this date.' : `No ${selectedVisitType} notes saved for this date.`);
+    }
+  }catch(error){
+    console.error('Draft delete failed:', error);
+    window.alert('Unable to delete this draft. Please try again.');
+  }
 }
 
 async function startContinuationRecording(){
@@ -6491,10 +6617,13 @@ function placeDock(side){
 
 function dragContinuationDock(event){
   if (event.target.closest('button')) return;
+  event.preventDefault();
+  continuationDockHandle.setPointerCapture?.(event.pointerId);
   const startRect = continuationDock.getBoundingClientRect();
   const startX = event.clientX;
   const startY = event.clientY;
   const move = moveEvent => {
+    moveEvent.preventDefault();
     const nextLeft = Math.min(window.innerWidth - startRect.width - 8, Math.max(8, startRect.left + moveEvent.clientX - startX));
     const nextTop = Math.min(window.innerHeight - startRect.height - 8, Math.max(8, startRect.top + moveEvent.clientY - startY));
     continuationDock.style.left = `${nextLeft}px`;
@@ -6503,6 +6632,7 @@ function dragContinuationDock(event){
     continuationDock.style.right = 'auto';
   };
   const up = () => {
+    try{ continuationDockHandle.releasePointerCapture?.(event.pointerId); }catch(_error){}
     document.removeEventListener('pointermove', move);
     document.removeEventListener('pointerup', up);
   };
@@ -6578,7 +6708,7 @@ function wireContinuationDock(){
   continuationPauseBtn.addEventListener('click', pauseResumeContinuationRecording);
   continuationExtendBtn.addEventListener('click', extendContinuationRecording);
   continuationStopBtn.addEventListener('click', stopAndAppendContinuation);
-  continuationCloseBtn.addEventListener('click', () => closeContinuationDock());
+  continuationCloseBtn.addEventListener('click', closeVoiceDraftWithConfirmation);
   continuationDockHandle.addEventListener('pointerdown', dragContinuationDock);
   continuationModeBar.addEventListener('click', event => {
     const button = event.target.closest('[data-new-voice-mode]');
@@ -7116,6 +7246,11 @@ async function createVoiceDraft(mode = null){
 	        patientData:sourcePatientData,
 	        sourcePatientKey:sourceKey
 	      };
+      if (continuationState.cancelNewDraft){
+        continuationState.cancelNewDraft = false;
+        pendingNewVoiceDockId = null;
+        return;
+      }
       pendingSelectId = newDraftRef.id;
       pendingNewVoiceDockId = newDraftRef.id;
       clearTimelineSelection();
