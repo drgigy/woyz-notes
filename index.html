@@ -1283,6 +1283,30 @@
     margin-bottom:6px;
   }
   .empty-sub{ font-size:13.5px; max-width:280px; }
+  .home-tool-actions{
+    display:flex;
+    flex-wrap:wrap;
+    justify-content:center;
+    gap:10px;
+    margin-top:20px;
+  }
+  .home-tool-btn{
+    min-width:118px;
+    min-height:42px;
+    padding:0 18px;
+    border:1px solid #C9D9D4;
+    border-radius:12px;
+    background:#fff;
+    color:var(--teal);
+    font:900 13px 'Inter',sans-serif;
+    cursor:pointer;
+    box-shadow:0 8px 20px -18px rgba(20,35,29,.45);
+  }
+  .home-tool-btn.primary{
+    background:var(--teal);
+    border-color:var(--teal);
+    color:#fff;
+  }
 
   .mobile-app-bar,.mobile-backdrop,.mobile-visit-row,.mobile-bottom-actions{ display:none; }
 
@@ -1884,6 +1908,19 @@
     .voice-action{ width:66px; height:66px; }
     .processing-wrap{ padding:24px 20px 110px; }
     .empty-state{ padding:40px 28px 110px; min-height:calc(100dvh - 210px); }
+    .home-tool-actions{
+      width:100%;
+      max-width:280px;
+      flex-direction:column;
+      gap:9px;
+      margin-top:22px;
+    }
+    .home-tool-btn{
+      width:100%;
+      min-height:44px;
+      border-radius:12px;
+      font-size:14px;
+    }
     .mobile-bottom-actions{
       position:fixed;
       left:0; right:0; bottom:0;
@@ -2105,6 +2142,11 @@
         </div>
         <div class="empty-title">No record selected</div>
         <div class="empty-sub">Choose a patient on the left to open their latest note.</div>
+        <div class="home-tool-actions" aria-label="Homepage tools">
+          <button class="home-tool-btn primary" type="button" data-home-voice-mode="Visit Note">Visit Note</button>
+          <button class="home-tool-btn" type="button" data-home-voice-mode="Medical certificate">Certificate</button>
+          <button class="home-tool-btn" type="button" data-home-voice-mode="Reply letter">Reply Letter</button>
+        </div>
       </div>
     </div>
   </main>
@@ -4185,6 +4227,11 @@ function showMobileHomeScreen(){
     <div class="empty-state">
       <div class="empty-title">WOYZ Notes</div>
       <div class="empty-sub">Use List to search patients, switch OP/IP, or select an existing entry.</div>
+      <div class="home-tool-actions" aria-label="Homepage tools">
+        <button class="home-tool-btn primary" type="button" data-home-voice-mode="Visit Note">Visit Note</button>
+        <button class="home-tool-btn" type="button" data-home-voice-mode="Medical certificate">Certificate</button>
+        <button class="home-tool-btn" type="button" data-home-voice-mode="Reply letter">Reply Letter</button>
+      </div>
     </div>`;
 }
 
@@ -7349,6 +7396,17 @@ function handleDocumentModeAction(mode){
   createVoiceDraft(mode);
 }
 
+document.addEventListener('click', event => {
+  const button = event.target.closest('[data-home-voice-mode]');
+  if (!button) return;
+  const mode = button.dataset.homeVoiceMode;
+  if (mode === 'Visit Note'){
+    createVoiceDraft();
+  }else{
+    handleDocumentModeAction(mode);
+  }
+});
+
 topbarDocActions.addEventListener('click', event => {
   const mmseButton = event.target.closest('[data-mmse-open]');
   if (mmseButton){
@@ -7987,7 +8045,7 @@ if ('serviceWorker' in navigator) {
     navigator.serviceWorker.addEventListener('controllerchange', () => {
       reloadForUpdateWhenIdle();
     });
-    navigator.serviceWorker.register('./sw.js?v=168', {updateViaCache:'none'}).then(registration => {
+    navigator.serviceWorker.register('./sw.js?v=169', {updateViaCache:'none'}).then(registration => {
       registration.update();
     }).catch(error => {
       console.warn('Service worker registration failed:', error);
