@@ -2177,8 +2177,8 @@
     <button class="mobile-action" id="mobileCopyBtn" aria-label="Copy note">
       Copy
     </button>
-    <button class="mobile-action danger" id="mobileDeleteBtn" aria-label="Delete note">
-      Delete
+    <button class="mobile-action" id="mobileReviewBtn" aria-label="Review note dictation">
+      Review Note
     </button>
     <button class="mobile-action primary" id="mobileRecordBtn" aria-label="Voice note">
       <svg width="31" height="31" viewBox="0 0 24 24" fill="none"><rect x="9" y="3" width="6" height="11" rx="3" stroke="currentColor" stroke-width="2"/><path d="M5.5 11.5a6.5 6.5 0 0 0 13 0M12 18v3M9 21h6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
@@ -2543,7 +2543,7 @@ const mobileHomeBtn = document.getElementById('mobileHomeBtn');
 const mobileBackdrop = document.getElementById('mobileBackdrop');
 const mobileBottomActions = document.getElementById('mobileBottomActions');
 const mobileCopyBtn = document.getElementById('mobileCopyBtn');
-const mobileDeleteBtn = document.getElementById('mobileDeleteBtn');
+const mobileReviewBtn = document.getElementById('mobileReviewBtn');
 const mobileRecordBtn = document.getElementById('mobileRecordBtn');
 const mobileAddNoteBtn = document.getElementById('mobileAddNoteBtn');
 const mobileSaveBtn = document.getElementById('mobileSaveBtn');
@@ -6259,7 +6259,7 @@ function appendContinuationText(addition){
   if (!text) return;
   const record = continuationTargetRecord();
   if (!record) return;
-  appendTextToRecord(record, text, {review:true});
+  appendTextToRecord(record, text, {review:true, scrollToAppended:true});
 }
 
 function continuationTargetRecord(){
@@ -6280,7 +6280,7 @@ function appendDocumentText(generatedText, mode){
   appendTextToRecord(record, `${label} (${reviewTimestampLabel()}):\n${text}`, {review:false});
 }
 
-function appendTextToRecord(record, text, {review = false} = {}){
+function appendTextToRecord(record, text, {review = false, scrollToAppended = false} = {}){
   const targetOwnerUid = noteOwnerUid(record);
   const targetIndex = records.findIndex(item => recordMatchesOwnerAndId(item, targetOwnerUid, record.firestoreId));
   if (targetIndex >= 0) activeIndex = targetIndex;
@@ -6316,6 +6316,17 @@ function appendTextToRecord(record, text, {review = false} = {}){
     renderGeneratedNote(record);
   }
   focusEditorEnd(document.getElementById('generatedNoteEditor'));
+  if (scrollToAppended) scrollToLatestAppendedNote();
+}
+
+function scrollToLatestAppendedNote(){
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      mainScroll.scrollTo({top:mainScroll.scrollHeight, behavior:'smooth'});
+      const editor = document.getElementById('generatedNoteEditor');
+      if (editor) editor.scrollIntoView({block:'end', behavior:'smooth'});
+    });
+  });
 }
 
 function stripLeadingReviewNoteHeading(text){
@@ -7439,7 +7450,7 @@ topbarPatient.addEventListener('keydown', event => {
 });
 mobileBackdrop.addEventListener('click', closeMobileSidebar);
 mobileCopyBtn.addEventListener('click', () => copyBtn.click());
-mobileDeleteBtn.addEventListener('click', () => deleteBtn.click());
+mobileReviewBtn.addEventListener('click', openContinuationDock);
 mobileRecordBtn.addEventListener('click', async event => {
   event.preventDefault();
   await createVoiceDraft();
@@ -8122,7 +8133,7 @@ if ('serviceWorker' in navigator) {
     navigator.serviceWorker.addEventListener('controllerchange', () => {
       reloadForUpdateWhenIdle();
     });
-    navigator.serviceWorker.register('./sw.js?v=170', {updateViaCache:'none'}).then(registration => {
+    navigator.serviceWorker.register('./sw.js?v=171', {updateViaCache:'none'}).then(registration => {
       registration.update();
     }).catch(error => {
       console.warn('Service worker registration failed:', error);
