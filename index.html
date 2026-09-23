@@ -7282,8 +7282,11 @@ async function createVoiceDraft(mode = null){
     const selectedMode = mode || null;
     const requestedVisitType = selectedVisitType === 'IP' ? 'IP' : 'OP';
     const requestedDateString = dateInputValue(selectedVisitDate);
-    const sourceRecord = activeIndex !== null ? records[activeIndex] : (selectedOpTimelineRecord() || latestOpTimelineRecord());
-    const sourcePatientData = selectedPatientDataForNewDraft();
+    const explicitSourceRecord = activeIndex !== null ? records[activeIndex] : selectedOpTimelineRecord();
+    const shouldPrefillPatient = ['Medical certificate','Reply letter'].includes(selectedMode)
+      || (window.matchMedia('(max-width:600px)').matches && !selectedMode && explicitSourceRecord);
+    const sourceRecord = shouldPrefillPatient ? explicitSourceRecord : null;
+    const sourcePatientData = sourceRecord ? patientDataWithFallback(patientIdentity(sourceRecord)) : {name:'NIL',age:'NIL',uhid:'NIL',sex:'NIL'};
     const sourceKey = sourceRecord && !sourceRecord.voiceDraft ? patientSearchKey(sourceRecord) : null;
     openPreparingNewVoiceDock(selectedMode);
     if (searchScope === 'all'){
