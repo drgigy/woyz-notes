@@ -2788,8 +2788,6 @@ let selectedIpTimelineDate = null;
 let pendingSelectId = null;
 let pendingNewVoiceDockId = null;
 let draftCreationPromise = null;
-let latestDateLookupInProgress = false;
-let dateSubscriptionRequestId = 0;
 let saveFeedbackTimer = null;
 let saveFeedbackUntil = 0;
 let sidebarIdentityRefreshTimer = null;
@@ -4102,18 +4100,6 @@ function noteMatchesSelectedScope(note, selectedDate = dateInputValue(selectedVi
   return !dischargeDate || dischargeDate >= selectedDate;
 }
 
-async function latestVisitDateForSelectedType(){
-  const owners = sharedOwnerIds.length ? sharedOwnerIds : [currentUser.uid];
-  const snapshots = await Promise.all(owners.map(ownerUid => getDocs(collection(db,'users',ownerUid,'notes')).catch(() => null)));
-  return snapshots
-    .flatMap((snapshot, index) => snapshot ? snapshot.docs.map(docSnap => noteFromSnapshot(docSnap, owners[index])) : [])
-    .filter(noteMatchesSelectedVisitType)
-    .map(note => note.visitDate)
-    .filter(Boolean)
-    .sort()
-    .pop() || null;
-}
-
 function updateVisitToggle(){
   visitToggle.querySelectorAll('[data-visit-type]').forEach(button => {
     button.classList.toggle('active', button.dataset.visitType === selectedVisitType);
@@ -4193,10 +4179,9 @@ function setMobileBottomActionsVisible(visible){
   mobileBottomActions?.classList.toggle('hidden', !visible);
 }
 
-function subscribeToSelectedDate({allowLatestDateFallback = false} = {}){
+function subscribeToSelectedDate(){
   if (!currentUser) return;
   clearNotesSubscriptions();
-  const requestId = ++dateSubscriptionRequestId;
   const selectedDate = dateInputValue(selectedVisitDate);
   const owners = sharedOwnerIds.length ? sharedOwnerIds : [currentUser.uid];
   const ownerRecords = new Map();
@@ -4242,23 +4227,7 @@ function subscribeToSelectedDate({allowLatestDateFallback = false} = {}){
       if (openDefaultOpView()) return;
       selectEntry(0);
     }
-    else if (allowLatestDateFallback && receivedOwners >= owners.length && !latestDateLookupInProgress){
-      latestDateLookupInProgress = true;
-      try{
-        const latestDate = await latestVisitDateForSelectedType();
-        if (requestId !== dateSubscriptionRequestId) return;
-        if (latestDate && latestDate !== selectedDate){
-          const [year,month,day] = latestDate.split('-').map(Number);
-          selectedVisitDate = new Date(year,month-1,day);
-          updateDateNavigation();
-          subscribeToSelectedDate();
-          return;
-        }
-      }finally{
-        latestDateLookupInProgress = false;
-      }
-      showEmptyDate(selectedVisitType === 'IP' ? 'No active IP notes for this date.' : `No ${selectedVisitType} notes saved for this date.`);
-    }else if (receivedOwners >= owners.length) showEmptyDate(selectedVisitType === 'IP' ? 'No active IP notes for this date.' : `No ${selectedVisitType} notes saved for this date.`);
+    else if (receivedOwners >= owners.length) showEmptyDate(selectedVisitType === 'IP' ? 'No active IP notes for this date.' : `No ${selectedVisitType} notes saved for this date.`);
   };
   owners.forEach(ownerUid => {
     const notesQuery = selectedVisitType === 'IP'
@@ -4340,7 +4309,7 @@ async function applySharedOwners(ownerIds){
     }
   }));
   ownerProfiles = {...ownerProfiles, ...Object.fromEntries(profileEntries)};
-  subscribeToSelectedDate({allowLatestDateFallback:true});
+  subscribeToSelectedDate();
   subscribeToAllRecords();
 }
 
@@ -8343,7 +8312,7 @@ if ('serviceWorker' in navigator) {
     navigator.serviceWorker.addEventListener('controllerchange', () => {
       reloadForUpdateWhenIdle();
     });
-    navigator.serviceWorker.register('./sw.js?v=171', {updateViaCache:'none'}).then(registration => {
+    navigator.serviceWorker.register('./sw.js?v=178', {updateViaCache:'none'}).then(registration => {
       registration.update();
     }).catch(error => {
       console.warn('Service worker registration failed:', error);
