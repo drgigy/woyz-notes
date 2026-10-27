@@ -3064,14 +3064,9 @@ function timelineRecordsForKey(key){
 }
 
 function opTimelineRecordsForKey(key){
-  const recordsForPatient = timelineRecordsForKey(key).filter(record => noteVisitType(record) === 'OP');
-  const firstVisit = [...recordsForPatient]
-    .filter(record => opTimelineKind(record) === 'Visit Note')
-    .sort((a,b) => recordSortTime(a) - recordSortTime(b))[0] || null;
-  const rest = recordsForPatient
-    .filter(record => record !== firstVisit)
+  return timelineRecordsForKey(key)
+    .filter(record => noteVisitType(record) === 'OP')
     .sort((a,b) => recordSortTime(b) - recordSortTime(a));
-  return firstVisit ? [firstVisit, ...rest] : rest;
 }
 
 function ipTimelineRecordsForKey(key){
@@ -8312,7 +8307,7 @@ if ('serviceWorker' in navigator) {
     navigator.serviceWorker.addEventListener('controllerchange', () => {
       reloadForUpdateWhenIdle();
     });
-    navigator.serviceWorker.register('./sw.js?v=178', {updateViaCache:'none'}).then(registration => {
+    navigator.serviceWorker.register('./sw.js?v=179', {updateViaCache:'none'}).then(registration => {
       registration.update();
     }).catch(error => {
       console.warn('Service worker registration failed:', error);
