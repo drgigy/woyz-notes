@@ -7031,20 +7031,16 @@ function formatInvestigationList(text){
     .split('\n')
     .map(item => item.trim().replace(/^[-•]\s*/, ''))
     .filter(Boolean);
-  if (lines.length <= 1 && /[,;]\s*(?:Hemoglobin|Hb|ESR|CRP|Total count|TC|Platelet count|Platelets?|Creatinine|Urea|Sodium|Potassium|Chloride|SGOT|SGPT|ALT|AST|Bilirubin|Total cholesterol|Triglycerides|HDL|LDL|ANA|p-ANCA|c-ANCA|Homocysteine)\b/i.test(normalized)){
-    const bloodLines = normalized
-      .split(/[,;]/)
-      .map(item => addStandardBloodUnit(item.trim()))
-      .filter(Boolean);
-    if (bloodLines.length > 1) return `1. Blood investigations:\n${bloodLines.join('\n')}`;
-  }
   const blocks = [];
   let currentBlock = null;
   const flush = () => {
     if (currentBlock?.length) blocks.push(currentBlock);
     currentBlock = null;
   };
-  lines.flatMap(line => formatBloodInvestigationItem(line).split('\n')).map(line => line.trim()).filter(Boolean).forEach(line => {
+  lines.flatMap(line => {
+    const formatted = formatBloodInvestigationItem(line);
+    return isBloodValueLine(formatted) ? splitBloodInvestigationValues(formatted) : formatted.split('\n');
+  }).map(line => line.trim()).filter(Boolean).forEach(line => {
     const cleaned = line.replace(/^\d+[.)]\s*/, '');
     if (isBloodValueLine(cleaned) && currentBlock?.[0] && /^Blood (?:investigations?|reports?)/i.test(currentBlock[0])){
       currentBlock.push(addStandardBloodUnit(cleaned));
@@ -7076,8 +7072,24 @@ function isInvestigationHeaderLine(line){
   return /^(?:MRI|CT|USG|EEG|EMG|NCV|NCS|X[- ]?ray|Blood investigations?|Blood reports?)\b/i.test(String(line || '').trim());
 }
 
+function bloodValueLabelPattern(){
+  return '(?:Hemoglobin|HbA1c|Hb|ESR|CRP|Total WBC Count|WBC(?: Count)?|Total count|TC|Platelet count|Platelets?|Creatinine|Urea|Sodium|Potassium|Chloride|SGOT|SGPT|ALT|AST|Alkaline Phosphatase|ALP|Total Protein|Albumin|Globulin|Total bilirubin|Direct bilirubin|Indirect bilirubin|Bilirubin|Total cholesterol|Triglycerides|HDL|LDL|T3|T4|TSH|RBS|FBS|PPBS|ANA|p-ANCA|c-ANCA|Homocysteine)';
+}
+
 function isBloodValueLine(line){
-  return /^(?:Hemoglobin|Hb|ESR|CRP|Total count|TC|Platelet count|Platelets?|Creatinine|Urea|Sodium|Potassium|Chloride|SGOT|SGPT|ALT|AST|Bilirubin|Total bilirubin|Direct bilirubin|Indirect bilirubin|Total cholesterol|Triglycerides|HDL|LDL|ANA|p-ANCA|c-ANCA|Homocysteine)\b/i.test(String(line || '').trim());
+  return new RegExp(`^${bloodValueLabelPattern()}\\b`, 'i').test(String(line || '').trim());
+}
+
+function splitBloodInvestigationValues(values){
+  // Consume the whole label so "Direct Bilirubin" and "Total WBC Count"
+  // stay together. Numeric values, units and thousands separators are preserved.
+  const resultStart = `${bloodValueLabelPattern()}\\s*:\\s*[<>≤≥~]?\\s*-?\\d`;
+  return String(values || '')
+    .replace(new RegExp(`(^|[,;\\s]+)(${resultStart})`, 'gi'), (match, separator, result, offset) => `${offset === 0 ? '' : '\n'}${result}`)
+    .replace(/[,;]\s*(?=[A-Za-z])/g, '\n')
+    .split('\n')
+    .map(line => line.trim())
+    .filter(Boolean);
 }
 
 function formatBloodInvestigationItem(item){
@@ -7088,11 +7100,8 @@ function formatBloodInvestigationItem(item){
       .map(part => part.trim())
       .filter(Boolean);
     const bloodValues = reportParts.shift() || '';
-    const bloodLines = bloodValues
-      .split(/[,;]/)
-      .map(line => addStandardBloodUnit(line.trim()))
-      .filter(Boolean);
-    if (bloodLines.length <= 1) return match;
+    const bloodLines = splitBloodInvestigationValues(bloodValues)
+      .map(line => addStandardBloodUnit(line));
     const trailingReports = reportParts.length ? `\n${reportParts.join('\n')}` : '';
     return `${label}${dateText}:\n${bloodLines.join('\n')}${trailingReports}`;
   });
@@ -8307,7 +8316,7 @@ if ('serviceWorker' in navigator) {
     navigator.serviceWorker.addEventListener('controllerchange', () => {
       reloadForUpdateWhenIdle();
     });
-    navigator.serviceWorker.register('./sw.js?v=179', {updateViaCache:'none'}).then(registration => {
+    navigator.serviceWorker.register('./sw.js?v=180', {updateViaCache:'none'}).then(registration => {
       registration.update();
     }).catch(error => {
       console.warn('Service worker registration failed:', error);
