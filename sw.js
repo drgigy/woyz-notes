@@ -1,4 +1,4 @@
-const CACHE_NAME = 'woyz-notes-v181';
+const CACHE_NAME = 'woyz-notes-v182';
 const APP_SHELL = [
   './',
   './index.html',
@@ -9,6 +9,7 @@ const APP_SHELL = [
   './woyz-assistant-panel.mjs',
   './woyz-assistant-context.mjs',
   './woyz-assistant-chat.mjs',
+  './woyz-assistant-gemini-test.mjs',
   './manifest.webmanifest',
   './icons/icon-192.png',
   './icons/icon-512.png',
