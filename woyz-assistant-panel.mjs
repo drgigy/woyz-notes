@@ -13,9 +13,6 @@ export function mountAssistant(getContext, answer = demoAnswer) {
     panel.hidden=!shown;
     wrap.classList.toggle('assistant-open',shown);
     el('woyzChatOpen').setAttribute('aria-expanded',String(shown));
-    el('woyzChatContext').textContent=current
-      ? current.name+' · '+current.visits.length+' notes across all templates'
-      : 'Select a saved note for a patient with a UHID.';
     thread.replaceChildren(...state.messages.map(({role,text})=>{
       const line=document.createElement('p');line.textContent=role+': '+text;return line;
     }));

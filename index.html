@@ -2104,9 +2104,7 @@
 #woyzChatWorkspace.assistant-open{display:grid;grid-template-columns:minmax(0,1fr) minmax(285px,46%);flex:1;min-height:0}
 #woyzChat[hidden]{display:none}
 #woyzChat{display:flex;flex-direction:column;min-width:0;min-height:0;overflow:auto;border-left:1px solid var(--border);background:#fafbf9}
-#woyzChat header{display:flex;justify-content:space-between;align-items:start;gap:10px;padding:14px;border-bottom:1px solid var(--border)}
-#woyzChat h2{margin:0;font-size:18px}
-#woyzChat small,#woyzChatContext{color:var(--muted);font-size:12px}
+#woyzChat header{display:flex;justify-content:flex-end;padding:4px 10px}
 #woyzChat button,#woyzChat input{font:inherit;padding:7px 9px;border:1px solid var(--border);border-radius:8px;background:white;color:var(--ink)}
 #woyzChat button{cursor:pointer}#woyzChat button:disabled{opacity:.55;cursor:default}
 #woyzChatPresets{display:grid;gap:5px;padding:10px 14px}#woyzChatPresets button{text-align:left;font-size:13px}
@@ -2295,8 +2293,8 @@
         </div>
       </div>
     </div>
-    <section id="woyzChat" hidden aria-labelledby="woyzChatTitle">
-      <header><div><h2 id="woyzChatTitle">Ask WOYZ</h2><div id="woyzChatContext"></div><small>Doctor suggestions · review before sending</small></div><button id="woyzChatClose" type="button" aria-label="Close Ask WOYZ">×</button></header>
+    <section id="woyzChat" hidden aria-label="Ask WOYZ">
+      <header><button id="woyzChatClose" type="button" aria-label="Close Ask WOYZ">×</button></header>
       <dialog id="woyzClinicalReview">
         <h2>Review before sending to OpenAI</h2>
         <p>Check the question and note text below. Cancel if it contains identifying details.</p>
@@ -8420,7 +8418,7 @@ if ('serviceWorker' in navigator) {
     navigator.serviceWorker.addEventListener('controllerchange', () => {
       reloadForUpdateWhenIdle();
     });
-    navigator.serviceWorker.register('./sw.js?v=185', {updateViaCache:'none'}).then(registration => {
+    navigator.serviceWorker.register('./sw.js?v=186', {updateViaCache:'none'}).then(registration => {
       registration.update();
     }).catch(error => {
       console.warn('Service worker registration failed:', error);
