@@ -2115,6 +2115,33 @@
 #woyzChatInput{min-width:0;flex:1}#woyzChat #woyzChatAsk{background:var(--teal);color:white}
 #woyzChatStatus{font-size:12px;margin:0 14px 8px}#woyzChatStatus:empty{display:none}
 @media(max-width:760px){#woyzChatWorkspace.assistant-open{grid-template-columns:1fr;grid-template-rows:minmax(0,1fr) minmax(0,1.3fr)}#woyzChat{border-left:0;border-top:1px solid var(--border)}}
+
+/* Quick notes sit beside the visit editor, below the existing toolbar. */
+#quickNotesPane[hidden], .quick-divider[hidden]{display:none}
+#quickNotesPane{min-width:0;min-height:0;overflow:auto;padding:16px;background:var(--panel)}
+#quickNotesPane h2{font-size:16px;margin:0 0 12px}
+#quickNotesPane label,#quickNotesPane time{display:block;font-size:12px;font-weight:700;margin-bottom:5px}
+#quickNotesPane textarea{display:block;width:100%;resize:vertical;min-height:64px;padding:8px;border:1px solid var(--border);border-radius:8px;font:inherit;font-size:14px;color:var(--ink);background:white}
+#quickNotesPane button{margin-top:8px;background:var(--teal);color:white}
+#quickNotesPane button:disabled{opacity:.55}
+#quickNotesPane hr{border:0;border-top:1px solid var(--border);margin:14px 0}
+#quickNotesPane article p{white-space:pre-wrap;overflow-wrap:anywhere;font-size:14px;margin:0 0 12px}
+#quickNotesStatus,#quickNotesEmpty{font-size:12px;color:var(--muted);margin:8px 0}
+#quickNotesStatus:empty{display:none}
+.quick-divider{background:var(--border);cursor:col-resize;touch-action:none}
+.quick-divider:hover,.quick-divider:focus-visible{background:var(--teal)}
+#quickLeftDivider{flex:0 0 5px}
+#woyzChatWorkspace.quick-notes-open{display:grid;grid-template-columns:minmax(0,1fr) 5px clamp(180px,var(--quick-right,28%),48%);flex:1;min-height:0}
+@media(min-width:601px){
+  #appShell:has(#quickLeftDivider:not([hidden])) > .sidebar{border-right:0}
+  #appShell[style*="--quick-left"]:has(#quickLeftDivider:not([hidden])) > .sidebar{width:clamp(170px,var(--quick-left),36vw);min-width:0;flex-shrink:0}
+}
+@media(max-width:600px){
+  #quickLeftDivider,#quickRightDivider{display:none}
+  #woyzChatWorkspace.quick-notes-open{grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(0,1fr) minmax(0,34%)}
+  #quickNotesPane{border-top:1px solid var(--border)}
+}
+@media print{#quickNotesPane,.quick-divider{display:none!important}}
 </style>
 </head>
 <body>
@@ -2181,6 +2208,8 @@
       <button class="privacy-label" id="anonymizeLabel" type="button">Anonymize</button>
     </div>
   </aside>
+
+  <div id="quickLeftDivider" class="quick-divider" role="separator" aria-label="Resize patient list" aria-orientation="vertical" tabindex="0" hidden></div>
 
   <!-- MAIN -->
   <main class="main">
@@ -2294,6 +2323,20 @@
         </div>
       </div>
     </div>
+    <div id="quickRightDivider" class="quick-divider" role="separator" aria-label="Resize quick notes" aria-orientation="vertical" tabindex="0" hidden></div>
+    <aside id="quickNotesPane" aria-labelledby="quickNotesHeading" hidden>
+      <h2 id="quickNotesHeading">Quick Notes</h2>
+      <form id="quickNotesForm">
+        <label id="quickNotesDate" for="quickNotesInput"></label>
+        <textarea id="quickNotesInput" rows="3" maxlength="4000" placeholder="Add a quick note…" required></textarea>
+        <button type="submit" class="btn">Save quick note</button>
+      </form>
+      <p id="quickNotesStatus" role="status"></p>
+      <div id="quickNotesToday"></div>
+      <hr>
+      <div id="quickNotesHistory"></div>
+      <p id="quickNotesEmpty"></p>
+    </aside>
     <section id="woyzChat" hidden aria-label="Ask WOYZ">
       <header><button id="woyzChatClose" type="button" aria-label="Close Ask WOYZ">×</button></header>
       <dialog id="woyzClinicalReview">
@@ -8374,6 +8417,169 @@ async function answerClinical(question, _visits, signal, patient) {
   signal.throwIfAborted();
   return (await post('/ask',{...request,ticket})).lines;
 }
+
+function mountQuickNotes(){
+  const el = id => document.getElementById(id);
+  const workspace = el('woyzChatWorkspace');
+  const pane = el('quickNotesPane');
+  const left = el('quickLeftDivider');
+  const right = el('quickRightDivider');
+  const input = el('quickNotesInput');
+  const form = el('quickNotesForm');
+  const submit = form.querySelector('button');
+  const status = el('quickNotesStatus');
+  const snapshots = new Map();
+  const failed = new Set();
+  const drafts = new Map();
+  let sessionUser, context, subscriptions = [], saving = false;
+  const collectionFor = (owner, key) => collection(db,'users',owner,'quickNotePatients',key,'entries');
+  const label = date => new Date(date+'T12:00:00').toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'numeric'});
+
+  function selection(){
+    if(!currentUser || anonymizeEnabled || !appShell.classList.contains('authenticated')) return null;
+    const timeline = searchScope === 'all' ? selectedTimelineKey
+      : selectedVisitType === 'OP' ? selectedOpTimelineKey : selectedIpTimelineKey;
+    const eligible = r => r?.firestoreId && !r.isDraft && !r.isDeleted && !r.deleted;
+    const selected = activeIndex !== null ? records[activeIndex]
+      : searchScope !== 'all' && selectedVisitType === 'OP' ? selectedOpTimelineRecord() : null;
+    if((activeIndex !== null || selected) && !eligible(selected)) return null;
+    const candidates = timelineRecordsForKey(timeline).filter(eligible);
+    // A name-based timeline may group different people. Only use it when
+    // there is a single saved record to which the quick notes can be bound.
+    const anchor = selected || (timeline?.startsWith('uhid:') || candidates.length === 1 ? candidates[0] : null);
+    if(!eligible(anchor)) return null;
+    const patient = stablePatientKey({patientData:{uhid:normalizePatientToken(patientIdentity(anchor).uhid)}});
+    const owners = [...new Set([currentUser.uid,...sharedOwnerIds])].sort();
+    const owner = anchor.ownerUid || currentUser.uid;
+    if(!owners.includes(owner)) return null;
+    const key = patient ? encodeURIComponent(patient) : 'note-'+encodeURIComponent(anchor.firestoreId);
+    const readers = patient ? owners : [owner];
+    return {key, owner, readers, id:JSON.stringify([currentUser.uid,key,...readers])};
+  }
+
+  function render(){
+    const today = dateInputValue(new Date());
+    el('quickNotesDate').textContent = 'Today · '+label(today);
+    const entries = [...snapshots.values()].flat().sort((a,b)=>
+      b.date.localeCompare(a.date) || b.createdAt-a.createdAt);
+    function makeEntry(entry){
+      const card = document.createElement('article');
+      const date = document.createElement('time');
+      date.dateTime = entry.date;
+      date.textContent = label(entry.date);
+      const body = document.createElement('p');
+      body.textContent = entry.text;
+      card.append(date,body);
+      return card;
+    }
+    el('quickNotesToday').replaceChildren(...entries.filter(e=>e.date===today).map(makeEntry));
+    const older = entries.filter(e=>e.date!==today);
+    el('quickNotesHistory').replaceChildren(...older.map(makeEntry));
+    el('quickNotesEmpty').textContent = !context ? '' : failed.size ? 'Some quick notes could not be loaded.'
+      : snapshots.size < context.readers.length ? 'Loading quick notes…' : older.length ? '' : 'No earlier quick notes.';
+  }
+
+  function sync(){
+    if(sessionUser !== currentUser?.uid){
+      drafts.clear();
+      sessionUser = currentUser?.uid;
+    }
+    const next = selection();
+    if(next?.id === context?.id){
+      if(next) context.owner = next.owner;
+      return;
+    }
+    subscriptions.forEach(stop=>stop());
+    subscriptions = [];
+    snapshots.clear();
+    failed.clear();
+    context = next;
+    saving = false;
+    input.value = next ? drafts.get(next.id) || '' : '';
+    submit.disabled = false;
+    input.disabled = false;
+    status.textContent = '';
+    pane.hidden = left.hidden = right.hidden = !next;
+    workspace.classList.toggle('quick-notes-open',Boolean(next));
+    if(next) subscriptions = next.readers.map(owner=>onSnapshot(collectionFor(owner,next.key),snapshot=>{
+      if(context !== next) return;
+      failed.delete(owner);
+      snapshots.set(owner,snapshot.docs.map(item=>item.data()).filter(entry=>
+        typeof entry.text==='string' && /^\d{4}-\d{2}-\d{2}$/.test(entry.date))
+        .map(entry=>({...entry,createdAt:entry.createdAt?.toMillis() || 0})));
+      render();
+    },()=>{
+      if(context !== next) return;
+      snapshots.delete(owner);
+      failed.add(owner);
+      render();
+    }));
+    render();
+  }
+
+  input.addEventListener('input',()=>{
+    if(context) drafts.set(context.id,input.value);
+  });
+  form.addEventListener('submit',async event=>{
+    event.preventDefault();
+    const before = context;
+    sync();
+    if(!before || context !== before || saving || !input.value.trim()) return;
+    const text = input.value.trim();
+    const authorUid = currentUser.uid;
+    const date = dateInputValue(new Date());
+    saving = true;
+    submit.disabled = input.disabled = true;
+    status.textContent = 'Saving…';
+    try{
+      await addDoc(collectionFor(before.owner,before.key),{date,text,createdAt:serverTimestamp(),authorUid});
+      if(sessionUser === authorUid && drafts.get(before.id)?.trim() === text) drafts.delete(before.id);
+      if(context === before){
+        input.value = '';
+        status.textContent = 'Quick note saved.';
+      }
+    }catch{
+      if(context === before) status.textContent = 'Could not save. Your text is still here; try again.';
+    }finally{
+      if(context === before){
+        saving = false;
+        submit.disabled = input.disabled = false;
+      }
+    }
+  });
+
+  function resize(divider,target,measure,apply,direction){
+    let start;
+    divider.addEventListener('pointerdown',event=>{
+      if(event.button !== 0) return;
+      event.preventDefault();
+      divider.setPointerCapture(event.pointerId);
+      start = {x:event.clientX,width:measure(),id:event.pointerId};
+    });
+    divider.addEventListener('pointermove',event=>{
+      if(start?.id === event.pointerId) apply(start.width + direction*(event.clientX-start.x));
+    });
+    divider.addEventListener('lostpointercapture',()=>{start=null;});
+    divider.addEventListener('keydown',event=>{
+      if(!['ArrowLeft','ArrowRight'].includes(event.key)) return;
+      event.preventDefault();
+      apply(measure()+direction*(event.key==='ArrowRight'?16:-16));
+    });
+    divider.setAttribute('aria-controls',target);
+  }
+  const sidebar = appShell.querySelector('.sidebar');
+  sidebar.id ||= 'quickPatientSidebar';
+  resize(left,sidebar.id,()=>sidebar.offsetWidth,
+    width=>appShell.style.setProperty('--quick-left',Math.max(170,Math.min(appShell.clientWidth*.36,width))+'px'),1);
+  resize(right,pane.id,()=>pane.offsetWidth,
+    width=>workspace.style.setProperty('--quick-right',Math.max(180,Math.min(workspace.clientWidth*.48,width))+'px'),-1);
+  const observer = new MutationObserver(sync);
+  for(const id of ['mainScroll','entryList']) observer.observe(el(id),{childList:true});
+  observer.observe(appShell,{attributes:true,attributeFilter:['class']});
+  window.addEventListener('focus',()=>{sync();render();});
+  sync();
+}
+mountQuickNotes();
 
 const askWoyzEnabled = false;
 if (askWoyzEnabled) mountAssistant(()=>{
