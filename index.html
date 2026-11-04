@@ -2302,6 +2302,8 @@
         <button id="woyzGeminiTest" type="button">Test Gemini connection</button>
         <span>Uses your saved key and sends a fictional sample only.</span>
         <p id="woyzGeminiTestResult" role="status"></p>
+        <button id="woyzOpenAITest" type="button">Test OpenAI with fictional data</button>
+        <p id="woyzOpenAITestResult" role="status"></p>
       </div>
       <div id="woyzChatPresets"></div>
       <div id="woyzChatThread" role="log" aria-label="Conversation"></div>
@@ -8342,6 +8344,39 @@ geminiTestButton.addEventListener('click', async () => {
   } finally { geminiTestButton.disabled = false; }
 });
 
+const openAITestButton = document.getElementById('woyzOpenAITest');
+const openAITestResult = document.getElementById('woyzOpenAITestResult');
+openAITestButton.addEventListener('click', async () => {
+  const tester = currentUser;
+  if (!tester) {
+    openAITestResult.textContent = 'Sign in to WOYZ Notes first.';
+    return;
+  }
+  openAITestButton.disabled = true;
+  openAITestResult.textContent = 'Testing OpenAI with a built-in fictional case…';
+  try {
+    const token = await tester.getIdToken();
+    if (currentUser !== tester) return;
+    const response = await fetch('https://ask-woyz-live-test-403388564806.asia-south1.run.app/smoke', {
+      method: 'POST',
+      headers: { Authorization: 'Bearer ' + token },
+      credentials: 'omit',
+      redirect: 'error',
+      signal: AbortSignal.timeout(45000)
+    });
+    const result = await response.json();
+    if (currentUser !== tester) return;
+    openAITestResult.textContent = response.ok && result.fictional === true && Array.isArray(result.lines)
+      ? result.lines.join(' ')
+      : result.error || 'The fictional test failed.';
+  } catch {
+    if (currentUser === tester) openAITestResult.textContent = 'Could not complete the fictional test. Try again.';
+  } finally {
+    if (currentUser !== tester) openAITestResult.textContent = '';
+    openAITestButton.disabled = false;
+  }
+});
+
 mountAssistant(()=>{
   if(!currentUser || !appShell.classList.contains('authenticated')) return null;
   const selected = activeIndex !== null ? records[activeIndex] : null;
@@ -8382,7 +8417,7 @@ if ('serviceWorker' in navigator) {
     navigator.serviceWorker.addEventListener('controllerchange', () => {
       reloadForUpdateWhenIdle();
     });
-    navigator.serviceWorker.register('./sw.js?v=182', {updateViaCache:'none'}).then(registration => {
+    navigator.serviceWorker.register('./sw.js?v=183', {updateViaCache:'none'}).then(registration => {
       registration.update();
     }).catch(error => {
       console.warn('Service worker registration failed:', error);
