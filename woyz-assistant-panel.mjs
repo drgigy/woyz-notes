@@ -1,5 +1,5 @@
 import {createChat, questions, demoAnswer} from './woyz-assistant-chat.mjs';
-export function mountAssistant(getContext) {
+export function mountAssistant(getContext, answer = demoAnswer) {
   const el=id=>document.getElementById(id);
   const thread=el('woyzChatThread'), panel=el('woyzChat'), wrap=el('woyzChatWorkspace');
   const input=el('woyzChatInput'), mic=el('woyzChatMic'), status=el('woyzChatStatus');
@@ -8,7 +8,7 @@ export function mountAssistant(getContext) {
     epoch++; const old=speech;speech=null;old?.abort();
     input.value='';status.textContent='';mic.disabled=false;
   }
-  const chat=createChat({answer:demoAnswer, render(state){
+  const chat=createChat({answer, render(state){
     shown=state.open;
     panel.hidden=!shown;
     wrap.classList.toggle('assistant-open',shown);

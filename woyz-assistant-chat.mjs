@@ -27,12 +27,12 @@ export function createChat({answer, render}) {
       const context = patient.visits.map(({date,title,text}) => ({date,title,text}));
       update();
       try {
-        const lines = await answer(question, context, controller.signal);
-        if (generation === version && !controller.signal.aborted) {
+        const lines = await answer(question, context, controller.signal, patient);
+        if (lines.length && generation === version && !controller.signal.aborted) {
           messages.push({role:'Assistant', text:lines.slice(0,2).map(s=>s.replace(/\s+/g,' ').trim().slice(0,160)).join('\n')});
         }
-      } catch {
-        if (generation === version && !controller.signal.aborted) messages.push({role:'Assistant', text:'Unable to answer. Please try again.'});
+      } catch (error) {
+        if (generation === version && !controller.signal.aborted) messages.push({role:'Assistant', text:error.publicMessage || 'Unable to answer. Please try again.'});
       } finally {
         if (generation === version && pending === controller) { pending = null; update(); }
       }

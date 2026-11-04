@@ -2297,7 +2297,7 @@
       </div>
     </div>
     <section id="woyzChat" hidden aria-labelledby="woyzChatTitle">
-      <header><div><h2 id="woyzChatTitle">Ask WOYZ</h2><div id="woyzChatContext"></div><small>Preview mode · no AI service connected</small></div><button id="woyzChatClose" type="button" aria-label="Close Ask WOYZ">×</button></header>
+      <header><div><h2 id="woyzChatTitle">Ask WOYZ</h2><div id="woyzChatContext"></div><small>Doctor suggestions · review before sending</small></div><button id="woyzChatClose" type="button" aria-label="Close Ask WOYZ">×</button></header>
       <div id="woyzGeminiTestRow">
         <button id="woyzGeminiTest" type="button">Test Gemini connection</button>
         <span>Uses your saved key and sends a fictional sample only.</span>
@@ -2305,6 +2305,13 @@
         <button id="woyzOpenAITest" type="button">Test OpenAI with fictional data</button>
         <p id="woyzOpenAITestResult" role="status"></p>
       </div>
+      <dialog id="woyzClinicalReview">
+        <h2>Review before sending to OpenAI</h2>
+        <p>Check the question and note text below. Cancel if it contains identifying details.</p>
+        <pre style="white-space:pre-wrap;max-width:65ch;max-height:50vh;overflow:auto"></pre>
+        <button type="button" data-review="cancel">Cancel</button>
+        <button type="button" data-review="send">Send to OpenAI</button>
+      </dialog>
       <div id="woyzChatPresets"></div>
       <div id="woyzChatThread" role="log" aria-label="Conversation"></div>
       <form id="woyzChatForm"><input id="woyzChatInput" maxlength="500" autocomplete="off" aria-label="Type a question" placeholder="Ask about this patient…"><button id="woyzChatMic" type="button" aria-label="Dictate a question">🎙</button><button id="woyzChatAsk" type="submit">Ask</button></form>
@@ -8377,6 +8384,54 @@ openAITestButton.addEventListener('click', async () => {
   }
 });
 
+const clinicalAssistantUrl = 'https://ask-woyz-clinical-403388564806.asia-south1.run.app';
+async function answerClinical(question, _visits, signal, patient) {
+  const user = currentUser;
+  if (!user || patient.userId !== user.uid) return [];
+  const token = await user.getIdToken();
+  signal.throwIfAborted();
+  if (currentUser !== user) return [];
+  const request = {refs:patient.refs,question};
+  const post = async (path, body) => {
+    const response = await fetch(clinicalAssistantUrl + path,{
+      method:'POST',signal,credentials:'omit',redirect:'error',
+      headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},
+      body:JSON.stringify(body)
+    });
+    const data = await response.json();
+    if (!response.ok) throw Object.assign(new Error(),{publicMessage:data.error});
+    return data;
+  };
+  const {ticket,input} = await post('/preview',request);
+  signal.throwIfAborted();
+  if (currentUser !== user) return [];
+  const dialog = document.getElementById('woyzClinicalReview');
+  const text = dialog.querySelector('pre');
+  text.textContent = JSON.stringify(input,null,2);
+  const approved = await new Promise(resolve => {
+    const dismiss = () => dialog.close('cancel');
+    const send = () => dialog.close('send');
+    const cancelButton = dialog.querySelector('[data-review="cancel"]');
+    const sendButton = dialog.querySelector('[data-review="send"]');
+    dialog.returnValue = 'cancel';
+    cancelButton.addEventListener('click',dismiss);
+    sendButton.addEventListener('click',send);
+    signal.addEventListener('abort',dismiss,{once:true});
+    dialog.addEventListener('close',()=>{
+      cancelButton.removeEventListener('click',dismiss);
+      sendButton.removeEventListener('click',send);
+      signal.removeEventListener('abort',dismiss);
+      text.textContent = '';
+      resolve(dialog.returnValue === 'send');
+    },{once:true});
+    dialog.showModal();
+    cancelButton.focus();
+  });
+  if (!approved || currentUser !== user) return [];
+  signal.throwIfAborted();
+  return (await post('/ask',{...request,ticket})).lines;
+}
+
 mountAssistant(()=>{
   if(!currentUser || !appShell.classList.contains('authenticated')) return null;
   const selected = activeIndex !== null ? records[activeIndex] : null;
@@ -8389,8 +8444,12 @@ mountAssistant(()=>{
   const anchor = selected || visible.find(r=>!r.isDraft&&!r.isDeleted&&stablePatientKey(r)===key);
   if(!anchor || stablePatientKey(anchor)!==key) return null;
   const visits=historyFor(key,visible);
-  return visits.length ? {id:JSON.stringify([currentUser.uid,key]),name:displayPatientName(anchor),visits} : null;
-});
+  const refs = [...new Set(visible.filter(r => !r.isDraft && !r.isDeleted && !r.deleted &&
+    r.ownerUid && r.firestoreId && stablePatientKey(r) === key)
+    .map(r => 'users/'+r.ownerUid+'/notes/'+r.firestoreId))];
+  return visits.length ? {id:JSON.stringify([currentUser.uid,key]),userId:currentUser.uid,
+    name:displayPatientName(anchor),visits,refs} : null;
+},answerClinical);
 </script>
 <script>
 if ('serviceWorker' in navigator) {
@@ -8417,7 +8476,7 @@ if ('serviceWorker' in navigator) {
     navigator.serviceWorker.addEventListener('controllerchange', () => {
       reloadForUpdateWhenIdle();
     });
-    navigator.serviceWorker.register('./sw.js?v=183', {updateViaCache:'none'}).then(registration => {
+    navigator.serviceWorker.register('./sw.js?v=184', {updateViaCache:'none'}).then(registration => {
       registration.update();
     }).catch(error => {
       console.warn('Service worker registration failed:', error);
