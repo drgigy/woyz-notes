@@ -3302,6 +3302,33 @@ function opTimelineWorkingRecord(){
     || latestOpTimelineRecord();
 }
 
+// Combined timelines must continue the newest clinical entry, including an
+// Add to Today review draft that has not yet been saved as a completed visit.
+function reviewRecordForPatient(key, visitType){
+  if (!key) return null;
+  const today = dateInputValue(new Date());
+  const candidates = new Map();
+  for (const record of [...allRecords,...records]){
+    if (!record.firestoreId || record.isDeleted || record.voiceDraft
+      || patientSearchKey(record) !== key || noteVisitType(record) !== visitType) continue;
+    const kind = opTimelineKind(record);
+    if (kind !== 'Visit Note' && kind !== 'Review Note') continue;
+    if (record.isDraft && !(noteOwnerUid(record) === currentUser?.uid
+      && record.visitDate === today && kind === 'Review Note')) continue;
+    candidates.set(recordLocalKey(record), record);
+  }
+  return [...candidates.values()].sort((a,b) =>
+    String(b.visitDate || '').localeCompare(String(a.visitDate || ''))
+    || recordSortTime(b) - recordSortTime(a))[0] || null;
+}
+
+function reviewContinuationRecord(){
+  const selected = currentEditableRecord();
+  if (selected) return selected;
+  const key = searchScope === 'all' ? selectedTimelineKey : selectedOpTimelineKey;
+  return reviewRecordForPatient(key, selectedVisitType);
+}
+
 function currentEditableRecord(){
   return selectedOpTimelineRecord() || (activeIndex !== null ? records[activeIndex] : null);
 }
@@ -6123,7 +6150,7 @@ function renderContinuationDock(){
 }
 
 function selectedRecordCanContinue(){
-  const record = currentEditableRecord() || opTimelineWorkingRecord();
+  const record = reviewContinuationRecord();
   return Boolean(record && !record.voiceDraft && (record.transcription || record.kind === 'generated'));
 }
 
@@ -6134,8 +6161,8 @@ function newVoiceTemplateForMode(mode, visitType = selectedVisitType){
 }
 
 function openContinuationDock(){
-  if (!selectedRecordCanContinue()) return;
-  const targetRecord = currentEditableRecord() || opTimelineWorkingRecord();
+  if (continuationState.hasStarted || continuationState.processing || !selectedRecordCanContinue()) return;
+  const targetRecord = reviewContinuationRecord();
   if (!targetRecord?.firestoreId) return;
   stopVoiceTimer();
   stopMediaTracks();
@@ -6365,6 +6392,8 @@ async function stopAndAppendContinuation(){
     }
     const targetId = continuationState.targetId;
     const targetOwnerUid = continuationState.targetOwnerUid;
+    const targetIsCurrent = () => continuationState.open && continuationState.targetId === targetId
+      && continuationState.targetOwnerUid === targetOwnerUid;
     if (continuationState.mode === 'new'){
       await runUntilGenerated(
         onRetry => finishNewVoiceDraft(audioBlob, apiKey, onRetry),
@@ -6385,6 +6414,7 @@ async function stopAndAppendContinuation(){
             shouldContinue:() => continuationState.open && continuationState.targetId === targetId && continuationState.targetOwnerUid === targetOwnerUid
           }
         );
+        if (!targetIsCurrent()) return;
         appendDocumentText(generated.text, continuationState.documentMode);
         setContinuationStatus(`${continuationState.documentMode} added. Review and save.`);
       }else{
@@ -6395,6 +6425,7 @@ async function stopAndAppendContinuation(){
             shouldContinue:() => continuationState.open && continuationState.targetId === targetId && continuationState.targetOwnerUid === targetOwnerUid
           }
         );
+        if (!targetIsCurrent()) return;
         appendContinuationText(addition);
         setContinuationStatus('Added to selected note. Review and save.');
       }
@@ -6456,7 +6487,7 @@ function appendContinuationText(addition){
   const text = stripLeadingReviewNoteHeading(addition);
   if (!text) return;
   const record = continuationTargetRecord();
-  if (!record) return;
+  if (!record) throw new Error('The selected review note is no longer available.');
   appendTextToRecord(record, text, {review:true, scrollToAppended:true});
 }
 
@@ -8420,7 +8451,7 @@ if ('serviceWorker' in navigator) {
     navigator.serviceWorker.addEventListener('controllerchange', () => {
       reloadForUpdateWhenIdle();
     });
-    navigator.serviceWorker.register('./sw.js?v=191', {updateViaCache:'none'}).then(registration => {
+    navigator.serviceWorker.register('./sw.js?v=192', {updateViaCache:'none'}).then(registration => {
       registration.update();
     }).catch(error => {
       console.warn('Service worker registration failed:', error);
