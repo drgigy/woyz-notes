@@ -2115,40 +2115,6 @@
 #woyzChatInput{min-width:0;flex:1}#woyzChat #woyzChatAsk{background:var(--teal);color:white}
 #woyzChatStatus{font-size:12px;margin:0 14px 8px}#woyzChatStatus:empty{display:none}
 @media(max-width:760px){#woyzChatWorkspace.assistant-open{grid-template-columns:1fr;grid-template-rows:minmax(0,1fr) minmax(0,1.3fr)}#woyzChat{border-left:0;border-top:1px solid var(--border)}}
-
-/* Quick notes sit beside the visit editor, below the existing toolbar. */
-#quickNotesPane[hidden], .quick-divider[hidden]{display:none}
-#quickNotesPane{min-width:0;min-height:0;overflow:auto;padding:16px;background:var(--panel)}
-#quickNotesPane [hidden]{display:none}
-#quickNotesDate{display:block;font-size:12px;font-weight:700}
-#quickNotesActions{display:flex;align-items:center;gap:6px;margin-bottom:8px}
-#quickNotesActions svg{width:15px;height:15px}
-#quickVoiceDialog{inset:auto 18px 22px auto;margin:0;min-height:0;max-width:calc(100vw - 28px);max-height:calc(100dvh - 16px);overflow:auto}
-#quickVoiceDialog[open]{display:grid;gap:12px}
-#quickVoiceDialog [hidden]{display:none}
-#quickVoiceStatus{font-size:13px;margin:8px 0 0}
-#quickNotesPane label,#quickNotesPane time{display:block;font-size:12px;font-weight:700;margin-bottom:5px}
-#quickNotesPane textarea{display:block;width:100%;resize:vertical;min-height:64px;padding:8px;border:1px solid var(--border);border-radius:8px;font:inherit;font-size:14px;color:var(--ink);background:white}
-#quickNotesPane .btn{margin-top:8px;background:var(--teal);color:white}
-#quickNotesPane button:disabled{opacity:.55}
-#quickNotesPane hr{border:0;border-top:1px solid var(--border);margin:14px 0}
-#quickNotesPane article p{white-space:pre-wrap;overflow-wrap:anywhere;font-size:14px;margin:0 0 12px}
-#quickNotesStatus,#quickNotesEmpty{font-size:12px;color:var(--muted);margin:8px 0}
-#quickNotesStatus:empty{display:none}
-.quick-divider{background:var(--border);cursor:col-resize;touch-action:none}
-.quick-divider:hover,.quick-divider:focus-visible{background:var(--teal)}
-#quickLeftDivider{flex:0 0 5px}
-#woyzChatWorkspace.quick-notes-open{display:grid;grid-template-columns:minmax(0,1fr) 5px clamp(180px,var(--quick-right,28%),48%);flex:1;min-height:0}
-@media(min-width:601px){
-  #appShell:has(#quickLeftDivider:not([hidden])) > .sidebar{border-right:0}
-  #appShell[style*="--quick-left"]:has(#quickLeftDivider:not([hidden])) > .sidebar{width:clamp(170px,var(--quick-left),36vw);min-width:0;flex-shrink:0}
-}
-@media(max-width:600px){
-  #quickLeftDivider,#quickRightDivider{display:none}
-  #woyzChatWorkspace.quick-notes-open{grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(0,1fr) minmax(0,34%)}
-  #quickNotesPane{border-top:1px solid var(--border)}
-}
-@media print{#quickNotesPane,.quick-divider{display:none!important}}
 </style>
 </head>
 <body>
@@ -2215,8 +2181,6 @@
       <button class="privacy-label" id="anonymizeLabel" type="button">Anonymize</button>
     </div>
   </aside>
-
-  <div id="quickLeftDivider" class="quick-divider" role="separator" aria-label="Resize patient list" aria-orientation="vertical" tabindex="0" hidden></div>
 
   <!-- MAIN -->
   <main class="main">
@@ -2330,25 +2294,6 @@
         </div>
       </div>
     </div>
-    <div id="quickRightDivider" class="quick-divider" role="separator" aria-label="Resize quick notes" aria-orientation="vertical" tabindex="0" hidden></div>
-    <aside id="quickNotesPane" aria-label="Quick notes" hidden>
-      <div id="quickNotesDate"></div>
-      <div id="quickNotesActions">
-        <button id="quickVoiceOpen" type="button" class="btn">Quick Note</button>
-        <button id="quickNotesWrite" type="button" class="btn" aria-label="Type a quick note" title="Type a quick note">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m4 16-1 5 5-1L21 7l-4-4L4 16Zm10-10 4 4"/></svg>
-        </button>
-      </div>
-      <form id="quickNotesForm" hidden>
-        <textarea id="quickNotesInput" aria-label="Quick note text" rows="3" maxlength="4000" required></textarea>
-        <button type="submit" class="btn">Save note</button>
-      </form>
-      <p id="quickNotesStatus" role="status"></p>
-      <div id="quickNotesToday"></div>
-      <hr>
-      <div id="quickNotesHistory"></div>
-      <p id="quickNotesEmpty"></p>
-    </aside>
     <section id="woyzChat" hidden aria-label="Ask WOYZ">
       <header><button id="woyzChatClose" type="button" aria-label="Close Ask WOYZ">×</button></header>
       <dialog id="woyzClinicalReview">
@@ -2417,26 +2362,6 @@
     <div class="continuation-status" id="continuationStatus">Ready</div>
   </div>
 </div>
-
-<dialog class="continuation-dock" id="quickVoiceDialog" aria-labelledby="quickVoiceTitle">
-  <div class="continuation-dock-head" id="quickVoiceHandle">
-    <div class="continuation-title" id="quickVoiceTitle">Quick Note dictation</div>
-    <button type="button" class="continuation-close" id="quickVoiceClose" aria-label="Close Quick Note dictation">&times;</button>
-  </div>
-  <div class="continuation-body">
-  <div class="continuation-timer" id="quickVoiceTimer">05:00</div>
-  <div class="continuation-actions">
-    <button type="button" class="continuation-action start" id="quickVoiceStart" aria-label="Start recording">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>
-    </button>
-    <button type="button" class="continuation-action pause" id="quickVoicePause" aria-label="Pause recording" hidden>Ⅱ</button>
-    <button type="button" class="continuation-action extend" id="quickVoiceExtend" aria-label="Add five minutes" hidden>+5</button>
-    <button type="button" class="continuation-action stop" id="quickVoiceStop" aria-label="Stop and transcribe" hidden>■</button>
-  </div>
-  <button type="button" class="btn" id="quickVoiceRetry" hidden>Retry transcription</button>
-    <p id="quickVoiceStatus" class="continuation-status" role="status"></p>
-  </div>
-</dialog>
 
 <div class="modal-backdrop" id="authModal" role="dialog" aria-modal="true" aria-labelledby="authModalTitle">
   <div class="auth-modal">
@@ -6762,21 +6687,29 @@ function placeDock(side){
   }
 }
 
-function dragRecorderDock(event, dock, handle){
-  if (event.button !== 0 || event.target.closest('button')) return;
+function dragContinuationDock(event){
+  if (event.target.closest('button')) return;
   event.preventDefault();
-  const start = dock.getBoundingClientRect();
-  handle.setPointerCapture(event.pointerId);
-  const move = next => {
-    if (next.pointerId !== event.pointerId) return;
-    const left = start.left + next.clientX - event.clientX;
-    const top = start.top + next.clientY - event.clientY;
-    dock.style.left = Math.max(8, Math.min(window.innerWidth - dock.offsetWidth - 8, left)) + 'px';
-    dock.style.top = Math.max(8, Math.min(window.innerHeight - dock.offsetHeight - 8, top)) + 'px';
-    dock.style.bottom = dock.style.right = 'auto';
+  continuationDockHandle.setPointerCapture?.(event.pointerId);
+  const startRect = continuationDock.getBoundingClientRect();
+  const startX = event.clientX;
+  const startY = event.clientY;
+  const move = moveEvent => {
+    moveEvent.preventDefault();
+    const nextLeft = Math.min(window.innerWidth - startRect.width - 8, Math.max(8, startRect.left + moveEvent.clientX - startX));
+    const nextTop = Math.min(window.innerHeight - startRect.height - 8, Math.max(8, startRect.top + moveEvent.clientY - startY));
+    continuationDock.style.left = `${nextLeft}px`;
+    continuationDock.style.top = `${nextTop}px`;
+    continuationDock.style.bottom = 'auto';
+    continuationDock.style.right = 'auto';
   };
-  handle.addEventListener('pointermove', move);
-  handle.addEventListener('lostpointercapture', () => handle.removeEventListener('pointermove', move), {once:true});
+  const up = () => {
+    try{ continuationDockHandle.releasePointerCapture?.(event.pointerId); }catch(_error){}
+    document.removeEventListener('pointermove', move);
+    document.removeEventListener('pointerup', up);
+  };
+  document.addEventListener('pointermove', move);
+  document.addEventListener('pointerup', up);
 }
 
 function continuationResponseSchema(){
@@ -6848,7 +6781,7 @@ function wireContinuationDock(){
   continuationExtendBtn.addEventListener('click', extendContinuationRecording);
   continuationStopBtn.addEventListener('click', stopAndAppendContinuation);
   continuationCloseBtn.addEventListener('click', closeVoiceDraftWithConfirmation);
-  continuationDockHandle.addEventListener('pointerdown', event => dragRecorderDock(event, continuationDock, continuationDockHandle));
+  continuationDockHandle.addEventListener('pointerdown', dragContinuationDock);
   continuationModeBar.addEventListener('click', event => {
     const button = event.target.closest('[data-new-voice-mode]');
     if (!button) return;
@@ -6945,7 +6878,7 @@ async function runUntilGenerated(task, {setStatus,shouldContinue} = {}){
   throw noteServiceError('Note generation was stopped.', false);
 }
 
-async function generateContentWithRetry({apiKey,audioBlob,audioData,systemPrompt,taskPrompt,responseSchema,onRetry,signal}){
+async function generateContentWithRetry({apiKey,audioBlob,audioData,systemPrompt,taskPrompt,responseSchema,onRetry}){
   const attemptPlan = [
     {model:GEMINI_MODELS[0],waitMs:1200},
     {model:GEMINI_MODELS[0],waitMs:2800},
@@ -6958,7 +6891,6 @@ async function generateContentWithRetry({apiKey,audioBlob,audioData,systemPrompt
   const maxAttempts = attemptPlan.length;
   let lastMessage = '';
   for (let attempt = 1; attempt <= maxAttempts; attempt += 1){
-    signal?.throwIfAborted();
     const plan = attemptPlan[attempt - 1];
     let response;
     const controller = new AbortController();
@@ -6966,7 +6898,7 @@ async function generateContentWithRetry({apiKey,audioBlob,audioData,systemPrompt
     try{
       response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${plan.model}:generateContent`, {
         method:'POST',
-        signal:signal ? AbortSignal.any([signal,controller.signal]) : controller.signal,
+        signal:controller.signal,
         headers:{'Content-Type':'application/json','x-goog-api-key':apiKey},
         body:JSON.stringify({
           systemInstruction:{parts:[{text:systemPrompt}]},
@@ -6978,7 +6910,6 @@ async function generateContentWithRetry({apiKey,audioBlob,audioData,systemPrompt
         })
       });
     }catch(error){
-      signal?.throwIfAborted();
       lastMessage = error.name === 'AbortError' ? 'The note service timed out.' : (error.message || 'Network request failed.');
       if (attempt === maxAttempts) throw noteServiceError(lastMessage, true);
       const nextModel = attemptPlan[attempt]?.model;
@@ -8444,369 +8375,6 @@ async function answerClinical(question, _visits, signal, patient) {
   return (await post('/ask',{...request,ticket})).lines;
 }
 
-function mountQuickNoteRecorder(el, getSelection, receiveText){
-  const dialog = el('quickVoiceDialog');
-  const start = el('quickVoiceStart');
-  const pause = el('quickVoicePause');
-  const extend = el('quickVoiceExtend');
-  const stop = el('quickVoiceStop');
-  const retry = el('quickVoiceRetry');
-  const status = el('quickVoiceStatus');
-  let session;
-
-  function close(){
-    const old = session;
-    session = null;
-    if (old){
-      old.cancel.abort();
-      clearInterval(old.timer);
-      if (old.recorder && old.recorder.state !== 'inactive') old.recorder.stop();
-      old.stream?.getTracks().forEach(track => track.stop());
-    }
-    if (dialog.open) dialog.close();
-  }
-
-  function render(){
-    if (!session) return;
-    const {state, deadline, remaining, blob} = session;
-    const active = state === 'recording' || state === 'paused';
-    start.hidden = state !== 'ready' || Boolean(blob);
-    pause.hidden = extend.hidden = stop.hidden = !active;
-    retry.hidden = state !== 'ready' || !blob;
-    const paused = state === 'paused';
-    pause.textContent = paused ? '▶' : 'Ⅱ';
-    pause.setAttribute('aria-label', paused ? 'Resume recording' : 'Pause recording');
-    const seconds = Math.ceil(Math.max(0, state === 'recording' ? deadline - performance.now() : remaining) / 1000);
-    el('quickVoiceTimer').textContent = [Math.floor(seconds / 60), seconds % 60]
-      .map(value => String(value).padStart(2,'0')).join(':');
-  }
-
-  async function transcribe(current){
-    if (session !== current || getSelection() !== current.selection) return;
-    current.state = 'processing';
-    status.textContent = 'Transcribing…';
-    render();
-    try{
-      if (!current.blob.size) throw new Error('No audio was recorded. Close and start again.');
-      if (current.blob.size > 19 * 1024 * 1024) throw new Error('Recording is too large. Close and try a shorter note.');
-      const apiKey = localStorage.getItem(GEMINI_KEY_STORAGE);
-      if (!apiKey) throw new Error('Add an authorization key in Settings.');
-      const audioData = await blobToBase64(current.blob);
-      const payload = await generateContentWithRetry({
-        apiKey, audioBlob:current.blob, audioData, signal:current.cancel.signal,
-        systemPrompt:'Transcribe the dictated quick note. Preserve the meaning and every stated detail. Correct spelling and punctuation only. Do not add headings or infer information. If nothing is audible, return an empty text field.',
-        taskPrompt:'Return only the transcribed quick note in the text field.',
-        responseSchema:continuationResponseSchema(),
-        onRetry:message => { if (session === current) status.textContent = message; }
-      });
-      const response = payload.candidates?.[0]?.content?.parts?.map(part => part.text || '').join('') || '{}';
-      const text = String(JSON.parse(response).text || '').trim();
-      if (!text) throw new Error('No speech was transcribed.');
-      if (session !== current || getSelection() !== current.selection) return;
-      if (text.length > current.capacity) throw new Error('The transcript exceeds the space left in this note. Close and try a shorter dictation.');
-      if (receiveText(text) === false) throw new Error('The transcript exceeds the space left in this note. Shorten the draft and retry.');
-      close();
-    }catch(error){
-      if (session !== current) return;
-      current.state = 'ready';
-      status.textContent = userSafeNoteServiceMessage(error.message);
-      render();
-    }
-  }
-
-  function stopRecording(){
-    if (!session || !['recording','paused'].includes(session.state)) return;
-    session.state = 'processing';
-    clearInterval(session.timer);
-    session.recorder.stop();
-    status.textContent = 'Processing recording…';
-    render();
-  }
-
-  start.addEventListener('click', async () => {
-    const current = session;
-    if (!current || current.state !== 'ready' || getSelection() !== current.selection) return;
-    if (mediaRecorder && mediaRecorder.state !== 'inactive'){
-      status.textContent = 'Finish the other recording first.';
-      return;
-    }
-    current.state = 'starting';
-    status.textContent = 'Opening microphone…';
-    render();
-    try{
-      const stream = await navigator.mediaDevices.getUserMedia({audio:true});
-      if (session !== current || getSelection() !== current.selection){
-        stream.getTracks().forEach(track => track.stop());
-        return;
-      }
-      current.stream = stream;
-      const recorder = new MediaRecorder(stream);
-      const chunks = [];
-      current.recorder = recorder;
-      recorder.addEventListener('dataavailable', event => { if (event.data.size) chunks.push(event.data); });
-      recorder.addEventListener('error', () => {
-        if (session !== current) return;
-        clearInterval(current.timer);
-        stream.getTracks().forEach(track => track.stop());
-        current.state = 'failed';
-        status.textContent = 'Recording failed. Close and try again.';
-        render();
-      });
-      recorder.addEventListener('stop', () => {
-        stream.getTracks().forEach(track => track.stop());
-        if (session !== current || current.state === 'failed') return;
-        clearInterval(current.timer);
-        current.blob = new Blob(chunks,{type:recorder.mimeType || 'audio/webm'});
-        void transcribe(current);
-      }, {once:true});
-      recorder.start(1000);
-      current.state = 'recording';
-      current.deadline = performance.now() + current.remaining;
-      status.textContent = 'Recording…';
-      current.timer = setInterval(() => {
-        if (current.state === 'recording' && performance.now() >= current.deadline) stopRecording();
-        else render();
-      }, 250);
-      render();
-    }catch{
-      if (session !== current) return;
-      current.stream?.getTracks().forEach(track => track.stop());
-      current.state = 'ready';
-      status.textContent = 'Could not start recording. Check microphone access.';
-      render();
-    }
-  });
-  pause.addEventListener('click', () => {
-    if (session?.state === 'recording'){
-      session.recorder.pause();
-      session.remaining = Math.max(0,session.deadline - performance.now());
-      session.state = 'paused';
-      status.textContent = 'Paused';
-    }else if (session?.state === 'paused'){
-      session.recorder.resume();
-      session.deadline = performance.now() + session.remaining;
-      session.state = 'recording';
-      status.textContent = 'Recording…';
-    }
-    render();
-  });
-  extend.addEventListener('click', () => {
-    if (session?.state === 'recording') session.deadline += 300000;
-    else if (session?.state === 'paused') session.remaining += 300000;
-    render();
-  });
-  stop.addEventListener('click', stopRecording);
-  retry.addEventListener('click', () => { if (session?.blob) void transcribe(session); });
-  const handle = el('quickVoiceHandle');
-  handle.addEventListener('pointerdown', event => dragRecorderDock(event, dialog, handle));
-  el('quickVoiceClose').addEventListener('click', () => {
-    close();
-    el('quickVoiceOpen').focus();
-  });
-  dialog.addEventListener('cancel', event => { event.preventDefault(); close(); });
-
-  return {close, open(selection, capacity){
-    if (dialog.open) return;
-    if (capacity <= 0){
-      el('quickNotesStatus').textContent = 'Save or shorten the current note before dictating more.';
-      return;
-    }
-    session = {selection,capacity,state:'ready',remaining:300000,cancel:new AbortController()};
-    status.textContent = '';
-    render();
-    dialog.show();
-  }};
-}
-
-function mountQuickNotes(){
-  const el = id => document.getElementById(id);
-  const workspace = el('woyzChatWorkspace');
-  const pane = el('quickNotesPane');
-  const left = el('quickLeftDivider');
-  const right = el('quickRightDivider');
-  const input = el('quickNotesInput');
-  const form = el('quickNotesForm');
-  const submit = form.querySelector('button');
-  const status = el('quickNotesStatus');
-  const voice = mountQuickNoteRecorder(el, () => {
-    sync();
-    return context;
-  }, text => {
-    const combined = [input.value.trim(), text].filter(Boolean).join('\n');
-    if (combined.length > input.maxLength) return false;
-    input.value = combined;
-    drafts.set(context.id,input.value);
-    form.hidden = false;
-    queueMicrotask(() => input.focus());
-  });
-  el('quickNotesWrite').addEventListener('click', () => {
-    sync();
-    if (!context || saving) return;
-    voice.close();
-    form.hidden = false;
-    input.focus();
-  });
-  el('quickVoiceOpen').addEventListener('click', () => {
-    sync();
-    if (context && !saving) voice.open(context, 4000 - input.value.trim().length - (input.value.trim() ? 1 : 0));
-  });
-  const snapshots = new Map();
-  const failed = new Set();
-  const drafts = new Map();
-  let sessionUser, context, subscriptions = [], saving = false;
-  const collectionFor = (owner, key) => collection(db,'users',owner,'quickNotePatients',key,'entries');
-  const label = date => new Date(date+'T12:00:00').toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'numeric'});
-
-  function selection(){
-    if(!currentUser || anonymizeEnabled || !appShell.classList.contains('authenticated')) return null;
-    const timeline = searchScope === 'all' ? selectedTimelineKey
-      : selectedVisitType === 'OP' ? selectedOpTimelineKey : selectedIpTimelineKey;
-    const eligible = r => r?.firestoreId && !r.isDraft && !r.isDeleted && !r.deleted;
-    const selected = activeIndex !== null ? records[activeIndex]
-      : searchScope !== 'all' && selectedVisitType === 'OP' ? selectedOpTimelineRecord() : null;
-    if((activeIndex !== null || selected) && !eligible(selected)) return null;
-    const candidates = timelineRecordsForKey(timeline).filter(eligible);
-    // A name-based timeline may group different people. Only use it when
-    // there is a single saved record to which the quick notes can be bound.
-    const anchor = selected || (timeline?.startsWith('uhid:') || candidates.length === 1 ? candidates[0] : null);
-    if(!eligible(anchor)) return null;
-    const patient = stablePatientKey({patientData:{uhid:normalizePatientToken(patientIdentity(anchor).uhid)}});
-    const owners = [...new Set([currentUser.uid,...sharedOwnerIds])].sort();
-    const owner = anchor.ownerUid || currentUser.uid;
-    if(!owners.includes(owner)) return null;
-    const key = patient ? encodeURIComponent(patient) : 'note-'+encodeURIComponent(anchor.firestoreId);
-    const readers = patient ? owners : [owner];
-    return {key, owner, readers, id:JSON.stringify([currentUser.uid,key,...readers])};
-  }
-
-  function render(){
-    const today = dateInputValue(new Date());
-    el('quickNotesDate').textContent = 'Today · '+label(today);
-    const entries = [...snapshots.values()].flat().sort((a,b)=>
-      b.date.localeCompare(a.date) || b.createdAt-a.createdAt);
-    function makeEntry(entry){
-      const card = document.createElement('article');
-      const date = document.createElement('time');
-      date.dateTime = entry.date;
-      date.textContent = label(entry.date);
-      const body = document.createElement('p');
-      body.textContent = entry.text;
-      card.append(date,body);
-      return card;
-    }
-    el('quickNotesToday').replaceChildren(...entries.filter(e=>e.date===today).map(makeEntry));
-    const older = entries.filter(e=>e.date!==today);
-    el('quickNotesHistory').replaceChildren(...older.map(makeEntry));
-    el('quickNotesEmpty').textContent = !context ? '' : failed.size ? 'Some quick notes could not be loaded.'
-      : snapshots.size < context.readers.length ? 'Loading quick notes…' : '';
-  }
-
-  function sync(){
-    if(sessionUser !== currentUser?.uid){
-      drafts.clear();
-      sessionUser = currentUser?.uid;
-    }
-    const next = selection();
-    if(next?.id === context?.id){
-      if(next) context.owner = next.owner;
-      return;
-    }
-    voice.close();
-    subscriptions.forEach(stop=>stop());
-    subscriptions = [];
-    snapshots.clear();
-    failed.clear();
-    context = next;
-    saving = false;
-    input.value = next ? drafts.get(next.id) || '' : '';
-    form.hidden = !input.value;
-    submit.disabled = false;
-    input.disabled = false;
-    status.textContent = '';
-    pane.hidden = left.hidden = right.hidden = !next;
-    workspace.classList.toggle('quick-notes-open',Boolean(next));
-    if(next) subscriptions = next.readers.map(owner=>onSnapshot(collectionFor(owner,next.key),snapshot=>{
-      if(context !== next) return;
-      failed.delete(owner);
-      snapshots.set(owner,snapshot.docs.map(item=>item.data()).filter(entry=>
-        typeof entry.text==='string' && /^\d{4}-\d{2}-\d{2}$/.test(entry.date))
-        .map(entry=>({...entry,createdAt:entry.createdAt?.toMillis() || 0})));
-      render();
-    },()=>{
-      if(context !== next) return;
-      snapshots.delete(owner);
-      failed.add(owner);
-      render();
-    }));
-    render();
-  }
-
-  input.addEventListener('input',()=>{
-    if(context) drafts.set(context.id,input.value);
-  });
-  form.addEventListener('submit',async event=>{
-    event.preventDefault();
-    const before = context;
-    sync();
-    if(!before || context !== before || saving || !input.value.trim()) return;
-    voice.close();
-    const text = input.value.trim();
-    const authorUid = currentUser.uid;
-    const date = dateInputValue(new Date());
-    saving = true;
-    submit.disabled = input.disabled = true;
-    status.textContent = 'Saving…';
-    try{
-      await addDoc(collectionFor(before.owner,before.key),{date,text,createdAt:serverTimestamp(),authorUid});
-      if(sessionUser === authorUid && drafts.get(before.id)?.trim() === text) drafts.delete(before.id);
-      if(context === before){
-        input.value = '';
-        form.hidden = true;
-        status.textContent = '';
-      }
-    }catch{
-      if(context === before) status.textContent = 'Could not save. Your text is still here; try again.';
-    }finally{
-      if(context === before){
-        saving = false;
-        submit.disabled = input.disabled = false;
-      }
-    }
-  });
-
-  function resize(divider,target,measure,apply,direction){
-    let start;
-    divider.addEventListener('pointerdown',event=>{
-      if(event.button !== 0) return;
-      event.preventDefault();
-      divider.setPointerCapture(event.pointerId);
-      start = {x:event.clientX,width:measure(),id:event.pointerId};
-    });
-    divider.addEventListener('pointermove',event=>{
-      if(start?.id === event.pointerId) apply(start.width + direction*(event.clientX-start.x));
-    });
-    divider.addEventListener('lostpointercapture',()=>{start=null;});
-    divider.addEventListener('keydown',event=>{
-      if(!['ArrowLeft','ArrowRight'].includes(event.key)) return;
-      event.preventDefault();
-      apply(measure()+direction*(event.key==='ArrowRight'?16:-16));
-    });
-    divider.setAttribute('aria-controls',target);
-  }
-  const sidebar = appShell.querySelector('.sidebar');
-  sidebar.id ||= 'quickPatientSidebar';
-  resize(left,sidebar.id,()=>sidebar.offsetWidth,
-    width=>appShell.style.setProperty('--quick-left',Math.max(170,Math.min(appShell.clientWidth*.36,width))+'px'),1);
-  resize(right,pane.id,()=>pane.offsetWidth,
-    width=>workspace.style.setProperty('--quick-right',Math.max(180,Math.min(workspace.clientWidth*.48,width))+'px'),-1);
-  const observer = new MutationObserver(sync);
-  for(const id of ['mainScroll','entryList']) observer.observe(el(id),{childList:true});
-  observer.observe(appShell,{attributes:true,attributeFilter:['class']});
-  window.addEventListener('focus',()=>{sync();render();});
-  sync();
-}
-mountQuickNotes();
-
 const askWoyzEnabled = false;
 if (askWoyzEnabled) mountAssistant(()=>{
   if(!currentUser || !appShell.classList.contains('authenticated')) return null;
@@ -8835,7 +8403,7 @@ if ('serviceWorker' in navigator) {
     const hasActiveVoiceWork = () => {
       const activeRecording = records.some(record => record?.recording || record?.transcribing);
       const dockRecording = continuationState.open && (continuationState.recording || continuationState.processing || continuationState.hasStarted);
-      return Boolean(activeRecording || dockRecording || document.getElementById('quickVoiceDialog')?.open || document.getElementById('quickNotesInput')?.value.trim());
+      return Boolean(activeRecording || dockRecording);
     };
     const reloadForUpdateWhenIdle = () => {
       if (refreshingForUpdate) return;
@@ -8852,7 +8420,7 @@ if ('serviceWorker' in navigator) {
     navigator.serviceWorker.addEventListener('controllerchange', () => {
       reloadForUpdateWhenIdle();
     });
-    navigator.serviceWorker.register('./sw.js?v=190', {updateViaCache:'none'}).then(registration => {
+    navigator.serviceWorker.register('./sw.js?v=191', {updateViaCache:'none'}).then(registration => {
       registration.update();
     }).catch(error => {
       console.warn('Service worker registration failed:', error);
