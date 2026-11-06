@@ -2841,6 +2841,7 @@ let emailCloseTimer = null;
 let timelineCloseTimer = null;
 let pendingEmailMode = 'visit';
 let anonymizeEnabled = localStorage.getItem(ANONYMIZE_STORAGE) === 'true';
+let pendingContinuationStart = null;
 let continuationState = {
   open:false,
   mode:'continue',
@@ -6250,6 +6251,7 @@ function openNewVoiceDock(){
 }
 
 function closeContinuationDock({releaseMic = true, preserveNewDraftCancel = false} = {}){
+  pendingContinuationStart = null;
   continuationState.open = false;
   continuationState.recording = false;
   continuationState.paused = false;
@@ -6306,14 +6308,21 @@ async function closeVoiceDraftWithConfirmation(){
 }
 
 async function startContinuationRecording(){
-  if (!continuationState.open || continuationState.processing) return;
+  if (!continuationState.open || continuationState.processing || continuationState.hasStarted || pendingContinuationStart) return;
   if (continuationState.mode === 'new' && !continuationState.targetId){
     setContinuationStatus('Preparing voice note...');
     return;
   }
+  const attempt = {};
+  pendingContinuationStart = attempt;
   try{
     continuationState.audioBlob = null;
-    mediaStream = await navigator.mediaDevices.getUserMedia({audio:true});
+    const stream = await navigator.mediaDevices.getUserMedia({audio:true});
+    if (pendingContinuationStart !== attempt || !continuationState.open){
+      stream.getTracks().forEach(track => track.stop());
+      return;
+    }
+    mediaStream = stream;
     audioChunks = [];
     setupAudioAnalyser(mediaStream);
     mediaRecorder = new MediaRecorder(mediaStream);
@@ -6327,7 +6336,9 @@ async function startContinuationRecording(){
     startWaveformAnimation();
     renderContinuationDock();
   }catch(error){
-    setContinuationStatus('Microphone access is required.');
+    if (pendingContinuationStart === attempt) setContinuationStatus('Microphone access is required.');
+  }finally{
+    if (pendingContinuationStart === attempt) pendingContinuationStart = null;
   }
 }
 
@@ -8107,29 +8118,43 @@ recordBtn.addEventListener('click', async event => {
 addNoteBtn.addEventListener('click', createManualDraft);
 addNoteBtn.addEventListener('click', closeMobileSidebar);
 
-document.addEventListener('keydown', (event) => {
-  const isTyping = ['INPUT','TEXTAREA'].includes(document.activeElement?.tagName) || document.activeElement?.isContentEditable;
-  if (isTyping || authModal.classList.contains('open') || credentialModal.classList.contains('open') || emailModal.classList.contains('open') || trashModal.classList.contains('open') || layoutModal.classList.contains('open') || mmseModal.classList.contains('open')) return;
+// Capture recorder shortcuts before focused buttons or editors handle them.
+// Suppress keyup too, because Space activates a focused button on release.
+const recorderShortcutKeys = new Set();
+document.addEventListener('keydown', event => {
+  if (event.ctrlKey || event.metaKey || event.altKey || event.isComposing) return;
+  if (!['Space','Enter','NumpadEnter'].includes(event.code)) return;
+  const modalOpen = [authModal,credentialModal,emailModal,trashModal,layoutModal,mmseModal]
+    .some(modal => modal.classList.contains('open'));
+  if (modalOpen) return;
+  const isTyping = ['INPUT','TEXTAREA'].includes(document.activeElement?.tagName)
+    || document.activeElement?.isContentEditable;
+  const draft = activeIndex !== null ? records[activeIndex] : null;
+  if (!continuationState.open && (isTyping || !draft?.isDraft)) return;
+  event.preventDefault();
+  event.stopImmediatePropagation();
+  recorderShortcutKeys.add(event.code);
+  if (event.repeat) return;
   if (continuationState.open){
+    if (continuationState.processing) return;
     if (event.code === 'Space'){
-      event.preventDefault();
       if (continuationState.hasStarted) pauseResumeContinuationRecording();
-      else startContinuationRecording();
-    }else if (event.code === 'Enter'){
-      event.preventDefault();
-      if (continuationState.hasStarted) stopAndAppendContinuation();
+      else void startContinuationRecording();
+    }else if (continuationState.hasStarted){
+      void stopAndAppendContinuation();
     }
-    return;
+  }else if (event.code === 'Space'){
+    void handleSpaceAction();
+  }else{
+    void stopAndTranscribe();
   }
-  if (activeIndex === null || !records[activeIndex]?.isDraft) return;
-  if (event.code === 'Space'){
-    event.preventDefault();
-    handleSpaceAction();
-  }else if (event.code === 'Enter'){
-    event.preventDefault();
-    stopAndTranscribe();
-  }
-});
+}, true);
+document.addEventListener('keyup', event => {
+  if (!recorderShortcutKeys.delete(event.code)) return;
+  event.preventDefault();
+  event.stopImmediatePropagation();
+}, true);
+window.addEventListener('blur', () => recorderShortcutKeys.clear());
 
 authKeyBtn.addEventListener('click', openAuthModal);
 authCloseBtn.addEventListener('click', closeAuthModal);
@@ -8451,7 +8476,7 @@ if ('serviceWorker' in navigator) {
     navigator.serviceWorker.addEventListener('controllerchange', () => {
       reloadForUpdateWhenIdle();
     });
-    navigator.serviceWorker.register('./sw.js?v=192', {updateViaCache:'none'}).then(registration => {
+    navigator.serviceWorker.register('./sw.js?v=193', {updateViaCache:'none'}).then(registration => {
       registration.update();
     }).catch(error => {
       console.warn('Service worker registration failed:', error);
